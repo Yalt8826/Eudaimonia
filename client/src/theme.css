@@ -1,0 +1,6 @@
+/* Eudaimonia theme tokens — filled by T0.4 (Matte & Torn v2, 01-design-system.md).
+   This is the ONLY file allowed to contain accent/state hex literals
+   (EXECUTION.md §4 grep job 2). */
+:root {
+  color-scheme: dark;
+}
