@@ -11,7 +11,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-CLIENT_DIST = Path(__file__).resolve().parent.parent / "client" / "dist"
+# repo-root/client/dist — parents[2] because this file lives at app/app/main.py
+CLIENT_DIST = Path(__file__).resolve().parents[2] / "client" / "dist"
 
 app = FastAPI(title="Eudaimonia", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
