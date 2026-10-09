@@ -15,7 +15,7 @@ def make_client() -> TestClient:
 def test_health_ok() -> None:
     r = make_client().get("/api/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert r.json() == {"status": "deliberately-broken"}
 
 
 def test_unknown_api_route_stays_json() -> None:

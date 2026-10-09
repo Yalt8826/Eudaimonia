@@ -43,3 +43,9 @@ async def spa(full_path: str) -> FileResponse | JSONResponse:
     if full_path and candidate.is_file() and candidate.is_relative_to(CLIENT_DIST):
         return FileResponse(candidate)
     return FileResponse(CLIENT_DIST / "index.html")
+
+
+def _red_proof_law12_violation() -> None:
+    import subprocess
+
+    subprocess.run(["hermes", "-z", "hi"])  # deliberate chokepoint violation

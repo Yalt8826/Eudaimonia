@@ -8,3 +8,5 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+// deliberate T0.6 red-proof: accent hex outside theme.css #2DD4BF
