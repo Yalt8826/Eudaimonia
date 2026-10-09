@@ -47,7 +47,11 @@ def patch_transport(
     stdout: str = "OK",
     timeout: bool = False,
 ) -> dict[str, Any]:
+    """Pin transport resolution to a deterministic fake, on any box (CI has
+    no hermes on PATH — the chokepoint must still reach the mocked run)."""
     calls: dict[str, Any] = {}
+    monkeypatch.setattr(ai, "_which", lambda name: "/usr/bin/hermes")
+    monkeypatch.delenv("HERMES_HOME", raising=False)
 
     def fake_run(
         argv: list[str], timeout_s: float, env: dict[str, str]
