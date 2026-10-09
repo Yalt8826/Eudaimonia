@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+coverage/
+
+# local state — the DB is created from migration 001, never committed
+*.db
+*.db-journal
+*.tsbuildinfo
+
+# editors
+.DS_Store
