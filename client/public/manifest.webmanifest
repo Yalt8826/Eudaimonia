@@ -1,0 +1,31 @@
+{
+  "name": "Eudaimonia",
+  "short_name": "Eudaimonia",
+  "description": "One place for the day — matte black skin over torn paper.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B0B0C",
+  "theme_color": "#0B0B0C",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+eudaimonia",
+      "url": "/capture?url=%s"
+    }
+  ]
+}

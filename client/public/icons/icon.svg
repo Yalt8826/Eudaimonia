@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Eudaimonia">
+  <!-- torn-sheet glyph, teal on the matte skin -->
+  <rect width="512" height="512" rx="112" fill="#0B0B0C"/>
+  <path d="M136 376 L136 184 L224 216 L256 136 L288 216 L376 184 L376 376 Z" fill="#2DD4BF"/>
+</svg>
