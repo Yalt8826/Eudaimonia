@@ -175,9 +175,11 @@ def test_hermes_home_fallback_resolves_same_shape(
     fake_bin.mkdir(parents=True)
     (fake_bin / "hermes").write_text("#!/bin/sh\nexit 0\n")
 
+    calls = patch_transport(monkeypatch)
+    # Applied after patch_transport: this test re-masks the PATH entrypoint
+    # and points HERMES_HOME at the fake home (patch_transport deletes it).
     monkeypatch.setattr(ai, "_which", lambda name: None)
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes-home"))
-    calls = patch_transport(monkeypatch)
 
     result = ai.agent_invoke("clio", "Reply with the single word OK.", 120.0, None, conn)
 
