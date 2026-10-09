@@ -12,16 +12,23 @@ resolved from ``$HERMES_HOME/bin/hermes`` and run with ``HERMES_HOME``
 exported. One documented fallback, still inside this module — there is no
 second spawn site anywhere in the repo.
 
-Working real invocation (recorded 2026-10-09, build box, hermes v0.21.3):
+Working real invocations (recorded; hermes v0.21.3):
 
-    hermes --profile clio -z "Reply with the single word OK."
-    # exit 0, stdout "OK." — ~90s cold (local model load), seconds warm.
+    olympus (production — 9Router aggregator via its local proxy):
+        PATH="$HOME/.local/bin:$PATH" hermes --profile clio \
+            -z "Reply with the single word OK."
+        # exit 0, stdout "OK" — ~27s (glm-5.3-flash). NINE_ROUTER_API_KEY
+        # resolves from olympus's ~/.hermes/.env. From cron-like shells the
+        # PATH prefix (or the fallbacks below) is what finds the binary.
 
-with provider/model selection living in the profile's own config.yaml (on
-this box: custom provider over a local ollama endpoint,
-``model.ollama_num_ctx: 65536`` — hermes refuses context windows <64K).
-The profile-level config is the intended home for provider/model choice
-on olympus too; the chokepoint stays configuration-free.
+    athena (build box — same provider over an SSH tunnel):
+        ssh -fN -L 20128:127.0.0.1:20128 olympus
+        NINE_ROUTER_API_KEY must be exported in the process environment
+        here — this box's hermes does not auto-load ~/.hermes/.env for -z
+        runs (verified 2026-10-10).
+
+Provider/model selection lives in the clio profile's config.yaml (the
+intended home on every box — the chokepoint stays configuration-free).
 
 The chokepoint enforces the timeout itself (see ``_run_transport``): the
 timeout belongs to the caller of the process, not to the process, so a run
@@ -96,8 +103,12 @@ def _which(name: str) -> str | None:
 
 
 def _resolve_transport() -> tuple[list[str] | None, dict[str, str]]:
-    """Primary: ``hermes`` from PATH. Fallback (law 12): $HERMES_HOME/bin/hermes
-    with HERMES_HOME exported. Returns (argv-prefix-or-None, env)."""
+    """Primary: ``hermes`` from PATH. Fallbacks (law 12: still one spawn
+    site), in order: ``$HERMES_HOME/bin/hermes`` with HERMES_HOME exported,
+    then the standard user install ``$HOME/.local/bin/hermes`` — olympus's
+    cron shells and systemd units carry neither ``~/.local/bin`` in PATH
+    nor a ``~/.hermes/bin`` (observed 2026-10-10). Returns
+    (argv-prefix-or-None, env)."""
     env = dict(os.environ)
     resolved = _which("hermes")
     if resolved:
@@ -108,6 +119,9 @@ def _resolve_transport() -> tuple[list[str] | None, dict[str, str]]:
         if candidate.is_file():
             env["HERMES_HOME"] = home
             return [str(candidate)], env
+    local_install = Path.home() / ".local" / "bin" / "hermes"
+    if local_install.is_file():
+        return [str(local_install)], env
     return None, env
 
 

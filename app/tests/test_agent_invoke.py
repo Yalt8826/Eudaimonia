@@ -194,6 +194,7 @@ def test_unresolvable_transport_records_error_not_silence(
 ) -> None:
     monkeypatch.setattr(ai, "_which", lambda name: None)
     monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setenv("HOME", "/nonexistent-home-for-test")
 
     result = ai.agent_invoke("clio", "Reply with the single word OK.", 120.0, None, conn)
 
@@ -201,3 +202,24 @@ def test_unresolvable_transport_records_error_not_silence(
     rows = events_of(conn, result.external_ref)
     assert [r["kind"] for r in rows] == [ai.START_KIND, ai.RESULT_KIND]
     assert '"outcome": "error"' in rows[1]["payload"]
+
+
+def test_local_bin_fallback_resolves_standard_user_install(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, conn: sqlite3.Connection
+) -> None:
+    """Olympus's cron shells have no hermes on PATH and no ~/.hermes/bin —
+    the standard user install at $HOME/.local/bin is the fallback that fits."""
+    fake_home = tmp_path / "home"
+    (fake_home / ".local" / "bin").mkdir(parents=True)
+    (fake_home / ".local" / "bin" / "hermes").write_text("#!/bin/sh\nexit 0\n")
+
+    calls = patch_transport(monkeypatch)
+    # Applied after patch_transport: this test re-masks the PATH entrypoint.
+    monkeypatch.setattr(ai, "_which", lambda name: None)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(fake_home))
+
+    result = ai.agent_invoke("clio", "Reply with the single word OK.", 120.0, None, conn)
+
+    assert result.outcome == "ok"
+    assert calls["argv"][0] == str(fake_home / ".local" / "bin" / "hermes")
