@@ -16,10 +16,8 @@ def test_client_dist_points_at_repo_layout() -> None:
     """Regression (first olympus deploy, 2026-10-10): CLIENT_DIST was computed
     one directory short, so the deployed server 503'd every static path while
     the monkeypatched tests stayed green. Path equality needs no built dist."""
-    from pathlib import Path as _Path
-
-    repo_root = _Path(__file__).resolve().parents[2]
-    assert main.CLIENT_DIST == repo_root / "client" / "dist"
+    repo_root = Path(__file__).resolve().parents[2]
+    assert repo_root / "client" / "dist" == main.CLIENT_DIST
 
 
 def test_health_ok() -> None:
