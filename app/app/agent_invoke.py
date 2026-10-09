@@ -12,23 +12,17 @@ resolved from ``$HERMES_HOME/bin/hermes`` and run with ``HERMES_HOME``
 exported. One documented fallback, still inside this module — there is no
 second spawn site anywhere in the repo.
 
-Working real invocations (recorded; hermes v0.21.3):
+Working real invocation (recorded 2026-10-10 on olympus — the production
+box; the backend serves and invokes from there only, never from a dev box):
 
-    olympus (production — 9Router aggregator via its local proxy):
-        PATH="$HOME/.local/bin:$PATH" hermes --profile clio \
-            -z "Reply with the single word OK."
-        # exit 0, stdout "OK" — ~27s (glm-5.3-flash). NINE_ROUTER_API_KEY
-        # resolves from olympus's ~/.hermes/.env. From cron-like shells the
-        # PATH prefix (or the fallbacks below) is what finds the binary.
-
-    athena (build box — same provider over an SSH tunnel):
-        ssh -fN -L 20128:127.0.0.1:20128 olympus
-        NINE_ROUTER_API_KEY must be exported in the process environment
-        here — this box's hermes does not auto-load ~/.hermes/.env for -z
-        runs (verified 2026-10-10).
+    PATH="$HOME/.local/bin:$PATH" hermes --profile clio \
+        -z "Reply with the single word OK."
+    # exit 0, stdout "OK" — ~27s (glm-5.3-flash via the 9Router aggregator's
+    # local proxy). NINE_ROUTER_API_KEY resolves from ~/.hermes/.env there.
 
 Provider/model selection lives in the clio profile's config.yaml (the
-intended home on every box — the chokepoint stays configuration-free).
+intended home — the chokepoint stays configuration-free). From cron-like
+shells the PATH prefix — or the fallbacks below — is what finds the binary.
 
 The chokepoint enforces the timeout itself (see ``_run_transport``): the
 timeout belongs to the caller of the process, not to the process, so a run

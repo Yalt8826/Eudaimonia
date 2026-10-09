@@ -1,10 +1,11 @@
 """The real round-trip spike (P0 exit test) — hardware-gated.
 
 Runs only with ``--real-hermes`` against the real binary and the real
-``clio`` profile (provider/model selection lives in that profile's
-config.yaml). Everything here is the mocked suite's mirror image, against
-reality: predicate true, start + terminal events in the DB with ts
-ordering and duration_ms recorded.
+``clio`` profile. Meant to run on olympus — the production box, where the
+clio profile, the 9Router proxy, and its credential live; dev boxes have
+no runtime role. Everything here is the mocked suite's mirror image,
+against reality: predicate true, start + terminal events in the DB with
+ts ordering and duration_ms recorded.
 """
 
 import json
