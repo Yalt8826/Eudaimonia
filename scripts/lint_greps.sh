@@ -20,7 +20,7 @@ ROUTES_DIR="client/src/routes"
 CLIENT_SRC="client/src"
 THEME_CSS="client/src/theme.css"
 APP_DIR="app"
-CHOKEPOINT="app/agent_invoke.py"
+CHOKEPOINT="app/app/agent_invoke.py"
 
 # Accent + state hexes from docs/plan/v1/01-design-system.md §1 (v2 Matte &
 # Torn): both accents, plum's paper pair, the three state pairs, and the v1
@@ -39,7 +39,8 @@ ACCENT_HEXES=(
 check_blur() {
   local violations=0 f n
   while IFS= read -r -d '' f; do
-    n=$(grep -o 'backdrop-filter' "$f" 2>/dev/null | wc -l)
+    # grep exits 1 on zero matches — keep that out of the pipefail path.
+    n=$({ grep -o 'backdrop-filter' "$f" 2>/dev/null || true; } | wc -l)
     if [ "$n" -gt 1 ]; then
       echo "BLUR BUDGET VIOLATION: $f has $n backdrop-filter occurrences (limit 1 per screen route)" >&2
       violations=1
