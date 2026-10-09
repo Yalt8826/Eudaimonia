@@ -1,6 +1,89 @@
-/* Eudaimonia theme tokens — filled by T0.4 (Matte & Torn v2, 01-design-system.md).
+/* Eudaimonia theme tokens — Matte & Torn v2 (docs/plan/v1/01-design-system.md §1).
    This is the ONLY file allowed to contain accent/state hex literals
-   (EXECUTION.md §4 grep job 2). */
+   (EXECUTION.md §4 grep job 2). Components reference var(--*) only, so a
+   palette flip stays a token edit, never a redesign (01 v2 §7). */
+
 :root {
   color-scheme: dark;
+
+  /* base + ink (01 §1) */
+  --bg: #0B0B0C;            --text: #EDEDEA;         --muted: #9A9A94;
+  /* accents — you act / agents act (hue law, 01 §4) */
+  --accent-1: #2DD4BF;      --accent-2: #B872F2;
+  --accent-2-ink: #7E22CE;  /* plum's paper pair (5.98 on cream) */
+  /* glass — touching only (01 §2 L1) */
+  --glass-fill: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.10);   /* 1px */
+  --scrim: rgba(0,0,0,0.55);
+  /* torn-paper under-layer (01 §1) — tint is taxonomy, never valence */
+  --paper-cream: #F3EDDF;   --paper-mint: #E3EEE3;   --paper-sky: #E2EDF4;
+  --paper-blush: #F6E7E3;   --paper-butter: #F5EFD8;
+  --paper-ink: #2B2926;
+  /* state colors — two calibrated pairs, same hue per surface (01 §1) */
+  --alive-glass: #3FB950;   --alive-paper: #27963C;
+  --dead-glass: #F85149;    --dead-paper: #D64545;
+  --paused-glass: #D29922;  --paused-paper: #A16207;
+  /* dormant: --muted on every surface — never a state hue (01 §1).
+     Behavioral dormancy renders in the muted tier everywhere; red is
+     reserved for system failure a human must fix, so no --dormant-*
+     token exists by design. */
+
+  /* navigation — the bubble cluster (01 §3). Its position is ONE variable,
+     bottom-right default; the position setting flips this token only
+     (inset shorthand: top right bottom left). */
+  --nav-cluster-inset: auto 1rem 1rem auto;
+
+  /* torn-paper primitive defaults (01 §2 L2) */
+  --fringe-w: 1.25rem;      /* ragged fringe width; text padding >= fringe */
+  --torn-rotation: -0.4deg; /* static, <= 1deg */
+}
+
+/* ---- Obsidian-dialect callout mapping (v1 §6 contract; 01 §2 end) ------
+   [!success] alive · [!failure] dead (system failure only) ·
+   [!warning] paused · neutral [!note] behavioral dormancy (muted tier). */
+.callout {
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--muted);
+  border-radius: 8px;
+  background: var(--glass-fill);
+  color: var(--text);
+}
+.callout-success { border-left-color: var(--alive-glass); }
+.callout-failure { border-left-color: var(--dead-glass); }
+.callout-warning { border-left-color: var(--paused-glass); }
+.callout-note    { border-left-color: var(--muted); }
+/* the same four on torn paper — state ink-pairs, one hue per surface */
+.callout.on-paper { background: var(--paper-cream); color: var(--paper-ink); }
+.callout.on-paper.callout-success { border-left-color: var(--alive-paper); }
+.callout.on-paper.callout-failure { border-left-color: var(--dead-paper); }
+.callout.on-paper.callout-warning { border-left-color: var(--paused-paper); }
+.callout.on-paper.callout-note    { border-left-color: var(--muted); }
+
+/* ---- v1 Aurora — picker entry (01 v2 §7 gate 5) -------------------------
+   Tokens copied VERBATIM from docs/plan/v1/archive-v1-aurora.md §1
+   (provenance law: v1 survives as history, not as a redesign). Flipping is
+   an attribute swap — zero component edits. State colors are
+   palette-invariant and do NOT flip with the picker (v1 §1); the paper
+   tints are a v2 surface and carry over unchanged. */
+[data-theme="aurora"] {
+  color-scheme: dark;
+  --bg: #081217;            --text: #E2EFF1;         --muted: #8FA8AD;
+  --accent-1: #2DD4BF;      --accent-2: #A78BFA;     /* violet = agents act */
+  --glass-fill: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.10);   /* 1px */
+  --paper-fill: rgba(255,255,255,0.13);     /* blur off (v1 §2) */
+  --scrim: rgba(4,10,12,0.55);
+}
+
+/* ---- the matte skin (01 §2 L0) ------------------------------------------
+   Matte textured black: --bg + static grain at <= 2% opacity, never
+   animated (gate 4). The grain textures the black skin only — glass and
+   paper layers opt out. */
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--bg);
+  background-image: url("./assets/grain.svg");
+  color: var(--text);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
 }
