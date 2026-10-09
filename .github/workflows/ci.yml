@@ -52,3 +52,12 @@ jobs:
         run: scripts/lint_greps.sh accent
       - name: chokepoint (no agent transport outside agent_invoke.py)
         run: scripts/lint_greps.sh chokepoint
+
+  lint-selfcheck:
+    # T0.6: a lint rule with no failing fixture is a lint rule nobody has
+    # proven fires. Each fixture must fail; the clean tree must pass — both
+    # in one step, so a regex that silently stops matching turns this red.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/lint_greps.sh selfcheck

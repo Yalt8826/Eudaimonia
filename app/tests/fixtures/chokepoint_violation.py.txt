@@ -1,0 +1,13 @@
+# FIXTURE THAT FAILS the chokepoint grep (T0.6, EXECUTION.md §4 job 3): an
+# agent transport outside app/app/agent_invoke.py (02 §2 law 12). Stored as
+# .py.txt so the tree check's --include='*.py' never sees it; the selfcheck
+# copies it to a temp dir as real .py and proves the same regex fires.
+# Never rename to .py inside the tree.
+
+import os
+
+def triage(prompt: str) -> str:
+    os.system("hermes --profile clio -z " + prompt)  # violates law 12
+    import subprocess  # noqa: F401  — also a violation on its own
+
+    return ""
