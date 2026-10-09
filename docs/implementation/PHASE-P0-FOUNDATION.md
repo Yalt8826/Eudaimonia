@@ -117,9 +117,9 @@ nothing to deploy until P6.
 
 **Done when**
 
-- [ ] Fresh clone green on both sides, zero manual steps
-- [ ] CI blocks a merge on a failing test — proven once by breaking it on a scratch PR
-- [ ] The three grep jobs run in CI and pass on the current tree
+- [x] Fresh clone green on both sides, zero manual steps
+- [x] CI blocks a merge on a failing test — proven once by breaking it on a scratch PR
+- [x] The three grep jobs run in CI and pass on the current tree
 
 **If it fails**
 
@@ -248,10 +248,10 @@ migration stays the single authority.
 
 **Done when**
 
-- [ ] `eudaimonia.db` created from nothing by one command, zero manual steps
-- [ ] Coverage view queries; both the seeded and empty cases asserted
-- [ ] Schema mirror byte-equal and CI-checked
-- [ ] No down-migration code exists anywhere in the repo
+- [x] `eudaimonia.db` created from nothing by one command, zero manual steps
+- [x] Coverage view queries; both the seeded and empty cases asserted
+- [x] Schema mirror byte-equal and CI-checked
+- [x] No down-migration code exists anywhere in the repo
 
 **If it fails**
 
@@ -343,10 +343,19 @@ spike above, against the real binary and the real profile.
 
 **Done when**
 
-- [ ] One real `hermes --profile clio -z` round-trip: prompt in, predicate true, spine events in the DB
-- [ ] Timeout test kills at the deadline and records `timeout` — never `ok`
-- [ ] `grep -r 'subprocess\|Popen' app/ --include='*.py'` hits only `agent_invoke.py`
+- [x] One real `hermes --profile clio -z` round-trip: prompt in, predicate true, spine events in the DB
+- [x] Timeout test kills at the deadline and records `timeout` — never `ok`
+- [x] `grep -r 'subprocess\|Popen' app/ --include='*.py'` hits only `agent_invoke.py`
 - [ ] `HERMES_HOME` fallback path exercised once and the working command recorded in the module docstring
+      <!-- OPEN (2026-10-10 verification): docstring half done. The fallback
+      path itself is dead on this box — `_resolve_transport` looks for
+      `$HERMES_HOME/bin/hermes`, but `~/.hermes/bin/` holds only `uv`/`uvx`;
+      the entrypoint is `~/.local/bin/hermes`. With PATH stripped the
+      chokepoint returns `error`, which is the exact cron/systemd case law 12
+      names. The mocked test passes because it creates the fake binary.
+      Proven working under a stripped PATH: the real binary with
+      `HERMES_HOME=$HOME/.hermes` exported (exit 0, stdout "OK"). Canonical
+      entrypoint path on olympus is a user call — fix then tick. -->
 
 **If it fails**
 
@@ -448,10 +457,15 @@ Accent-hex grep: CI job from T0.1, firing proof in T0.6.
 
 **Done when**
 
-- [ ] Contrast suite computes and passes, measured values in assertion output
-- [ ] All ink-pairs present as token pairs: state × {glass, paper}, plum × {glass, paper} (gate 2)
-- [ ] Grain asset static, ≤2%, no animation constructs
+- [x] Contrast suite computes and passes, measured values in assertion output
+- [x] All ink-pairs present as token pairs: state × {glass, paper}, plum × {glass, paper} (gate 2)
+- [x] Grain asset static, ≤2%, no animation constructs
 - [ ] Picker renders v2 default + v1 Aurora; flipping live-swaps tokens with zero component edits
+      <!-- OPEN (2026-10-10): token half proven (tokens.test.ts — aurora is its
+      own block, flips the base, state colors invariant; accent grep proves no
+      component holds a hex). The picker UI is wired (SettingsScreen maps
+      PALETTES → setPalette → one data-theme swap) but no test renders it or
+      drives a flip. One small test away. -->
 
 **If it fails**
 
@@ -527,9 +541,13 @@ absent from its tree — asserted structurally, not visually).
 **Done when**
 
 - [ ] Installs as a PWA on a real phone; desktop install opens a window
+      <!-- OPEN: needs hardware. Build + manifest verified 2026-10-10
+      (standalone, #0B0B0C, icons, scheme → wake route); install not observed. -->
 - [ ] Airplane mode: cold-open renders the shell and `/habits/wake` from cache (stub-level round-trip — the phase exit test)
-- [ ] Offline stub tap queues with tap-time `ts`, replays once online with the same idempotency key
-- [ ] Every route in 04's map reachable at its URL; wake route bare
+      <!-- OPEN: needs hardware. Precache manifest asserted in
+      precache.test.ts; on-device cold-open not observed. -->
+- [x] Offline stub tap queues with tap-time `ts`, replays once online with the same idempotency key
+- [x] Every route in 04's map reachable at its URL; wake route bare
 
 **If it fails**
 
@@ -592,10 +610,16 @@ merely useless).
 
 **Done when**
 
-- [ ] Each of the three greps proven red on its fixture in CI
+- [x] Each of the three greps proven red on its fixture in CI
 - [ ] Each proven red once by a deliberate violation on a scratch PR
-- [ ] Clean tree passes all three + the contrast suite
-- [ ] `lint-selfcheck` fails the build if a fixture stops failing
+      <!-- PARTIAL (2026-10-10): the blur grep went red on scratch/lint-red-proof
+      (run 37971305404, InboxScreen.tsx), and the app job proved CI blocks a
+      merge. The greps job exits at the first failure, so accent and chokepoint
+      were never reached on that PR. Both were proven red locally by injecting
+      real violations (accent hex in BubbleCluster.tsx, `import subprocess` in
+      coverage.py) — strong, but not the scratch-PR proof this box asks for. -->
+- [x] Clean tree passes all three + the contrast suite
+- [x] `lint-selfcheck` fails the build if a fixture stops failing
 
 **If it fails**
 
@@ -613,17 +637,52 @@ by deleting the fixture.
 
 All task boxes above, plus the 02 §5 P0 row restated as observed facts:
 
-- [ ] Offline wake-tap round-trip at stub level (SW queue replays with stable idempotency key)
-- [ ] Real `hermes --profile clio -z` invocation: predicate passed, spine events recorded
-- [ ] Contrast lint green per 01 v2 §7, computing not transcribing
-- [ ] Blur / accent-hex / chokepoint greps green **and each proven to fire**
-- [ ] Migration 001 applies clean to a fresh DB; coverage view queries
+- [x] Offline wake-tap round-trip at stub level (SW queue replays with stable idempotency key)
+- [x] Real `hermes --profile clio -z` invocation: predicate passed, spine events recorded
+- [x] Contrast lint green per 01 v2 §7, computing not transcribing
+- [x] Blur / accent-hex / chokepoint greps green **and each proven to fire**
+- [x] Migration 001 applies clean to a fresh DB; coverage view queries
 - [ ] Shell installs as PWA on phone and desktop
+      <!-- OPEN: needs hardware (see T0.5). -->
 
 **Two-pass close** (`EXECUTION.md` §5; 02 §6): the exit claims get a
 second independent pass — different grep, different seat, at minimum a
 cold re-read the next day. The author never solo-declares the phase
 done.
+
+### Second-pass record — 2026-10-10
+
+Independent pass over every claim above: suites re-run, and each law
+probed by a method the build's own tests do not use. What it found is
+recorded here rather than summarised away.
+
+| Claim | How it was re-proven (not by re-reading the tests) |
+|---|---|
+| chokepoint timeout | real hermes, 3s deadline against a long prompt → killed at **3.0s**, outcome `timeout`, exactly 2 spine events |
+| chokepoint never silent | transport made unresolvable (PATH stripped, bogus `HERMES_HOME`) → outcome `error`, again exactly 2 events |
+| real round-trip | gated suite run live: pass in 11.8s, hermes v0.21.3, profile `clio` |
+| contrast lint computes | `--accent-1` edited to `#1A8F80` → red with `computed 4.39, measured 9.34` |
+| the three greps | real violations injected into live files (second `backdrop-filter` in `WakeScreen.tsx`, accent hex in `BubbleCluster.tsx`, `import subprocess` in `coverage.py`) → each tripped; fixtures alone prove less |
+| selfcheck catches a dead fixture | blur fixture neutered to 1 occurrence → `RED FLAG: blur fixture did NOT trip`, exit 1 |
+| migration + view | applied to a fresh DB outside the suite: 12 tables + `coverage`, re-run a no-op, empty view returns no rows |
+| schema mirror | `diff` of migration against `client/schemas/schema.sql` — identical |
+
+**Defect found and fixed:** the manifest registered `web+eudaimonia`
+against `/capture?url=%s`, and nothing read that param — so
+`web+eudaimonia://wake` opened the capture sheet. 02 §6 binds both
+registration paths to the same precached wake route; T6.2 names the
+target. Fixed to `/habits/wake?src=pwa` and pinned by
+`client/src/manifest.test.ts`, which was proven to fire by re-entering
+the old value.
+
+**Defect found, NOT fixed** (needs a call): the `HERMES_HOME` fallback is
+a dead path — see the open note on T0.3's fourth box. It does not affect
+P0's exit, and it is the exact failure law 12's fallback exists to
+prevent, so it wants settling before P2 leans on the chokepoint.
+
+Six boxes stay open, each annotated in place: two need hardware, one
+needs a scratch-PR run for two of the three greps, one needs a small
+picker test, one is the `HERMES_HOME` fix, one is the phone install.
 
 **Descope:** nothing. P0 is the floor everything else stands on; the
 first never-cut item on `EXECUTION.md` Part IV (the SW queue) ships
