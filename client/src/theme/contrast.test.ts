@@ -123,6 +123,7 @@ const PAPER_INK_PAIRS: ReadonlyArray<readonly [string, number]> = [
   ["--paper-sky", 12.19],
   ["--paper-blush", 12.06],
   ["--paper-butter", 12.58],
+  ["--paper-violet", 6.85], // sixth tint (2026-10-10 amendment): saturated lavender
 ];
 
 /** [token, measured CR from 01 §1] — state glass tier, floor >= 4.5. */

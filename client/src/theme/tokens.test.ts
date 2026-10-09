@@ -55,6 +55,7 @@ const ALL_TOKENS: readonly string[] = [
   "--paper-sky",
   "--paper-blush",
   "--paper-butter",
+  "--paper-violet",
   "--paper-ink",
   "--alive-glass",
   "--alive-paper",

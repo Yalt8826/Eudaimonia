@@ -50,6 +50,19 @@ usage as fills/borders — accent **text** on glass uses the measured `#B872F2`.
 | sky | `#E2EDF4` | 12.19 | tasks · todo |
 | blush | `#F6E7E3` | 12.06 | tasks · done |
 | butter | `#F5EFD8` | 12.58 | tasks · planned |
+| violet | `#B9A8F0` | 6.85 | agents-act paper (plum hue family) |
+
+**Amendment 2026-10-10 (mockup-ratified):** a sixth tint, violet, joins the
+table as the AGENTS section's fixed paper — plum's hue family on paper, the
+visual counterpart of "agents act". Its ink CR (6.85) is the paused-glass
+tier: comfortably ≥ 4.5, knowingly below the warm-paper 12s; body copy there
+runs at reading size and weight, never long-form. The Plaza's section→tint
+map is fixed for each section's life: plan=mint · waiting-on=sky ·
+habits=blush · yesterday=butter · agents=violet; everything else defaults
+cream. **Agent-state dot ruling (same amendment):** "needs input" renders
+paused-amber — red stays system-failure-only; transient agent activity
+("processing…") renders the plum ✦ activity mark, never a state dot. State
+dots remain reserved for real liveness (alive/dead/paused).
 
 **Tint is taxonomy, never valence** (ratified): tints encode *category*
 (workflow state, section identity) — never performance judgment. An
@@ -97,14 +110,17 @@ warning / neutral-note for dormancy).
 
 ## 3. Navigation — the bubble cluster
 
-Floating glass bubbles, bottom-right, icons only (5 primary: Plaza ·
-Inbox · ＋capture · Week · More); press-and-hold or tap-the-⋯ expands the
-full route sheet (two-tap law preserved). Active route = teal ring.
-Position: bottom-right default, **position setting** (bottom-center option)
-ships with it — one CSS variable. Never on the **wake route** (hard-mode
-law: bare, full-bleed teal, zero chrome — unchanged). Desktop wide layout
-offers the same bubbles docked left as a *setting*, never fixed chrome over
-content.
+Floating glass bubbles, bottom-right, arranged as an **organic overlapping
+cluster** (mockup-ratified 2026-10-10): four dark-glass bubbles rising from
+the big teal **＋ capture FAB** that anchors the cluster's corner — the FAB
+is part of the cluster, not a separate floating button. Icons only; tap
+More (⋯) expands the full route sheet (two-tap law preserved). Active route
+= teal ring. Position: bottom-right default, **position setting** (bottom-
+center option) ships with it — one CSS variable. Never on the **wake route**
+(hard-mode law: bare, full-bleed teal, zero chrome — unchanged). Desktop
+wide layout offers the same bubbles docked left as a *setting*, never fixed
+chrome over content. The cluster carries the screen's one live blur layer
+on its expanded sheet; the bubbles themselves are static glass fills.
 
 ## 4. Hue law (wording unchanged, re-inked)
 

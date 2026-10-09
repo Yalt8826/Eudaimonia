@@ -15,9 +15,13 @@
   --glass-fill: rgba(255,255,255,0.06);
   --glass-border: rgba(255,255,255,0.10);   /* 1px */
   --scrim: rgba(0,0,0,0.55);
-  /* torn-paper under-layer (01 §1) — tint is taxonomy, never valence */
+  /* torn-paper under-layer (01 §1) — tint is taxonomy, never valence.
+     Section identity on the Plaza (amendment 2026-10-10, mockup-ratified):
+     plan=mint · waiting-on=sky · habits=blush · yesterday=butter ·
+     agents=violet — each section owns its tint for life. */
   --paper-cream: #F3EDDF;   --paper-mint: #E3EEE3;   --paper-sky: #E2EDF4;
   --paper-blush: #F6E7E3;   --paper-butter: #F5EFD8;
+  --paper-violet: #B9A8F0;  /* sixth tint: agents-act paper (plum hue family) */
   --paper-ink: #2B2926;
   /* state colors — two calibrated pairs, same hue per surface (01 §1) */
   --alive-glass: #3FB950;   --alive-paper: #27963C;
