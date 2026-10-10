@@ -62,11 +62,33 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
     }
   });
 
-  it("renders on torn paper sheets — five tinted TornSheets, raster-torn", () => {
+  // The Plaza is mid-migration (spec §10): Today's Plan is rebuilt on
+  // TornPaperSection, the other four stay on the previous sheet until it
+  // is approved. Both are torn paper; they differ in how the tear is cut.
+  it("renders every section as torn paper — one on the spec sheet, four on the old", () => {
     const container = plaza();
-    const sheets = [...container.querySelectorAll("section")].filter((el) =>
+    const sections = [...container.querySelectorAll("section")];
+
+    const spec = sections.filter((el) => el.classList.contains("torn-section"));
+    expect(spec.length, "Today's Plan, on TornPaperSection").toBe(1);
+    expect(spec[0].classList.contains("torn-section--mint")).toBe(true);
+
+    const legacy = sections.filter((el) =>
       (el.children[1]?.getAttribute("style") ?? "").includes("mask-image"),
     );
-    expect(sheets.length).toBe(5);
+    expect(legacy.length, "the four not yet migrated").toBe(4);
+  });
+
+  it("gives the spec sheet its own torn cross-section, cut by the same contour", () => {
+    const container = plaza();
+    const section = container.querySelector("section.torn-section");
+    expect(section).not.toBeNull();
+    // Four graded bands of skin, then the paper — the skin is the layer on
+    // top, so its thickness shows along the tear.
+    const bands = section?.querySelectorAll(".torn-section__skin") ?? [];
+    expect(bands.length, "graded bands of the skin's cut face").toBe(7);
+    expect(section?.querySelector(".torn-section__paper")).not.toBeNull();
+    // The shadow runs inward, cast by the skin onto the paper beneath it.
+    expect(section?.querySelectorAll(".torn-section__cast").length).toBe(2);
   });
 });

@@ -35,6 +35,40 @@
   --paper-butter: #F0CB89;  /*  9.40 — yesterday */
   --paper-violet: #A79BE5;  /*  5.85 — agents (sixth tint, plum hue family) */
   --paper-ink: #2B2926;
+
+  /* ---- Spec palette (implementation spec §2.1), adopted 2026-10-10 ----
+     Five section papers, each with its OWN ink rather than sharing one
+     neutral. Every pair measured before adoption; all clear the 4.5 text
+     floor with room:
+       plan 9.81 · waiting 8.60 · habits 7.73 · yesterday 9.98 · agents 8.02
+     The sheets keep their section identity for life (tint-as-taxonomy). */
+  --sheet-mint: #A9DCC7;      --sheet-mint-ink: #142B25;
+  --sheet-sky: #A9CBEF;       --sheet-sky-ink: #192B3B;
+  --sheet-blush: #F0A99B;     --sheet-blush-ink: #38211E;
+  --sheet-butter: #F2D28D;    --sheet-butter-ink: #332713;
+  --sheet-lavender: #C3AEF3;  --sheet-lavender-ink: #281C40;
+
+  /* The skin's torn cross-section. Thick stock shows its own thickness
+     along a tear: a lit cut face against the paper falling into the dark
+     body within a few px. Measured off the reference (luminance 72 at 2px,
+     41 at 4px, 17 at 6px). NOT white — torn black card shows dark fibre. */
+  /* Sampled off the measured falloff (72 at 2px, 41 at 4px, 17 at 6px) at
+     1px steps. Four bands at 2px steps was too coarse: where the tear runs
+     near-horizontal the steps separate and read as stair-stepping rather
+     than as a cut face. Six at 1px resolve into a ramp. */
+  --skin-lip-1: #6E6E74;
+  --skin-lip-2: #5A5A60;
+  --skin-lip-3: #47474C;
+  --skin-lip-4: #353539;
+  --skin-lip-5: #262629;
+  --skin-lip-6: #1A1A1D;
+
+  /* The skin's edge falling ONTO the paper below it (the skin is the top
+     layer). Measured: 42% at the tear, gone by ~28px. */
+  --skin-cast-max: rgba(0, 0, 0, 0.42);
+  --skin-cast-mid: rgba(0, 0, 0, 0.23);
+  --skin-cast-far: rgba(0, 0, 0, 0.09);
+  --skin-cast-depth: 28px;
   /* state colors — two calibrated pairs, same hue per surface (01 §1) */
   --alive-glass: #3FB950;   --alive-paper: #27963C;
   --dead-glass: #F85149;    --dead-paper: #D64545;

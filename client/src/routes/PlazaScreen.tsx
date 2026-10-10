@@ -8,6 +8,7 @@ import {
   SectionHeading,
 } from "../components/ui";
 import { TornSheet } from "../components/TornSheet";
+import { TornPaperSection } from "../components/paper/TornPaperSection";
 import { PLAZA_STRIPS } from "./plazaModel";
 
 // The Plaza (04 `/`): the read-only dashboard on the shared coverage view.
@@ -137,7 +138,56 @@ export function PlazaScreen() {
       }}
     >
       <Header />
-      {PLAZA_STRIPS.map((strip) => (
+      {PLAZA_STRIPS.map((strip) =>
+        // Today's Plan is the first section rebuilt on the torn-paper spec
+        // (§10: get one sheet's surface, mask and fringe right before
+        // touching the rest). The other four stay on the previous sheet
+        // until this one is approved, so the two sit side by side.
+        strip.id === "plan" ? (
+          <TornPaperSection
+            key={strip.id}
+            title={strip.title}
+            variant="mint"
+            tear="a"
+            className="plaza-sheet"
+          >
+            <div style={{ display: "grid", gap: "0.55rem" }}>
+              {strip.lines.map((line) => (
+                <p
+                  key={line}
+                  style={{
+                    ...mono,
+                    margin: 0,
+                    fontSize: "0.8125rem",
+                    lineHeight: 1.6,
+                    opacity: 0.78,
+                  }}
+                >
+                  {line}
+                </p>
+              ))}
+              <Link
+                to={strip.to}
+                aria-label={`${strip.title} — open`}
+                style={{
+                  ...mono,
+                  justifySelf: "end",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontSize: "0.78rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "currentColor",
+                  opacity: 0.72,
+                  textDecoration: "none",
+                }}
+              >
+                open <Chevron />
+              </Link>
+            </div>
+          </TornPaperSection>
+        ) : (
         <TornSheet
           key={strip.id}
           tint={strip.tint}
@@ -173,7 +223,8 @@ export function PlazaScreen() {
             ))}
           </div>
         </TornSheet>
-      ))}
+        ),
+      )}
     </main>
   );
 }
