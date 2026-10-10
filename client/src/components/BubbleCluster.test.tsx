@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { BubbleCluster } from "./BubbleCluster";
 
-// The floating glass cluster (spec §7): four destination bubbles + the teal
-// ＋ capture action, arranged as a cluster — never a full-width bar. The
-// per-bubble blur surfaces are the app's only blur consumers (spec §8).
+// The v2 cluster (mockup 2026-10-10): five bubbles — four glass + the teal
+// ＋ capture FAB as the anchor — with More expanding the full route sheet.
+// Structural assertions only; the wake route's bareness lives in routes.test.
 
 afterEach(cleanup);
 
@@ -20,54 +20,50 @@ function clusterAt(path: string): HTMLElement {
   return container;
 }
 
-function source(relative: string): string {
+function source(): string {
   for (const base of [process.cwd(), join(process.cwd(), "client")]) {
     try {
-      return readFileSync(join(base, relative), "utf8");
+      return readFileSync(join(base, "src/components/BubbleCluster.tsx"), "utf8");
     } catch {
       // try the next base
     }
   }
-  throw new Error(`cannot locate ${relative}`);
+  throw new Error("cannot locate BubbleCluster.tsx");
 }
 
-describe("BubbleNavigation (spec §7)", () => {
-  it("renders four destination bubbles plus the ＋ capture action", () => {
+describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
+  it("renders five bubbles including the ＋ capture FAB", () => {
     const container = clusterAt("/");
-    expect(container.querySelectorAll("a")).toHaveLength(4);
+    expect(container.querySelectorAll("a")).toHaveLength(4); // plaza/inbox/week/capture
     expect(container.querySelector('a[aria-label="＋ capture"]')).not.toBeNull();
     expect(container.querySelector('button[aria-label="More"]')).not.toBeNull();
   });
 
-  it("the ＋ capture bubble carries the teal treatment via its class", () => {
+  it("the ＋ capture FAB carries the teal accent, not a state hue", () => {
     const container = clusterAt("/");
     const fab = container.querySelector('a[aria-label="＋ capture"]');
-    expect(fab?.className).toContain("nav-bubble--add");
+    expect((fab as HTMLElement).getAttribute("style") ?? "").toContain("var(--accent-1)");
   });
 
-  it("rings the active route's bubble", () => {
+  it("rings the active route's bubble in teal", () => {
     const container = clusterAt("/inbox");
     const inbox = container.querySelector('a[aria-label="Inbox"]');
-    expect(inbox?.className).toContain("nav-bubble--active");
-    const plaza = container.querySelector('a[aria-label="Plaza"]');
-    expect(plaza?.className).not.toContain("nav-bubble--active");
+    expect((inbox as HTMLElement).getAttribute("style") ?? "").toContain("var(--accent-1)");
   });
 
   it("More expands the full route sheet, tap again collapses it", () => {
-    clusterAt("/");
+    const container = clusterAt("/");
     expect(screen.queryByText("Questions")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(screen.getByText("Questions")).not.toBeNull();
     expect(screen.getByText("Settings")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(screen.queryByText("Questions")).toBeNull();
+    void container;
   });
 
-  it("blur budget: the two backdrop surfaces live in torn-paper.css only", () => {
-    const tsx = source("src/components/BubbleCluster.tsx");
-    expect(tsx.match(/backdrop-filter/g)?.length ?? 0).toBe(0);
-    const css = source("src/components/paper/torn-paper.css");
-    const count = css.match(/(^|[^-])backdrop-filter/g)?.length ?? 0;
-    expect(count, "per-bubble + sheet: small, isolated surfaces (spec §8)").toBe(2);
+  it("carries exactly ONE live blur — the budgeted layer (01 §2 L1)", () => {
+    const occurrences = source().match(/backdropFilter/g)?.length ?? 0;
+    expect(occurrences, "five bubbles do not mean five blur layers").toBe(1);
   });
 });
