@@ -131,8 +131,12 @@ export function TornSheet({
     ...(fringeWidth === undefined ? {} : { "--fringe-w": fringeWidth }),
     position: "relative",
     transform: `rotate(${rotation}deg)`,
-    // Flat shadow that follows the torn silhouette (never a glow).
-    filter: "drop-shadow(0 6px 10px var(--scrim))",
+    // Flat shadows that follow the torn silhouette (never a glow): a tight
+    // contact shadow pinning the tear to the skin, and a broad cast lifting
+    // the sheet off it. drop-shadow (not box-shadow) so both trace the
+    // masked silhouette rather than a rectangle.
+    filter:
+      "drop-shadow(var(--sheet-shadow-contact)) drop-shadow(var(--sheet-shadow-cast))",
   } as CSSProperties;
 
   // The fringe: the black skin's own torn rim. Same masks, offset by a few

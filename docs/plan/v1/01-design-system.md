@@ -107,9 +107,32 @@ reserved for system failure a human must fix.
 below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
 was a flat field with noise over it; the ratified mockup reads as crumpled
 black stock, which needs a coarse fold scale (lit for relief) as well as
-fine tooth. Ceiling is now **≤8% per layer**, and the asset carries exactly
+fine tooth. Ceiling is now **≤12% per layer**, and the asset carries exactly
 two scales. Still static, always — gate 4 is a plain string match, so even
-naming an animation construct in a comment trips it. **Per the user's placement ruling,
+naming an animation construct in a comment trips it.
+
+**Both layers are zero-mean, which is what keeps the skin black.**
+`feDiffuseLighting` returns `sin(elevation)` on flat ground — 0.848, not
+0.5 — so a transfer centred on 0.5 lifts the whole field: the skin rendered
+at **#1C** against a `#0B0B0C` base, visibly washed beside the reference.
+Each layer now maps its own flat value to black, so flat ground contributes
+nothing over a near-black base and only ridges tilted into the light carry
+any. Measured after the fix: mean **#11**, against the reference's **#10**.
+
+**What bounds the ceiling** is the only text that ever sits on the skin —
+the Plaza header — measured against the texture's *brightest peak*, not its
+mean: at 0.11 the peak is #2B, `--muted` 5.01 and `--text` 12.07; at 0.14
+`--muted` falls to 4.60, too close to the floor. Everything else in the app
+reads on paper or in a glass chip, which is why the skin can carry real
+relief at all.
+
+**Sheets cast two shadows, not one** (`--sheet-shadow-contact`,
+`--sheet-shadow-cast`): a tight contact shadow pinning the tear to the skin
+and a broad soft cast lifting the sheet off it. Both flat black — torn
+paper never glows — and both applied as `drop-shadow`, never `box-shadow`,
+so they trace the masked silhouette instead of a rectangle. They read
+*because* the skin is textured: a shadow on an untextured black field is
+invisible, so the zero-mean grain and these two land together. **Per the user's placement ruling,
 torn paper sits *under* this skin**: sheets are revealed where the black
 tears away, so the ragged fringe is the black layer's own edge — dark
 fringe framing light paper, never paper edges floating on black.

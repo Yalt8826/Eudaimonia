@@ -2,9 +2,26 @@
   <!-- The matte skin's texture (01-design-system.md §2 L0), amended
        2026-10-10: the skin is crumpled black stock, not a flat field, so it
        carries two static scales — a coarse crumple that catches the light,
-       and fine tooth over it. Opacity 0.08 sits at the amended 8%
-       ceiling (gate 4), measured as interference against body text rather
-       than guessed.
+       and fine tooth over it.
+
+       Both layers are ZERO-MEAN, which is what keeps the skin black.
+       feDiffuseLighting returns roughly mid-grey across flat ground, so
+       painting it straight over the base lifts the whole field toward grey
+       — the skin came out around #14 against a #0B0B0C base, visibly
+       washed beside the reference. Each layer therefore runs through a
+       linear transfer that maps flat ground to black (slope s, intercept
+       -s/2): flat contributes nothing over a near-black base, and only the
+       crease ridges carry light. The texture now reads as relief rather
+       than as a grey veil, and the base stays the measured token.
+
+       Opacities are the per-layer amplitude ABOUT that zero mean, both
+       under the amended 12% ceiling (gate 4). The ceiling is set by the
+       only text that ever sits on the skin — the Plaza header — measured
+       against the texture's BRIGHTEST peak rather than its mean:
+         crumple 0.11 -> peak #2B, --muted 5.01, --text 12.07
+         crumple 0.14 -> peak #31, --muted 4.60  (too close to the 4.5 floor)
+       Everything else in the app reads on paper or in a glass chip, so the
+       skin is free to carry real relief; the header is what bounds it.
 
        STATIC, always: no SMIL animation elements, no CSS keyframes, no seed
        that varies between renders. This asset is texture, not a screensaver.
@@ -15,17 +32,35 @@
       <!-- Coarse, low-frequency folds: the crumple. -->
       <feTurbulence type="fractalNoise" baseFrequency="0.012 0.016" numOctaves="4" seed="7" stitchTiles="stitch" result="folds"/>
       <!-- Light raking across the folds, so creases read as relief. -->
-      <feDiffuseLighting in="folds" surfaceScale="5.2" diffuseConstant="1" lightingColor="#ffffff" result="lit">
+      <feDiffuseLighting in="folds" surfaceScale="11" diffuseConstant="1" lightingColor="#ffffff" result="lit">
         <feDistantLight azimuth="235" elevation="58"/>
       </feDiffuseLighting>
-      <feColorMatrix in="lit" type="saturate" values="0"/>
+      <feColorMatrix in="lit" type="saturate" values="0" result="grey"/>
+      <!-- Flat ground out of feDiffuseLighting is sin(elevation) = 0.848,
+           NOT 0.5 — centring on 0.5 is what washed the skin to #1C. The
+           transfer maps 0.848 to black, so flat ground contributes
+           nothing and only ridges tilted into the light carry any. -->
+      <feComponentTransfer in="grey">
+        <feFuncR type="linear" slope="6.0" intercept="-5.088"/>
+        <feFuncG type="linear" slope="6.0" intercept="-5.088"/>
+        <feFuncB type="linear" slope="6.0" intercept="-5.088"/>
+      </feComponentTransfer>
     </filter>
     <filter id="eudaimonia-tooth" x="0" y="0" width="100%" height="100%">
       <!-- Fine tooth: the stock's own grain, well above the fold scale. -->
-      <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="3" seed="11" stitchTiles="stitch"/>
-      <feColorMatrix type="saturate" values="0"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="3" seed="11" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="grey"/>
+      <!-- Turbulence IS centred on 0.5, so this half keeps that centre.
+           Alpha is forced opaque: fractalNoise emits noisy alpha too, which
+           would modulate the layer twice and only ever lighten. -->
+      <feComponentTransfer in="grey">
+        <feFuncR type="linear" slope="1.8" intercept="-0.9"/>
+        <feFuncG type="linear" slope="1.8" intercept="-0.9"/>
+        <feFuncB type="linear" slope="1.8" intercept="-0.9"/>
+        <feFuncA type="linear" slope="0" intercept="1"/>
+      </feComponentTransfer>
     </filter>
   </defs>
-  <rect width="420" height="420" filter="url(#eudaimonia-crumple)" opacity="0.08"/>
-  <rect width="420" height="420" filter="url(#eudaimonia-tooth)" opacity="0.035"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-crumple)" opacity="0.11"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-tooth)" opacity="0.04"/>
 </svg>

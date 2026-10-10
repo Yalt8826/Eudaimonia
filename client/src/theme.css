@@ -66,6 +66,14 @@
   /* torn-paper primitive defaults (01 §2 L2) */
   --fringe-w: 1.25rem;      /* ragged fringe width; text padding >= fringe */
   --torn-rotation: -0.4deg; /* static, <= 1deg */
+  /* The sheet's cast shadow, in two parts, because one blur cannot do both
+     jobs: a tight contact shadow that pins the torn edge to the skin, and a
+     broad soft cast that lifts the sheet off it. Both are flat black — torn
+     paper never glows (01 §2 L2) — and they read against the skin because
+     the skin is textured: the shadow shows by suppressing that texture,
+     which is why the zero-mean grain and these two land together. */
+  --sheet-shadow-contact: 0 2px 3px rgba(0, 0, 0, 0.92);
+  --sheet-shadow-cast: 0 14px 24px rgba(0, 0, 0, 0.72);
 }
 
 /* ---- Obsidian-dialect callout mapping (v1 §6 contract; 01 §2 end) ------
