@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import moonUrl from "../assets/moon.svg";
 import {
   Chevron,
   CoverageLine,
@@ -33,13 +32,7 @@ function todayLabel(now: Date): string {
 function Header() {
   const now = new Date();
   return (
-    <header style={{ position: "relative", padding: "0.4rem 0.35rem 1.2rem" }}>
-      <img
-        src={moonUrl}
-        alt=""
-        aria-hidden="true"
-        style={{ position: "absolute", right: "3.8rem", top: "-0.4rem", width: "6.5rem" }}
-      />
+    <header style={{ position: "relative", padding: "0.4rem 1.15rem 1rem" }}>
       <Link
         to="/settings"
         aria-label="Settings"
@@ -122,10 +115,36 @@ function WakeChipRow() {
 
 export function PlazaScreen() {
   return (
-    <main data-plaza style={{ padding: "1.1rem 1rem 9.5rem", display: "grid", gap: "1.4rem" }}>
+    <main
+      data-plaza
+      style={{
+        // Sheets run nearly the full width and their tears very nearly
+        // touch: the black between them is the skin showing through a
+        // series of tears, not a stack of cards with margins.
+        padding: "1.1rem 0 9.5rem",
+        // The phone design is the design (04, mockup-ratified). On a wide
+        // window the column caps rather than stretching: a sheet spanning
+        // 1280px puts its text far outside the 60-70ch measure (01 §6) and
+        // strands it against one edge. The real twelve-column wide layout
+        // is 05's spec and lands with T1.6.
+        width: "min(100%, 34rem)",
+        marginInline: "auto",
+        display: "grid",
+        gap: 0,
+        // The tears very nearly interlock; the black between two sheets
+        // is one band of skin, not a gutter between cards.
+        marginBlock: 0,
+      }}
+    >
       <Header />
       {PLAZA_STRIPS.map((strip) => (
-        <TornSheet key={strip.id} tint={strip.tint} seed={`plaza:${strip.id}`} rule={strip.rule}>
+        <TornSheet
+          key={strip.id}
+          tint={strip.tint}
+          seed={`plaza:${strip.id}`}
+          rule={strip.rule}
+          className="plaza-sheet"
+        >
           <div style={{ display: "grid", gap: "0.55rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               <SectionHeading>{strip.title}</SectionHeading>

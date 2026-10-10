@@ -2,7 +2,9 @@
 project: Eudaimonia
 doc: Screens v1 — Phone (PWA, single-route SPA)
 owner: praxis (design system: 01-design-system.md)
-status: spec'd for build (2026-10-08); amended 2026-10-09 — `/mail`
+status: spec'd for build (2026-10-08); amended 2026-10-10 — the Plaza
+  renders in the torn-paper language (section sheets, glass controls, dot
+  wells) per the ratified mockup; amended 2026-10-09 — `/mail`
   added to the route map and the More sheet (feature 12 had a screen in
   03 but no route here; it ships P5)
 ---
@@ -40,6 +42,18 @@ layer per screen (blur budget law). Every strip carries a coverage line.
 
 Purpose: replace the 07:00 briefing with a place. Zero input required.
 Renders fully when sources are dead.
+
+**Surface, amended 2026-10-10 (mockup-ratified).** Each section is a torn
+paper sheet in its own tint, running edge to edge, the tears very nearly
+interlocking so the black between two sheets reads as one band of the matte
+skin rather than a gutter between cards. Tints are section identity for
+life (01 §1): plan=mint · waiting-on=sky · habits=blush · yesterday=butter ·
+agents=violet. Controls stay glass on top of the paper — the wake chip, the
+capture FAB, the settings bubble, the nav cluster (01 §2a). Every state dot
+sits in its own glass well, because the paper state pair does not clear its
+floor on saturated tints (01 §5). The wireframe below predates the
+amendment and still describes the right *content* in the right order; the
+surface it describes is now paper.
 
 ```
 ┌──────────────────────────────────────────────┐

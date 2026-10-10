@@ -39,7 +39,7 @@ Verified: every pair ≥ 4.5 CR on both glass (6%) and paper (13%) tiers.
 
 | Screen | Surface | Accent usage |
 |---|---|---|
-| Plaza `/` | matte black over torn paper | teal: plan rule, wake chip, capture FAB · plum: agent-attributed lines · paused-amber: staleness hints only |
+| Plaza `/` | **torn sheets, one tint per section** (mint/sky/blush/butter/violet), edge to edge over the matte skin | teal: plan rule, wake chip, capture FAB · plum: agent-attributed lines · paused-amber: staleness hints only · every state dot in its own glass well (01 §5) |
 | Wake `/habits/wake` | **full-bleed teal** | deliberate exception to the night-vision rule — a 5-second alerting tap target at 6am *should* be bright; ink-on-teal 10.17 CR |
 | Inbox `/inbox` | glass, neutral | actions teal; the count badge paused-amber (the one nagger) |
 | Week `/week/[iso]` | **torn-paper sheet**, serif | plum left-rule = narrated sections; ink-pair state dots = coverage; zero accent in body text |

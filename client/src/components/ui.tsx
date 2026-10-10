@@ -50,26 +50,54 @@ export function Badge({ children }: { children: ReactNode }) {
   );
 }
 
-export type DotTone = "muted" | "amber";
+export type DotTone = "muted" | "amber" | "alive" | "dead";
 
+// The GLASS state pair, because the dot sits in a glass well — see below.
 const DOT_TOKEN: Record<DotTone, string> = {
   muted: "var(--muted)",
   amber: "var(--paused-glass)",
+  alive: "var(--alive-glass)",
+  dead: "var(--dead-glass)",
 };
 
+/**
+ * A liveness dot in its own glass well — the self-glass law (01 §5),
+ * generalised from widgets to tinted sheets (amendment 2026-10-10).
+ *
+ * The paper state pair was calibrated on cream and falls under the 3.0
+ * non-text floor on the saturated section tints (alive measures 2.26 on
+ * mint, 1.53 on violet). Rather than soften the floor or pale the tints,
+ * the dot gets the same treatment a widget gets on an unknown wallpaper: a
+ * small well back down to the matte skin, which is a calibrated surface, so
+ * the dot carries the GLASS pair at alive 6.85 · dead 5.19 · paused 6.89 ·
+ * dormant 6.15. Liveness stays truthful on any tint.
+ */
 export function Dot({ tone = "muted" }: { tone?: DotTone }) {
   return (
     <span
       aria-hidden="true"
       style={{
-        display: "inline-block",
-        width: "0.7rem",
-        height: "0.7rem",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "1.15rem",
+        height: "1.15rem",
         borderRadius: "9999px",
-        background: DOT_TOKEN[tone],
+        background: "var(--dot-well)",
+        border: "1px solid var(--glass-border)",
         flex: "0 0 auto",
       }}
-    />
+    >
+      <span
+        style={{
+          display: "block",
+          width: "0.5rem",
+          height: "0.5rem",
+          borderRadius: "9999px",
+          background: DOT_TOKEN[tone],
+        }}
+      />
+    </span>
   );
 }
 

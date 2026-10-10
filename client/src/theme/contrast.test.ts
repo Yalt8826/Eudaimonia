@@ -118,13 +118,25 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, Rgba, number, string]> = [
 
 /** [tint token, measured ink CR from 01 §1] — warm dark ink over each tint. */
 const PAPER_INK_PAIRS: ReadonlyArray<readonly [string, number]> = [
+  // Section tints resampled from the ratified mockup 2026-10-10 and
+  // remeasured here; cream keeps its original value and stays the reading
+  // surface, where 500+ words need a pale ground (01 §1, two-tier note).
   ["--paper-cream", 12.43],
-  ["--paper-mint", 12.16],
-  ["--paper-sky", 12.19],
-  ["--paper-blush", 12.06],
-  ["--paper-butter", 12.58],
-  ["--paper-violet", 6.85], // sixth tint (2026-10-10 amendment): saturated lavender
+  ["--paper-mint", 8.59],
+  ["--paper-sky", 7.4],
+  ["--paper-blush", 7.7],
+  ["--paper-butter", 9.4],
+  ["--paper-violet", 5.85],
 ];
+
+/** The saturated section tints — every state dot on them needs a well. */
+const SECTION_TINTS = [
+  "--paper-mint",
+  "--paper-sky",
+  "--paper-blush",
+  "--paper-butter",
+  "--paper-violet",
+] as const;
 
 /** [token, measured CR from 01 §1] — state glass tier, floor >= 4.5. */
 const STATE_GLASS_PAIRS: ReadonlyArray<readonly [string, number]> = [
@@ -186,6 +198,33 @@ describe("contrast lint (01 v2 §7 gate 1) — computed, not transcribed", () =>
       ).toBeLessThanOrEqual(TOLERANCE);
     });
   }
+
+  // The self-glass law, generalised to tinted sheets (01 §5, amended
+  // 2026-10-10). Two assertions, and the first is the reason for the second:
+  // the paper pair genuinely fails on these grounds, so the dot gets a well
+  // back down to the matte skin and carries the GLASS pair there instead.
+  describe("state dots on saturated section tints", () => {
+    it("would fail the non-text floor if painted straight onto the tint", () => {
+      for (const tintToken of SECTION_TINTS) {
+        const ratio = contrastRatio(token("--alive-paper"), token(tintToken));
+        expect(
+          ratio,
+          `--alive-paper on ${tintToken} computes ${ratio.toFixed(2)} — if this ever ` +
+            `clears ${NON_TEXT_FLOOR}, the tint was paled and the well may be redundant`,
+        ).toBeLessThan(NON_TEXT_FLOOR);
+      }
+    });
+
+    it("clears it in the dot well, which is the glass surface", () => {
+      for (const name of ["--alive-glass", "--dead-glass", "--paused-glass", "--muted"]) {
+        const ratio = contrastRatio(token(name), GLASS);
+        expect(
+          ratio,
+          `${name} in the dot well: computed ${ratio.toFixed(2)}, floor ${NON_TEXT_FLOOR}`,
+        ).toBeGreaterThanOrEqual(NON_TEXT_FLOOR);
+      }
+    });
+  });
 
   for (const [name, measured] of STATE_PAPER_PAIRS) {
     it(`${name} on cream: >= ${NON_TEXT_FLOOR} non-text (measured ${measured})`, () => {

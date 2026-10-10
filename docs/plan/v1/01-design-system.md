@@ -2,7 +2,11 @@
 project: Eudaimonia
 doc: Design System v2 — "Matte & Torn"
 owner: praxis
-status: measured + ratified (2026-10-09); supersedes v1 Aurora
+status: measured + ratified (2026-10-09); amended 2026-10-10 — section
+  tints resampled from the ratified mockup (§1), self-glass law generalised
+  from widgets to tinted sheets (§5), L0 texture ceiling raised to 8% (§2),
+  TornSheet cuts its tear with a raster mask rather than a clip path (§2 L2);
+  supersedes v1 Aurora
 supersedes: v1 Aurora (kept verbatim as [[archive-v1-aurora]] — provenance law)
 ---
 
@@ -45,12 +49,27 @@ usage as fills/borders — accent **text** on glass uses the measured `#B872F2`.
 
 | Tint | Hex | Ink CR | Section identity |
 |---|---|---|---|
-| cream (base) | `#F3EDDF` | 12.43 | reviews, questions, any default sheet |
-| mint | `#E3EEE3` | 12.16 | tasks · doing |
-| sky | `#E2EDF4` | 12.19 | tasks · todo |
-| blush | `#F6E7E3` | 12.06 | tasks · done |
-| butter | `#F5EFD8` | 12.58 | tasks · planned |
-| violet | `#B9A8F0` | 6.85 | agents-act paper (plum hue family) |
+| cream (base) | `#F3EDDF` | 12.43 | **reading surfaces only** — reviews, goals, answered questions |
+| mint | `#A0D2BC` | 8.59 | Plaza · today's plan |
+| sky | `#94BDE9` | 7.40 | Plaza · waiting on |
+| blush | `#F1AC9F` | 7.70 | Plaza · habits |
+| butter | `#F0CB89` | 9.40 | Plaza · yesterday |
+| violet | `#A79BE5` | 5.85 | Plaza · agents (sixth tint, plum hue family) |
+
+**Two tiers, amended 2026-10-10** (section tints resampled from the ratified
+mockup; values recomputed, not transcribed). The surfaces do different work,
+so they get different grounds:
+
+- **Section tints — saturated.** Glanced at, a few lines each. They carry
+  the Plaza's section identity, and each section owns its tint for life.
+- **Reading tint — cream, pale.** The weekly review and the goals horizon
+  carry 500+ words, where a saturated ground fatigues. Cream keeps its
+  original value and never joins the section rotation.
+
+The tints formerly mapped to task workflow states (doing/todo/done/planned).
+That mapping had no surface yet; section identity does, and the tint law
+already names both as legitimate categories. When a task board needs tints,
+it takes its own set rather than borrowing the Plaza's.
 
 **Amendment 2026-10-10 (mockup-ratified):** a sixth tint, violet, joins the
 table as the AGENTS section's fixed paper — plum's hue family on paper, the
@@ -84,8 +103,13 @@ reserved for system failure a human must fix.
 
 ## 2. Surfaces — three layers, one stack
 
-**L0 — the matte skin.** `#0B0B0C` + static grain (SVG noise, ≤2%).
-Everything not listed below lives here. **Per the user's placement ruling,
+**L0 — the matte skin.** `#0B0B0C` + static texture. Everything not listed
+below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
+was a flat field with noise over it; the ratified mockup reads as crumpled
+black stock, which needs a coarse fold scale (lit for relief) as well as
+fine tooth. Ceiling is now **≤8% per layer**, and the asset carries exactly
+two scales. Still static, always — gate 4 is a plain string match, so even
+naming an animation construct in a comment trips it. **Per the user's placement ruling,
 torn paper sits *under* this skin**: sheets are revealed where the black
 tears away, so the ragged fringe is the black layer's own edge — dark
 fringe framing light paper, never paper edges floating on black.
@@ -96,8 +120,9 @@ radius 16. The blur budget gets *easier*: glass exists only on interactive
 elements, so most screens run zero live blur. One blurred layer per screen
 remains the ceiling; behind long lists, static fill.
 
-**L2 — torn paper, for reading.** One shared primitive (`TornSheet`):
-ragged `clip-path`/mask set, tint prop, and two calibrated variables —
+**L2 — torn paper, for reading** *(and, since 2026-10-10, for the Plaza's
+sections — see §2a)*. One shared primitive (`TornSheet`): a **raster alpha
+mask**, tint prop, and two calibrated variables —
 `--fringe-w` with **text padding ≥ fringe width** (fringe exclusion zone)
 and grain **lighter than the skin's, static**. Rotation ≤1°, static.
 Shadow flat; torn paper never glows. Calibration surfaces: the **weekly
@@ -107,6 +132,38 @@ is fine) and **nutrition detail** (densest table-on-paper).
 Obsidian exports keep the dialect; callouts may style as torn slips in
 `theme.css` — same four-state mapping (success / failure(system-only) /
 warning / neutral-note for dormancy).
+
+### 2a. Sheets are paper, controls are glass (amended 2026-10-10)
+
+The one-line philosophy read *glass for touching, paper for reading*, and
+04 specced the Plaza as glass cards. The ratified mockup makes every Plaza
+section a torn sheet, so the line is refined rather than reversed:
+
+> **Sheets are paper. Controls are glass.**
+
+Both halves keep their meaning, and the mockup already obeys it — the wake
+chip, the capture FAB, the settings bubble and the nav cluster are all
+still glass sitting *on* paper. What moved is the surface a *section* is
+made of, not the surface a *tap target* is made of.
+
+Two things fall out, both good:
+
+- **The blur budget gets easier, not harder.** Paper carries no blur, so a
+  Plaza of five sheets runs zero live blur; the ≤1 ceiling (law 9) now has
+  headroom on the busiest screen in the app.
+- **Reading surfaces stay distinct** by tint, not by tier: the review and
+  the goals horizon are the pale cream ground, the Plaza's sections the
+  saturated ones (§1).
+
+The torn edge is a raster alpha mask, not a `clip-path` polygon. Paper
+separates along its fibres — a soft multi-scale boundary with strands
+pulled proud of the tear — and a polygon reads as a sawtooth at any vertex
+count. The masks are generated and committed by
+`scripts/gen_torn_edges.py` (seamless by construction: every octave is an
+integer-frequency sinusoid over the strip width), tiled horizontally so a
+sheet's height never stretches its edge. The fringe is the same tear,
+inset a few pixels behind the paper in `--bg`, so the dark rim *follows*
+the tear instead of outlining it — the placement ruling, now literal.
 
 ## 3. Navigation — the bubble cluster
 
@@ -139,6 +196,21 @@ Widgets float on arbitrary wallpapers where no ink-pair is calibrated — so
 (self-glass law; mockup 18 already does this — now it's required) and
 `/widgets.json` ships both ink-pairs alongside the palette tokens.
 Liveness stays truthful on any wallpaper.
+
+**Generalised to tinted sheets, 2026-10-10.** A saturated section tint is
+the same problem as an unknown wallpaper: the paper state pair was
+calibrated on cream and falls under the 3.0 non-text floor on the section
+grounds — alive measures **2.26** on mint and **1.53** on violet (vs 3.26 on
+cream). Liveness would be the least readable thing on a screen whose whole
+thesis is that degradation must be visible.
+
+So **every state dot on a tinted sheet sits in its own well**: a small tear
+back down to the matte skin, which is a calibrated surface, letting the dot
+carry the **glass** pair — alive 6.85 · dead 5.19 · paused 6.89 · dormant
+6.15. No floor was softened and no tint was paled; the law that already
+existed for widgets simply reaches one surface further. Enforced by
+`contrast.test.ts`, which asserts both halves: that the paper pair genuinely
+fails on these grounds, and that the well clears the floor.
 
 ## 6. What did not change
 

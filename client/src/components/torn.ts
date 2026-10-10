@@ -22,21 +22,45 @@ export function hashSeed(seed: string): number {
   return h >>> 0;
 }
 
+/** How many edge-mask variants `scripts/gen_torn_edges.py` emits. */
+export const TORN_VARIANTS = 3;
+
+/** The strip width the generator writes, in px — the tiling period. */
+export const TORN_STRIP_WIDTH = 1600;
+
+export interface TornEdgePlan {
+  /** Which generated variant this sheet's top/bottom edge uses (1-indexed). */
+  topVariant: number;
+  bottomVariant: number;
+  /**
+   * Horizontal offset into the tiled strip, in px. Two sheets that happen to
+   * draw the same variant still tear differently, because the strip is
+   * seamless and can be started anywhere along its width.
+   */
+  topOffset: number;
+  bottomOffset: number;
+}
+
 /**
- * Static jagged clip path: straight left/right edges (the accent rule sits
- * there cleanly), torn top and bottom. Pure function of (seed, amp) — the
- * same sheet always tears the same way. Values are percentages of the
- * element box; `amp` bounds how deep the tear bites in from top/bottom.
+ * Pick a sheet's tear deterministically: same seed, same tear, every render
+ * (gate 4 — nothing here moves, and nothing is random at paint time).
+ *
+ * The tear itself is a raster alpha mask, not a clip path. Paper separates
+ * along its fibres, which is a soft multi-scale boundary with strands pulled
+ * loose; a polygon with N random vertices reads as a sawtooth however many
+ * vertices it has. The masks are generated and committed by
+ * `scripts/gen_torn_edges.py`.
  */
-export function tornClipPath(seed: string, amp: number, steps = 20): string {
+export function tornEdgePlan(seed: string): TornEdgePlan {
   const rand = mulberry32(hashSeed(seed));
-  const top: string[] = [];
-  const bottom: string[] = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const x = (i / steps) * 100;
-    top.push(`${x.toFixed(2)}% ${(rand() * amp).toFixed(3)}%`);
-    bottom.push(`${x.toFixed(2)}% ${(100 - rand() * amp).toFixed(3)}%`);
-  }
-  bottom.reverse();
-  return `polygon(${["0% 0%", ...top, "100% 100%", ...bottom].join(", ")})`;
+  const pick = (): number => 1 + Math.floor(rand() * TORN_VARIANTS);
+  // Offsets wrap inside the strip's own width; the component scales them
+  // with the strip, so a sheet's tear stays put whatever the render scale.
+  const offset = (): number => Math.floor(rand() * TORN_STRIP_WIDTH);
+  return {
+    topVariant: pick(),
+    topOffset: offset(),
+    bottomVariant: pick(),
+    bottomOffset: offset(),
+  };
 }

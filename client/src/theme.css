@@ -18,10 +18,22 @@
   /* torn-paper under-layer (01 §1) — tint is taxonomy, never valence.
      Section identity on the Plaza (amendment 2026-10-10, mockup-ratified):
      plan=mint · waiting-on=sky · habits=blush · yesterday=butter ·
-     agents=violet — each section owns its tint for life. */
-  --paper-cream: #F3EDDF;   --paper-mint: #E3EEE3;   --paper-sky: #E2EDF4;
-  --paper-blush: #F6E7E3;   --paper-butter: #F5EFD8;
-  --paper-violet: #B9A8F0;  /* sixth tint: agents-act paper (plum hue family) */
+     agents=violet — each section owns its tint for life.
+
+     Two tiers, because the surfaces do different work:
+       SECTION tints (saturated) — glanced at, a few lines each. Sampled
+         from the ratified mockup and measured against --paper-ink below.
+       READING tint (cream, pale) — the weekly review and goals carry 500+
+         words, where a saturated ground fatigues. Cream stays as measured
+         in 01 §1 and never joins the section rotation.
+     All six clear the >=4.5 ink floor (01 v2 §7 gate 1); computed, not
+     transcribed, by src/theme/contrast.test.ts. */
+  --paper-cream: #F3EDDF;   /* 12.43 — reading surfaces only */
+  --paper-mint: #A0D2BC;    /*  8.59 — today's plan */
+  --paper-sky: #94BDE9;     /*  7.40 — waiting on */
+  --paper-blush: #F1AC9F;   /*  7.70 — habits */
+  --paper-butter: #F0CB89;  /*  9.40 — yesterday */
+  --paper-violet: #A79BE5;  /*  5.85 — agents (sixth tint, plum hue family) */
   --paper-ink: #2B2926;
   /* state colors — two calibrated pairs, same hue per surface (01 §1) */
   --alive-glass: #3FB950;   --alive-paper: #27963C;
@@ -31,6 +43,20 @@
      Behavioral dormancy renders in the muted tier everywhere; red is
      reserved for system failure a human must fix, so no --dormant-*
      token exists by design. */
+
+  /* the dot well — self-glass law (01 §5), generalised from widgets to
+     tinted sheets (amendment 2026-10-10). A widget floats on arbitrary
+     wallpaper where no ink-pair is calibrated, so it renders its own glass
+     chip behind every state-critical dot. A saturated section tint is the
+     same problem: the PAPER state pair was calibrated on cream and falls
+     under the 3.0 non-text floor on these grounds (alive 2.26 on mint,
+     1.53 on violet — measured 2026-10-10). The well is a small tear back
+     down to the matte skin, so the dot carries the GLASS pair on its
+     calibrated surface: alive 6.85 · dead 5.19 · paused 6.89 · dormant
+     6.15. Liveness stays truthful on any tint, and no floor was softened.
+     Composites to exactly the glass surface the contrast suite measures:
+     --glass-fill over --bg. */
+  --dot-well: linear-gradient(var(--glass-fill), var(--glass-fill)), var(--bg);
 
   /* navigation — the bubble cluster (01 §3). Its position is ONE variable,
      bottom-right default; the position setting flips this token only
@@ -80,9 +106,12 @@
 }
 
 /* ---- the matte skin (01 §2 L0) ------------------------------------------
-   Matte textured black: --bg + static grain at <= 2% opacity, never
-   animated (gate 4). The grain textures the black skin only — glass and
-   paper layers opt out. */
+   Matte textured black: --bg + static texture, never animated (gate 4).
+   The ceiling was 2% when the skin was a flat field; the ratified mockup
+   (2026-10-10) reads as crumpled black stock, which needs a coarse fold
+   scale as well as fine tooth. Amended ceiling: <= 8% per layer, still
+   well under what interferes with body text (01 §2 L0). The texture
+   dresses the black skin only — glass and paper layers opt out. */
 body {
   margin: 0;
   min-height: 100dvh;
@@ -96,3 +125,10 @@ body {
   color: var(--text);
   font-family: "IBM Plex Sans", system-ui, sans-serif;
 }
+
+/* ---- Plaza sheet stacking (04 `/`) --------------------------------------
+   Sheets run edge to edge and their tears all but interlock: what shows
+   between two sheets is one band of the matte skin, not a gutter between
+   cards. The overlap is less than the tear's own bite, so no sheet ever
+   covers another's content. */
+.plaza-sheet + .plaza-sheet { margin-top: -1.15rem; }

@@ -62,10 +62,10 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
     }
   });
 
-  it("renders on torn paper sheets — five tinted TornSheets via clip-path", () => {
+  it("renders on torn paper sheets — five tinted TornSheets, raster-torn", () => {
     const container = plaza();
     const sheets = [...container.querySelectorAll("section")].filter((el) =>
-      (el.firstElementChild?.firstElementChild?.getAttribute("style") ?? "").includes("clip-path"),
+      (el.children[1]?.getAttribute("style") ?? "").includes("mask-image"),
     );
     expect(sheets.length).toBe(5);
   });

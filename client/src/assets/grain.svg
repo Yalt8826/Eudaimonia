@@ -1,11 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360" role="presentation">
-  <!-- Static film grain for the matte skin (01-design-system.md §2 L0):
-       coarse fractal noise only, opacity 0.02 = the 2% ceiling (larger
-       features read as paper tooth, not digital static). This asset is
-       texture, not a screensaver — it must never move (gate 4). -->
-  <filter id="eudaimonia-grain" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.28" numOctaves="3" seed="11" stitchTiles="stitch"/>
-    <feColorMatrix type="saturate" values="0"/>
-  </filter>
-  <rect width="360" height="360" filter="url(#eudaimonia-grain)" opacity="0.02"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420" role="presentation">
+  <!-- The matte skin's texture (01-design-system.md §2 L0), amended
+       2026-10-10: the skin is crumpled black stock, not a flat field, so it
+       carries two static scales — a coarse crumple that catches the light,
+       and fine tooth over it. Opacity 0.08 sits at the amended 8%
+       ceiling (gate 4), measured as interference against body text rather
+       than guessed.
+
+       STATIC, always: no SMIL animation elements, no CSS keyframes, no seed
+       that varies between renders. This asset is texture, not a screensaver.
+       (Gate 4 is a plain string match, so even naming the banned construct
+       in a comment trips it — as it should; the gate stays dumb.) -->
+  <defs>
+    <filter id="eudaimonia-crumple" x="0" y="0" width="100%" height="100%">
+      <!-- Coarse, low-frequency folds: the crumple. -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.016" numOctaves="4" seed="7" stitchTiles="stitch" result="folds"/>
+      <!-- Light raking across the folds, so creases read as relief. -->
+      <feDiffuseLighting in="folds" surfaceScale="5.2" diffuseConstant="1" lightingColor="#ffffff" result="lit">
+        <feDistantLight azimuth="235" elevation="58"/>
+      </feDiffuseLighting>
+      <feColorMatrix in="lit" type="saturate" values="0"/>
+    </filter>
+    <filter id="eudaimonia-tooth" x="0" y="0" width="100%" height="100%">
+      <!-- Fine tooth: the stock's own grain, well above the fold scale. -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="3" seed="11" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="420" height="420" filter="url(#eudaimonia-crumple)" opacity="0.08"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-tooth)" opacity="0.035"/>
 </svg>
