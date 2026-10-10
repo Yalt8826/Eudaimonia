@@ -156,9 +156,8 @@ body {
      else. The reference render has the same darker top. Both static. */
   background-image:
     linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0) 320px),
-    url("./assets/skin-fold-lit.svg"),
-    url("./assets/skin-fold-dark.svg"),
-    url("./assets/grain.svg");
+    url("./assets/skin-black.png");
+  background-repeat: no-repeat, repeat;
   color: var(--text);
   font-family: "IBM Plex Sans", system-ui, sans-serif;
 }

@@ -107,9 +107,12 @@ reserved for system failure a human must fix.
 below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
 was a flat field with noise over it; the ratified mockup reads as crumpled
 black stock, which needs a coarse fold scale (lit for relief) as well as
-fine tooth. Ceiling is **≤8% per layer**, and the asset carries exactly
-two scales. Still static, always — gate 4 is a plain string match, so even
-naming an animation construct in a comment trips it.
+fine tooth. Fidelity pass the same day raised it again: the skin ships
+**three static layers — lit folds, shadow folds (each ≤20% alpha), and a
+fine anisotropic crackle (≤12%)** — plus the 2% grain tooth. The lit/shadow
+pairing is zero-mean, so the skin's average stays black however rough it
+gets. Still static, always — gate 4 is a plain string match, so even naming
+an animation construct in a comment trips it.
 
 **Both layers are zero-mean, which is what keeps the skin black.**
 `feDiffuseLighting` returns `sin(elevation)` on flat ground — 0.848, not

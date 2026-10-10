@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import litSource from "./skin-fold-lit.svg?raw";
 import darkSource from "./skin-fold-dark.svg?raw";
+import crackleSource from "./skin-crackle.svg?raw";
 
-// The matte skin's crumple (01 §2 L0, amended 2026-10-10): TWO zero-mean
-// fold layers — one lit, one shadow — coarse scale for the big folds, fine
-// scale inside them via octaves. Each layer's alpha is capped at the
-// ratified 8% ceiling; both are static (gate 4: relief, never animation).
+// The matte skin's crumple (01 §2 L0, amended 2026-10-10): THREE static
+// layers — lit folds, shadow folds (coarse, zero-mean), and a fine
+// anisotropic crackle — plus the 2% grain tooth. Per-layer alpha ceilings
+// (folds 20%, crackle 12%) keep the rough stock from fighting body text;
+// everything is static (gate 4: relief, never animation).
 
-for (const [name, source] of [
-  ["skin-fold-lit", litSource],
-  ["skin-fold-dark", darkSource],
-] as const) {
+const LAYERS: ReadonlyArray<readonly [string, string, number]> = [
+  ["skin-fold-lit", litSource, 0.2],
+  ["skin-fold-dark", darkSource, 0.2],
+  ["skin-crackle", crackleSource, 0.12],
+];
+
+for (const [name, source, ceiling] of LAYERS) {
   describe(`${name} (01 §2 L0 amended)`, () => {
     it("is static — contains no animation constructs", () => {
       expect(source).not.toMatch(/<animate/i);
@@ -21,18 +26,20 @@ for (const [name, source] of [
       expect(source).not.toMatch(/animation\s*:|@keyframes/i);
     });
 
-    it("is fold relief — fractal noise with stitchTiles (seamless tiling)", () => {
+    it("is relief — fractal noise with stitchTiles (seamless tiling)", () => {
       expect(source).toMatch(/<feTurbulence/i);
       expect(source).toMatch(/stitchTiles="stitch"/);
     });
 
-    it("stays at or below the 13% per-layer ceiling", () => {
+    it(`stays at or below the ${(ceiling * 100).toFixed(0)}% per-layer ceiling`, () => {
       const opacities = [...source.matchAll(/opacity\s*=\s*["']([0-9]*\.?[0-9]+)["']/g)].map(
         (m) => Number.parseFloat(m[1]),
       );
       expect(opacities.length, "the layer must declare its opacity constant").toBeGreaterThan(0);
       for (const opacity of opacities) {
-        expect(opacity, `${name} opacity ${opacity} must be <= 0.13`).toBeLessThanOrEqual(0.13);
+        expect(opacity, `${name} opacity ${opacity} must be <= ${ceiling}`).toBeLessThanOrEqual(
+          ceiling,
+        );
       }
     });
 
