@@ -1,6 +1,5 @@
 import { Outlet, Route, Routes } from "react-router-dom";
 import { BubbleCluster } from "../components/BubbleCluster";
-import { TornSheet } from "../components/TornSheet";
 import { PlazaScreen } from "./PlazaScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { WakeScreen } from "./WakeScreen";
@@ -10,15 +9,13 @@ import { WakeScreen } from "./WakeScreen";
 // trips over in P1. The bubble cluster (global chrome, 04) rides the Shell
 // layout route so it is structurally present on every screen EXCEPT
 // /habits/wake, which sits outside the Shell and renders zero chrome.
-// Stubs render on a cream TornSheet — the design spike's surface proof;
-// T1.6 replaces them with the real per-tint strips.
+// The Plaza (/) is a real screen; everything else stays a stub until its
+// phase builds it.
 
 function Stub({ name }: { name: string }) {
   return (
-    <main data-stub={name} style={{ padding: "1.25rem 1rem", display: "grid", gap: "1rem" }}>
-      <TornSheet tint="cream" seed={name}>
-        <h1>{name}</h1>
-      </TornSheet>
+    <main data-stub={name} style={{ padding: "1.25rem 1rem" }}>
+      <h1>{name}</h1>
     </main>
   );
 }

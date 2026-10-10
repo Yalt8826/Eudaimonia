@@ -19,7 +19,7 @@ export function SectionHeading({ children }: { children: ReactNode }) {
         fontWeight: 600,
         letterSpacing: "0.18em",
         textTransform: "uppercase",
-        color: "var(--paper-ink)",
+        color: "inherit",
       }}
     >
       {children}
@@ -109,7 +109,7 @@ export function CoverageLine({ children }: { children: ReactNode }) {
         margin: 0,
         fontSize: "0.8125rem",
         lineHeight: 1.6,
-        color: "var(--paper-ink)",
+        color: "inherit",
         opacity: 0.72,
       }}
     >
@@ -152,7 +152,7 @@ export function Row({
     alignItems: "center",
     gap: "0.7rem",
     padding: "0.55rem 0",
-    color: "var(--paper-ink)",
+    color: "inherit",
     textDecoration: "none",
     minHeight: "2.75rem",
   };

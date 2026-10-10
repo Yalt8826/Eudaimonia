@@ -1,4 +1,4 @@
-import type { TornRule, TornSheetTint } from "../components/TornSheet";
+import type { PaperVariant } from "../components/paper/TornPaperSection";
 
 // The Plaza's strip model — the shape T1.6's coverage-view feed will fill.
 // Until the P1 adapters land (T1.2–T1.5), every strip renders its TRUE state:
@@ -10,8 +10,8 @@ export type StripState = "uninstrumented" | "alive" | "dead" | "paused" | "behav
 export interface PlazaStrip {
   id: string;
   title: string;
-  tint: TornSheetTint;
-  rule?: TornRule;
+  variant: PaperVariant;
+  rule?: "teal" | "plum";
   /** Where the chevron leads (the section's real route). */
   to: string;
   state: StripState;
@@ -28,8 +28,8 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "plan",
     title: "Today's Plan",
-    tint: "mint",
-    rule: "accent-1",
+    variant: "mint",
+    rule: "teal",
     to: "/routine",
     state: "uninstrumented",
     lines: ["not yet instrumented · week-plan adapter lands in P1"],
@@ -37,7 +37,7 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "waiting",
     title: "Waiting On",
-    tint: "sky",
+    variant: "sky",
     to: "/inbox",
     state: "uninstrumented",
     lines: ["not yet instrumented · loops arrive with P2 writes"],
@@ -45,7 +45,7 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "habits",
     title: "Habits",
-    tint: "blush",
+    variant: "blush",
     to: "/meals",
     state: "uninstrumented",
     lines: [], // the nutrition/reading rows carry the honest state themselves
@@ -54,7 +54,7 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "yesterday",
     title: "Yesterday",
-    tint: "butter",
+    variant: "butter",
     to: "/timeline",
     state: "uninstrumented",
     lines: ["not yet instrumented · day-report adapter lands in P1"],
@@ -62,8 +62,8 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "agents",
     title: "Agents",
-    tint: "violet",
-    rule: "accent-2",
+    variant: "lavender",
+    rule: "plum",
     to: "/agents",
     state: "uninstrumented",
     lines: ["no agents instrumented yet · invocation feed arrives in P4"],
