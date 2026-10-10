@@ -16,7 +16,10 @@ afterEach(cleanup);
 
 interface SheetParts {
   wrapper: HTMLElement;
+  /** The skin's rim, furthest back (inset -4). */
   fringe: HTMLElement;
+  /** The pale fibre core, between rim and paper (inset -2). */
+  core: HTMLElement;
   paper: HTMLElement;
 }
 
@@ -25,12 +28,15 @@ function sheetOf(ui: React.ReactElement): SheetParts {
   const wrapper = container.firstElementChild as HTMLElement | null;
   expect(wrapper).not.toBeNull();
   const fringe = wrapper?.children[0] as HTMLElement | undefined;
-  const paper = wrapper?.children[1] as HTMLElement | undefined;
+  const core = wrapper?.children[1] as HTMLElement | undefined;
+  const paper = wrapper?.children[2] as HTMLElement | undefined;
   expect(fringe).toBeDefined();
+  expect(core).toBeDefined();
   expect(paper).toBeDefined();
   return {
     wrapper: wrapper as HTMLElement,
     fringe: fringe as HTMLElement,
+    core: core as HTMLElement,
     paper: paper as HTMLElement,
   };
 }
@@ -105,9 +111,35 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
     expect(paper.style.clipPath).toBe("");
   });
 
+  it("shows the pale fibre core along the tear, between rim and paper", () => {
+    const { fringe, core, paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
+    const coreStyle = styleOf(core);
+    expect(coreStyle).toContain("var(--paper-core)");
+    // Torn coloured stock is white inside: the core sits INSIDE the skin's
+    // rim and OUTSIDE the paper, so a thin pale line rides every tear.
+    expect(styleOf(fringe)).toContain("inset: -4px");
+    expect(coreStyle).toContain("inset: -2px");
+    // Same tear on all three, or the bands would not be concentric.
+    const edges = (s: string): string[] => s.match(/edge-(top|bottom)-\d/g) ?? [];
+    expect(edges(coreStyle)).toEqual(edges(styleOf(paper)));
+  });
+
+  it("casts the skin's edge INWARD onto the paper, not the paper outward", () => {
+    const { wrapper, paper } = sheetOf(<TornSheet>text</TornSheet>);
+    // The skin is the top layer (01 §2 placement ruling): depth at the tear
+    // comes from it falling on the paper below. A sheet casting outward
+    // would render the stack upside down.
+    const casts = [...paper.querySelectorAll("span")].filter((s) =>
+      (s.getAttribute("style") ?? "").includes("var(--skin-cast)"),
+    );
+    expect(casts.length, "one cast per torn edge, top and bottom").toBe(2);
+    expect(styleOf(wrapper)).toContain("var(--sheet-seat)");
+    expect(styleOf(wrapper)).not.toContain("sheet-shadow-cast");
+  });
+
   it("is static — no animation constructs in any generated style (gate 4)", () => {
-    const { wrapper, fringe, paper } = sheetOf(<TornSheet>text</TornSheet>);
-    for (const el of [wrapper, fringe, paper]) {
+    const { wrapper, fringe, core, paper } = sheetOf(<TornSheet>text</TornSheet>);
+    for (const el of [wrapper, fringe, core, paper]) {
       const style = styleOf(el).toLowerCase();
       expect(style).not.toContain("animation");
       expect(style).not.toContain("transition");
@@ -128,10 +160,9 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
 
   it("renders the optional accent left-rule through its token", () => {
     const { paper } = sheetOf(<TornSheet rule="accent-1">text</TornSheet>);
-    const rule = paper.querySelector("span[aria-hidden='true']");
-    expect(rule).not.toBeNull();
-    expect((rule as HTMLElement).getAttribute("style") ?? "").toContain(
-      "var(--accent-1)",
+    const rules = [...paper.querySelectorAll("span")].filter((s) =>
+      (s.getAttribute("style") ?? "").includes("var(--accent-1)"),
     );
+    expect(rules.length, "exactly one accent rule").toBe(1);
   });
 });

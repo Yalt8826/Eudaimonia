@@ -107,7 +107,7 @@ reserved for system failure a human must fix.
 below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
 was a flat field with noise over it; the ratified mockup reads as crumpled
 black stock, which needs a coarse fold scale (lit for relief) as well as
-fine tooth. Ceiling is now **≤12% per layer**, and the asset carries exactly
+fine tooth. Ceiling is now **≤16% per layer**, and the asset carries exactly
 two scales. Still static, always — gate 4 is a plain string match, so even
 naming an animation construct in a comment trips it.
 
@@ -119,12 +119,33 @@ Each layer now maps its own flat value to black, so flat ground contributes
 nothing over a near-black base and only ridges tilted into the light carry
 any. Measured after the fix: mean **#11**, against the reference's **#10**.
 
-**What bounds the ceiling** is the only text that ever sits on the skin —
-the Plaza header — measured against the texture's *brightest peak*, not its
-mean: at 0.11 the peak is #2B, `--muted` 5.01 and `--text` 12.07; at 0.14
-`--muted` falls to 4.60, too close to the floor. Everything else in the app
-reads on paper or in a glass chip, which is why the skin can carry real
-relief at all.
+**The transfer is a threshold, not just a re-centring.** Nothing shows below
+a lighting value of 0.885, so creases read as sparse bright catches on a
+black field rather than an even grey wash. That is the difference between
+std 9 and std 15 at the same darkness — and std 15 is what the reference
+render measures. Three scales: coarse fold, the creases between folds, fine
+tooth.
+
+**What bounds it is measurement, not the declared opacity.** The only text
+that ever sits on bare skin is the Plaza header, and rather than cap the
+crumple at whatever the header survives, the header rides its own dark
+scrim (`theme.css` body) and the skin is free everywhere else. Rendered and
+measured: open skin **mean #14, std 14.2** against the reference's #10 /
+15.4; header ground mean #07, with `--muted` at **6.78** on its brightest
+pixel. Ceiling ≤16% per layer, which the sparse threshold needs and the
+scrim affords.
+
+**The skin is the top layer, so shadows run inward.** A sheet casting
+outward onto the skin renders the stack upside down — paper on top of
+black. Instead the skin's torn edge falls *onto* the paper below
+(`--skin-cast`), clipped by the paper's own tear, and the sheet keeps only
+a slight seat beneath it (`--sheet-seat`).
+
+**Torn coloured stock shows its pale fibre core** (`--paper-core`): a thin
+band riding every tear, between the skin's rim and the tint. It is most of
+what makes a shape read as *torn* rather than as a shape with a ragged
+outline — three concentric bands cut by one tear: skin rim, fibre core,
+paper.
 
 **Sheets cast two shadows, not one** (`--sheet-shadow-contact`,
 `--sheet-shadow-cast`): a tight contact shadow pinning the tear to the skin

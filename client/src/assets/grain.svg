@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420" role="presentation">
   <!-- The matte skin's texture (01-design-system.md §2 L0), amended
        2026-10-10: the skin is crumpled black stock, not a flat field, so it
-       carries two static scales — a coarse crumple that catches the light,
-       and fine tooth over it.
+       carries three static scales — a coarse crumple, the creases between
+       those folds, and fine tooth over both.
 
        Both layers are ZERO-MEAN, which is what keeps the skin black.
        feDiffuseLighting returns roughly mid-grey across flat ground, so
@@ -10,18 +10,29 @@
        — the skin came out around #14 against a #0B0B0C base, visibly
        washed beside the reference. Each layer therefore runs through a
        linear transfer that maps flat ground to black (slope s, intercept
-       -s/2): flat contributes nothing over a near-black base, and only the
+       minus s times flat): flat contributes nothing over a near-black base, and only the
        crease ridges carry light. The texture now reads as relief rather
        than as a grey veil, and the base stays the measured token.
 
-       Opacities are the per-layer amplitude ABOUT that zero mean, both
-       under the amended 12% ceiling (gate 4). The ceiling is set by the
-       only text that ever sits on the skin — the Plaza header — measured
-       against the texture's BRIGHTEST peak rather than its mean:
-         crumple 0.11 -> peak #2B, --muted 5.01, --text 12.07
-         crumple 0.14 -> peak #31, --muted 4.60  (too close to the 4.5 floor)
-       Everything else in the app reads on paper or in a glass chip, so the
-       skin is free to carry real relief; the header is what bounds it.
+       The transfer is a THRESHOLD, not just a re-centring: nothing shows
+       below a lighting value of 0.885, so creases read as sparse bright
+       catches on a black field rather than an even grey wash. That is the
+       difference between std 9 and std 15 at the same darkness, and std 15
+       is what the reference render measures.
+
+       Opacities are per-layer amplitude above that threshold; because the
+       lit area is sparse, they run higher than a flat layer could. The
+       real bound is the RENDERED result, measured, not the declared
+       number: mean #14 and std 14.9 against the reference's #10 / 15.4.
+
+       The only text that ever sits on the skin is the Plaza header, and it
+       rides a dark scrim (theme.css body) precisely so the texture is not
+       bounded by it. Everything else reads on paper or in a glass chip.
+
+       (Token names are written bare in these comments on purpose: a double
+       hyphen is illegal inside an XML comment and silently malforms the
+       whole asset, which then renders as nothing at all. That shipped once,
+       2026-10-10; grain.test.ts now parses the file to catch it.)
 
        STATIC, always: no SMIL animation elements, no CSS keyframes, no seed
        that varies between renders. This asset is texture, not a screensaver.
@@ -41,9 +52,24 @@
            transfer maps 0.848 to black, so flat ground contributes
            nothing and only ridges tilted into the light carry any. -->
       <feComponentTransfer in="grey">
-        <feFuncR type="linear" slope="6.0" intercept="-5.088"/>
-        <feFuncG type="linear" slope="6.0" intercept="-5.088"/>
-        <feFuncB type="linear" slope="6.0" intercept="-5.088"/>
+        <feFuncR type="linear" slope="10.0" intercept="-8.85"/>
+        <feFuncG type="linear" slope="10.0" intercept="-8.85"/>
+        <feFuncB type="linear" slope="10.0" intercept="-8.85"/>
+      </feComponentTransfer>
+    </filter>
+    <filter id="eudaimonia-creases" x="0" y="0" width="100%" height="100%">
+      <!-- Mid scale: the creases between the big folds. Three scales is
+           what separates "textured" from "a gradient with noise on it" —
+           the coarse fold alone reads as lighting, not as stock. -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.055 0.07" numOctaves="3" seed="23" stitchTiles="stitch" result="folds"/>
+      <feDiffuseLighting in="folds" surfaceScale="3.4" diffuseConstant="1" lightingColor="#ffffff" result="lit">
+        <feDistantLight azimuth="235" elevation="58"/>
+      </feDiffuseLighting>
+      <feColorMatrix in="lit" type="saturate" values="0" result="grey"/>
+      <feComponentTransfer in="grey">
+        <feFuncR type="linear" slope="10.0" intercept="-8.85"/>
+        <feFuncG type="linear" slope="10.0" intercept="-8.85"/>
+        <feFuncB type="linear" slope="10.0" intercept="-8.85"/>
       </feComponentTransfer>
     </filter>
     <filter id="eudaimonia-tooth" x="0" y="0" width="100%" height="100%">
@@ -61,6 +87,7 @@
       </feComponentTransfer>
     </filter>
   </defs>
-  <rect width="420" height="420" filter="url(#eudaimonia-crumple)" opacity="0.11"/>
-  <rect width="420" height="420" filter="url(#eudaimonia-tooth)" opacity="0.04"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-crumple)" opacity="0.15"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-creases)" opacity="0.12"/>
+  <rect width="420" height="420" filter="url(#eudaimonia-tooth)" opacity="0.012"/>
 </svg>

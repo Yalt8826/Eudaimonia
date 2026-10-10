@@ -66,14 +66,21 @@
   /* torn-paper primitive defaults (01 §2 L2) */
   --fringe-w: 1.25rem;      /* ragged fringe width; text padding >= fringe */
   --torn-rotation: -0.4deg; /* static, <= 1deg */
-  /* The sheet's cast shadow, in two parts, because one blur cannot do both
-     jobs: a tight contact shadow that pins the torn edge to the skin, and a
-     broad soft cast that lifts the sheet off it. Both are flat black — torn
-     paper never glows (01 §2 L2) — and they read against the skin because
-     the skin is textured: the shadow shows by suppressing that texture,
-     which is why the zero-mean grain and these two land together. */
-  --sheet-shadow-contact: 0 2px 3px rgba(0, 0, 0, 0.92);
-  --sheet-shadow-cast: 0 14px 24px rgba(0, 0, 0, 0.72);
+  /* Depth at the tear, which is a question of WHICH LAYER IS ON TOP. The
+     skin is the top layer and the paper is revealed beneath it (01 §2
+     placement ruling), so the shadow runs inward: the skin's torn edge
+     falls ONTO the paper. A sheet casting outward onto the skin would
+     render the stack upside down — paper on top of black — which is what
+     the first pass did.
+
+     --skin-cast      the skin's edge falling on the paper below (inward)
+     --sheet-seat     a slight seat under the whole sheet, so it still sits
+                      in the skin rather than floating free of it
+     --paper-core     torn coloured stock shows its pale fibre core along
+                      the tear; a thin band of it rides every torn edge */
+  --skin-cast: rgba(0, 0, 0, 0.55);
+  --sheet-seat: 0 2px 4px rgba(0, 0, 0, 0.85);
+  --paper-core: #EFE7D8;
 }
 
 /* ---- Obsidian-dialect callout mapping (v1 §6 contract; 01 §2 end) ------
@@ -125,10 +132,14 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
   background-color: var(--bg);
-  /* the skin's depth: a faint top light over the coarse grain — both static,
-     both below-visibility interference (gate 4; texture never fights text) */
+  /* A dark scrim over the top of the skin, then the texture beneath it.
+     The scrim is what lets the texture be strong: the Plaza header is the
+     only text in the app that sits on bare skin, so rather than cap the
+     crumple at whatever the header can survive, the header gets its own
+     darker ground and the skin is free to carry real relief everywhere
+     else. The reference render has the same darker top. Both static. */
   background-image:
-    radial-gradient(130% 70% at 50% 0%, rgba(255, 255, 255, 0.028), transparent 62%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0) 320px),
     url("./assets/grain.svg");
   color: var(--text);
   font-family: "IBM Plex Sans", system-ui, sans-serif;

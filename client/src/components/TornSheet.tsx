@@ -40,8 +40,11 @@ const EDGE_H = Math.round(96 * STRIP_SCALE);
 /** Rendered tiling period, px — scaled with the height so the tear keeps shape. */
 const EDGE_W = Math.round(TORN_STRIP_WIDTH * STRIP_SCALE);
 
-/** How far the fringe sits proud of the paper — the visible dark rim, px. */
+/** How far the skin's rim sits proud of the paper, px. */
 const RIM = 4;
+
+/** How far the pale fibre core sits proud of the paper, px — inside the rim. */
+const CORE = 2;
 
 /** The paper tints (01 §1 + 2026-10-10 amendment) — taxonomy, never valence. */
 export type TornSheetTint =
@@ -131,12 +134,10 @@ export function TornSheet({
     ...(fringeWidth === undefined ? {} : { "--fringe-w": fringeWidth }),
     position: "relative",
     transform: `rotate(${rotation}deg)`,
-    // Flat shadows that follow the torn silhouette (never a glow): a tight
-    // contact shadow pinning the tear to the skin, and a broad cast lifting
-    // the sheet off it. drop-shadow (not box-shadow) so both trace the
-    // masked silhouette rather than a rectangle.
-    filter:
-      "drop-shadow(var(--sheet-shadow-contact)) drop-shadow(var(--sheet-shadow-cast))",
+    // Only a slight seat under the whole sheet. The depth at the tear comes
+    // from the skin falling INWARD onto the paper (see skinCast below), not
+    // from the paper casting outward — the skin is the top layer.
+    filter: "drop-shadow(var(--sheet-seat))",
   } as CSSProperties;
 
   // The fringe: the black skin's own torn rim. Same masks, offset by a few
@@ -153,6 +154,31 @@ export function TornSheet({
   // The paper sits inside the fringe's box by RIM on every side, cut by the
   // SAME tear — so the few pixels of difference are a dark ragged rim that
   // follows the tear exactly, rather than an outline drawn around it.
+  // The pale fibre core: torn coloured stock is white inside, and that thin
+  // bright line along the tear is most of what makes paper read as torn
+  // rather than as a shape with a ragged outline. It sits between the skin's
+  // rim and the paper, cut by the same tear.
+  const coreStyle: CSSProperties = {
+    position: "absolute",
+    inset: `${-CORE}px`,
+    background: "var(--paper-core)",
+    pointerEvents: "none",
+    ...maskLayers(topSrc, bottomSrc, scaleOffset(plan.topOffset), scaleOffset(plan.bottomOffset)),
+  };
+
+  // The skin's torn edge falling onto the paper below it. Clipped by the
+  // paper's own mask (overflow hidden + the mask), so the cast follows the
+  // tear instead of running straight across.
+  const skinCast = (edge: "top" | "bottom"): CSSProperties => ({
+    position: "absolute",
+    left: 0,
+    right: 0,
+    [edge]: 0,
+    height: `${Math.round(EDGE_H * 1.15)}px`,
+    background: `linear-gradient(${edge === "top" ? 180 : 0}deg, var(--skin-cast), transparent)`,
+    pointerEvents: "none",
+  });
+
   const paperStyle: CSSProperties = {
     position: "relative",
     background: TINT_TOKEN[tint],
@@ -170,7 +196,10 @@ export function TornSheet({
   return (
     <section className={className} style={outerStyle}>
       <span aria-hidden="true" style={fringeStyle} />
+      <span aria-hidden="true" style={coreStyle} />
       <div style={paperStyle}>
+        <span aria-hidden="true" style={skinCast("top")} />
+        <span aria-hidden="true" style={skinCast("bottom")} />
         {rule !== undefined ? (
           <span
             aria-hidden="true"
