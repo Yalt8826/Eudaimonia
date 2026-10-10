@@ -55,13 +55,17 @@
   /* Sampled off the measured falloff (72 at 2px, 41 at 4px, 17 at 6px) at
      1px steps. Four bands at 2px steps was too coarse: where the tear runs
      near-horizontal the steps separate and read as stair-stepping rather
-     than as a cut face. Six at 1px resolve into a ramp. */
-  --skin-lip-1: #6E6E74;
-  --skin-lip-2: #5A5A60;
-  --skin-lip-3: #47474C;
-  --skin-lip-4: #353539;
-  --skin-lip-5: #262629;
-  --skin-lip-6: #1A1A1D;
+     than as a cut face. 1px steps resolve into a ramp. Deepened to 8 bands
+     2026-10-11 along with the heavier tear: a thicker torn edge shows more
+     of its own cross-section. */
+  --skin-lip-1: #76767C;
+  --skin-lip-2: #65656B;
+  --skin-lip-3: #55555B;
+  --skin-lip-4: #46464B;
+  --skin-lip-5: #38383D;
+  --skin-lip-6: #2B2B2F;
+  --skin-lip-7: #202023;
+  --skin-lip-8: #171719;
 
   /* The skin's edge falling ONTO the paper below it (the skin is the top
      layer). Measured: 42% at the tear, gone by ~28px. */

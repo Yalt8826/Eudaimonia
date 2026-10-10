@@ -32,14 +32,14 @@ export interface TornPaperSectionProps {
 }
 
 /**
- * The skin's torn cross-section: seven bands at 1px steps, outermost
+ * The skin's torn cross-section: nine bands at 1px steps, outermost
  * first, graded from the open skin down to the lit cut face that meets the
  * paper. Thick stock shows its own thickness along a tear, and that band
  * is what separates a torn sheet from a coloured card with a ragged
  * outline. The steps are 1px because coarser ones separate visibly where
  * the tear runs near-horizontal and read as stair-stepping.
  */
-const SKIN_BANDS = [1, 2, 3, 4, 5, 6, 7] as const;
+const SKIN_BANDS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 export function TornPaperSection({
   title,

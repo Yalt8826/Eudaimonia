@@ -22,9 +22,11 @@
   /* ---- the three assets -------------------------------------------- */
   --tear-top: url("../../assets/paper/tear-a-top.svg");
   --tear-bottom: url("../../assets/paper/tear-a-bottom.svg");
-  /* PLACEHOLDER — see assets/paper/README.md. Replace with a tileable
-     greyscale scan of real paper; this one line is the whole swap. */
-  --paper-fiber: url("../../assets/paper/paper-fibers.stub.png");
+  /* Real paper fibre, supplied 2026-10-11. The file is the source artwork
+     re-centred on mid-grey by scripts/prepare_paper_texture.py: soft-light
+     is neutral only at #808080, and the source means 156, so blending it
+     raw would lighten every sheet and shift the measured palette. */
+  --paper-fiber: url("../../assets/paper/paper-fibers.prepared.webp");
   --fringe-fiber: url("../../assets/paper/fringe-fibers.stub.png");
 
   /* ---- geometry ----------------------------------------------------- */
@@ -34,7 +36,7 @@
      stair-steps and a grey haze. Tiled horizontally, so a tall section
      never stretches the contour (spec §8). */
   --tear-w: 800px;
-  --tear-h: 80px;
+  --tear-h: 112px;
   --tear-x: 0px; /* phase into the tiled strip; varies the tear per sheet */
 
   --paper-color: var(--sheet-mint);
@@ -83,13 +85,15 @@
   pointer-events: none;
 }
 
-.torn-section__skin--1 { --band: 7; --band-color: var(--bg); }
-.torn-section__skin--2 { --band: 6; --band-color: var(--skin-lip-6); }
-.torn-section__skin--3 { --band: 5; --band-color: var(--skin-lip-5); }
-.torn-section__skin--4 { --band: 4; --band-color: var(--skin-lip-4); }
-.torn-section__skin--5 { --band: 3; --band-color: var(--skin-lip-3); }
-.torn-section__skin--6 { --band: 2; --band-color: var(--skin-lip-2); }
-.torn-section__skin--7 { --band: 1; --band-color: var(--skin-lip-1); }
+.torn-section__skin--1 { --band: 9; --band-color: var(--bg); }
+.torn-section__skin--2 { --band: 8; --band-color: var(--skin-lip-8); }
+.torn-section__skin--3 { --band: 7; --band-color: var(--skin-lip-7); }
+.torn-section__skin--4 { --band: 6; --band-color: var(--skin-lip-6); }
+.torn-section__skin--5 { --band: 5; --band-color: var(--skin-lip-5); }
+.torn-section__skin--6 { --band: 4; --band-color: var(--skin-lip-4); }
+.torn-section__skin--7 { --band: 3; --band-color: var(--skin-lip-3); }
+.torn-section__skin--8 { --band: 2; --band-color: var(--skin-lip-2); }
+.torn-section__skin--9 { --band: 1; --band-color: var(--skin-lip-1); }
 
 /* ---- the paper ------------------------------------------------------ */
 .torn-section__paper {

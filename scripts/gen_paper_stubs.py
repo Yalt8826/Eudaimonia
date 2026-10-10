@@ -103,9 +103,10 @@ def fringe_fibres() -> Image.Image:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    paper_fibres().save(OUT / "paper-fibers.stub.png", optimize=True)
+    # The paper surface is real artwork now (see prepare_paper_texture.py);
+    # only the fringe is still a placeholder.
     fringe_fibres().save(OUT / "fringe-fibers.stub.png", optimize=True)
-    for name in ("paper-fibers.stub.png", "fringe-fibers.stub.png"):
+    for name in ("fringe-fibers.stub.png",):
         print(f"wrote {name} ({(OUT / name).stat().st_size // 1024}KB) — PLACEHOLDER")
 
 

@@ -37,27 +37,32 @@ import numpy as np
 # visible stair-stepping and a grey haze where the cut face should be. A
 # vector contour only stays crisp if it is drawn at the size it is shown.
 WIDTH = 800
-HEIGHT = 80
+HEIGHT = 112
 SAMPLES = 3200  # four samples per px, so the contour is sub-pixel accurate
 OUT = pathlib.Path(__file__).resolve().parent.parent / "client/src/assets/paper"
 
 # (cycles across the strip, amplitude in px). The low end makes the band's
 # thickness vary; the high end is the serration. Both are needed: low-only
 # reads as a ribbon, high-only as a straight band with a frayed hairline.
+# Weighted toward the CLUMP range (2026-10-11). Paper does not tear into
+# needles: it tears into lumps, 8-20px across with rounded tops, of wildly
+# varying size. Pushing the 144/233/377 octaves gave a comb of fine
+# vertical spikes — regular, and nothing like the reference. The weight now
+# sits on 21-89 cycles (9-38px features), the very fine end is nearly gone,
+# and the low end still swings the band's thickness.
 OCTAVES: list[tuple[int, float]] = [
-    (1, 10.0),
-    (2, 6.5),
-    (3, 4.2),
-    (5, 2.8),
-    (8, 1.9),
-    (13, 1.4),
-    (21, 1.1),
-    (34, 0.9),
-    (55, 0.7),
-    (89, 0.9),
-    (144, 0.8),
-    (233, 0.65),
-    (377, 0.5),
+    (1, 15.5),
+    (2, 10.0),
+    (3, 6.5),
+    (5, 4.5),
+    (8, 3.4),
+    (13, 3.0),
+    (21, 2.8),
+    (34, 2.6),
+    (55, 2.2),
+    (89, 1.6),
+    (144, 0.7),
+    (233, 0.3),
 ]
 
 
@@ -74,7 +79,7 @@ def contour(rng: np.random.Generator) -> np.ndarray:
 def fibre_events(rng: np.random.Generator, count: int) -> np.ndarray:
     """Strands standing proud of the tear, and notches bitten into it.
 
-    Sizes are heavy-tailed: mostly small fibres, occasionally a big bite.
+    Sizes are heavy-tailed and CHUNKY: a tear sheds clumps, not needles.
     Events push both ways — a tear that only ever bulges outward reads as an
     even scallop, which is the decorative zigzag §2.2 warns against.
     """
@@ -82,8 +87,8 @@ def fibre_events(rng: np.random.Generator, count: int) -> np.ndarray:
     x = np.arange(SAMPLES)
     for _ in range(count):
         centre = int(rng.integers(0, SAMPLES))
-        half = int(max(2, rng.gamma(1.6, 9.0)))
-        depth = rng.uniform(1.2, 5.5)
+        half = int(max(4, rng.gamma(2.2, 18.0)))
+        depth = rng.uniform(1.8, 9.5)
         outward = rng.random() < 0.6
         offset = (x - centre + SAMPLES // 2) % SAMPLES - SAMPLES // 2
         inside = np.abs(offset) <= half
@@ -93,7 +98,7 @@ def fibre_events(rng: np.random.Generator, count: int) -> np.ndarray:
     return out
 
 
-def simplify(xs: np.ndarray, ys: np.ndarray, tolerance: float = 0.06) -> list[tuple[float, float]]:
+def simplify(xs: np.ndarray, ys: np.ndarray, tolerance: float = 0.12) -> list[tuple[float, float]]:
     """Drop points that lie within `tolerance` px of the line they bridge.
 
     Keeps the path readable and small without rounding off the serration.
@@ -110,10 +115,35 @@ def simplify(xs: np.ndarray, ys: np.ndarray, tolerance: float = 0.06) -> list[tu
     return [(float(xs[i]), float(ys[i])) for i in keep]
 
 
+def curve(points: list[tuple[float, float]]) -> str:
+    """Emit the contour as smooth cubics rather than straight segments.
+
+    Torn paper comes away in rounded lobes; a polyline through the same
+    points gives angular sawtooth teeth, which is what the previous pass
+    looked like beside the reference. Catmull-Rom through every point,
+    converted to Bezier, rounds each vertex without moving it — the shape
+    is unchanged, only its corners are.
+    """
+    if len(points) < 3:
+        return " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+
+    out = [f"{points[0][0]:.1f},{points[0][1]:.1f}"]
+    for i in range(len(points) - 1):
+        p0 = points[i - 1] if i > 0 else points[i]
+        p1, p2 = points[i], points[i + 1]
+        p3 = points[i + 2] if i + 2 < len(points) else p2
+        c1 = (p1[0] + (p2[0] - p0[0]) / 6.0, p1[1] + (p2[1] - p0[1]) / 6.0)
+        c2 = (p2[0] - (p3[0] - p1[0]) / 6.0, p2[1] - (p3[1] - p1[1]) / 6.0)
+        out.append(
+            f"C {c1[0]:.1f},{c1[1]:.1f} {c2[0]:.1f},{c2[1]:.1f} {p2[0]:.1f},{p2[1]:.1f}"
+        )
+    return " ".join(out)
+
+
 def strip(seed: int, flip: bool) -> str:
     rng = np.random.default_rng(seed)
     xs = np.arange(SAMPLES) * (WIDTH / SAMPLES)
-    ys = HEIGHT / 2.0 + contour(rng) - fibre_events(rng, 170)
+    ys = HEIGHT / 2.0 + contour(rng) - fibre_events(rng, 210)
     ys = np.clip(ys, 3.0, HEIGHT - 3.0)
     ys[-1] = ys[0]  # exact seam
 
@@ -124,8 +154,7 @@ def strip(seed: int, flip: bool) -> str:
     # Paper is kept on the far side of the tear: below it for a top strip,
     # above it for a bottom strip.
     anchor = HEIGHT if not flip else 0
-    body = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
-    path = f"M 0,{anchor} L {body} L {WIDTH:.1f},{anchor} Z"
+    path = f"M 0,{anchor} L {curve(points)} L {WIDTH:.1f},{anchor} Z"
     edge = "bottom" if flip else "top"
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}"\n'
