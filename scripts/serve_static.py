@@ -22,6 +22,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DIST), **kwargs)
 
+    def end_headers(self):
+        # The shell and the SW script must never sit in a heuristic cache:
+        # a stale sw.js delays every future update (observed 2026-10-10).
+        if self.path in ("/", "/index.html", "/sw.js"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def send_head(self):
         path = self.path.split("?", 1)[0].split("#", 1)[0]
         if path == "/api" or path.startswith("/api/"):

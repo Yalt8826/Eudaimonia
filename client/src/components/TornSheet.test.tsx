@@ -63,10 +63,10 @@ describe("TornSheet (01 §2 L2, v2 torn paper)", () => {
   });
 
   it("tears deterministically — same seed, same clip; different seed, different clip", () => {
-    expect(tornClipPath("plaza", 4.5)).toBe(tornClipPath("plaza", 4.5));
-    expect(tornClipPath("plaza", 4.5)).not.toBe(tornClipPath("waiting", 4.5));
+    expect(tornClipPath("plaza", 6.5)).toBe(tornClipPath("plaza", 6.5));
+    expect(tornClipPath("plaza", 6.5)).not.toBe(tornClipPath("waiting", 6.5));
     const { paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
-    expect(paper.style.clipPath).toBe(tornClipPath("plaza", 4.5));
+    expect(paper.style.clipPath).toBe(tornClipPath("plaza", 6.5));
   });
 
   it("is static — no animation constructs in any generated style (gate 4)", () => {

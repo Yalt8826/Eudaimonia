@@ -66,13 +66,13 @@ export function TornSheet({
   children,
 }: TornSheetProps) {
   const rotation = Math.max(-1, Math.min(1, rotationDeg));
-  const paperClip = tornClipPath(seed, 4.5);
+  const paperClip = tornClipPath(seed, 6.5);
   const outerStyle = {
     ...(fringeWidth === undefined ? {} : { "--fringe-w": fringeWidth }),
     position: "relative",
     transform: `rotate(${rotation}deg)`,
     // Flat shadow that follows the torn silhouette (never a glow).
-    filter: "drop-shadow(0 4px 5px var(--scrim))",
+    filter: "drop-shadow(0 5px 7px var(--scrim))",
   } as CSSProperties;
 
   // The fringe: the black skin's own torn rim, a slightly larger jagged
@@ -81,7 +81,7 @@ export function TornSheet({
     position: "relative",
     margin: "calc(var(--fringe-w) * 0.6)",
     background: "var(--bg)",
-    clipPath: tornClipPath(`${seed}:fringe`, 5.5),
+    clipPath: tornClipPath(`${seed}:fringe`, 8),
     padding: "var(--fringe-w)",
   };
 
@@ -113,8 +113,28 @@ export function TornSheet({
               }}
             />
           ) : null}
-          {/* Grain lighter than the skin's (1% vs the skin's 2%) and static —
-              the same asset, which carries no animation constructs (gate 4). */}
+          {/* Paper surface: fiber striations + a lit top edge, both static
+              and faint — texture reads as paper tooth (gate 4: never moves). */}
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage:
+                "repeating-linear-gradient(105deg, rgba(43,41,38,0.05) 0px, rgba(43,41,38,0.05) 1px, transparent 1px, transparent 4px)",
+              pointerEvents: "none",
+            }}
+          />
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 20%)",
+              pointerEvents: "none",
+            }}
+          />
           <span
             aria-hidden="true"
             style={{

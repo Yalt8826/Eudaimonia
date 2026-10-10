@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="presentation">
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360" role="presentation">
   <!-- Static film grain for the matte skin (01-design-system.md §2 L0):
-       fractal noise only, opacity 0.02 = the 2% ceiling. This asset is
+       coarse fractal noise only, opacity 0.02 = the 2% ceiling (larger
+       features read as paper tooth, not digital static). This asset is
        texture, not a screensaver — it must never move (gate 4). -->
   <filter id="eudaimonia-grain" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" stitchTiles="stitch"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.28" numOctaves="3" seed="11" stitchTiles="stitch"/>
     <feColorMatrix type="saturate" values="0"/>
   </filter>
-  <rect width="240" height="240" filter="url(#eudaimonia-grain)" opacity="0.02"/>
+  <rect width="360" height="360" filter="url(#eudaimonia-grain)" opacity="0.02"/>
 </svg>

@@ -4,9 +4,9 @@ import App from "./App";
 
 afterEach(cleanup);
 
-it("renders the plaza stub at /", () => {
+it("renders the plaza at /", () => {
   render(<App />);
-  expect(screen.getByRole("heading", { name: "Plaza" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Eudaimonia" })).toBeTruthy();
 });
 
 it("renders the global chrome (bubble cluster) on the plaza", () => {

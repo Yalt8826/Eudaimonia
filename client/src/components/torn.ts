@@ -28,9 +28,8 @@ export function hashSeed(seed: string): number {
  * same sheet always tears the same way. Values are percentages of the
  * element box; `amp` bounds how deep the tear bites in from top/bottom.
  */
-export function tornClipPath(seed: string, amp: number): string {
+export function tornClipPath(seed: string, amp: number, steps = 20): string {
   const rand = mulberry32(hashSeed(seed));
-  const steps = 14;
   const top: string[] = [];
   const bottom: string[] = [];
   for (let i = 0; i <= steps; i += 1) {

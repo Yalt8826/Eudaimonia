@@ -1,6 +1,7 @@
 import { Outlet, Route, Routes } from "react-router-dom";
 import { BubbleCluster } from "../components/BubbleCluster";
 import { TornSheet } from "../components/TornSheet";
+import { PlazaScreen } from "./PlazaScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { WakeScreen } from "./WakeScreen";
 
@@ -37,7 +38,7 @@ export function AppRoutes() {
       {/* hard-mode: bare, precached, never inside the Shell (law 9) */}
       <Route path="/habits/wake" element={<WakeScreen />} />
       <Route element={<Shell />}>
-        <Route path="/" element={<Stub name="Plaza" />} />
+        <Route path="/" element={<PlazaScreen />} />
         <Route path="/inbox" element={<Stub name="Inbox" />} />
         <Route path="/week/:iso" element={<Stub name="Week" />} />
         <Route path="/questions" element={<Stub name="Questions" />} />
