@@ -1,6 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 import grainUrl from "../assets/grain.svg";
+import foldLitUrl from "../assets/skin-fold-lit.svg";
+import foldDarkUrl from "../assets/skin-fold-dark.svg";
 import { TORN_STRIP_WIDTH, tornEdgePlan } from "./torn";
+
+// The rim bands and the paper's own surface carry the skin's crumple: the
+// same paired zero-mean fold layers the body uses (01 §2 L0 amended) — the
+// black stock is one continuous material, so its cut face is textured too.
 
 import edgeTop1 from "../assets/torn/edge-top-1.png";
 import edgeTop2 from "../assets/torn/edge-top-2.png";
@@ -78,6 +84,20 @@ const RULE_TOKEN: Record<TornRule, string> = {
   "accent-2": "var(--accent-2)",
 };
 
+/**
+ * The sheet's own torn face catching light, per tint (mockup 2026-10-10):
+ * white stock core on the warm papers, and on violet the bright violet glow
+ * the reference carries along the whole tear.
+ */
+const LIP_TOKEN: Record<TornSheetTint, string> = {
+  cream: "rgba(255, 255, 255, 0.42)",
+  mint: "rgba(255, 255, 255, 0.5)",
+  sky: "rgba(255, 255, 255, 0.5)",
+  blush: "rgba(255, 255, 255, 0.55)",
+  butter: "rgba(255, 255, 255, 0.5)",
+  violet: "var(--accent-2)",
+};
+
 export interface TornSheetProps {
   /** Paper tint, selecting one of the paper tokens from theme.css. */
   tint?: TornSheetTint;
@@ -98,8 +118,7 @@ export interface TornSheetProps {
   children: ReactNode;
 }
 
-/**
- * Build the layered CSS mask: torn strip at the top, solid middle, torn strip
+/** Build the layered CSS mask: torn strip at the top, solid middle, torn strip
  * at the bottom. Listed top-to-bottom; `mask-size` keeps the middle exactly
  * the leftover height, so the edges never scale with the sheet.
  */
@@ -165,7 +184,10 @@ export function TornSheet({
   const rimStyle = (inset: number, color: string): CSSProperties => ({
     position: "absolute",
     inset: `${-inset}px`,
-    background: color,
+    // The cut face is black stock — it carries the skin's crumple too, not
+    // a flat fill (same paired folds the body wears, 01 §2 L0 amended).
+    backgroundImage: `url(${foldLitUrl}), url(${foldDarkUrl})`,
+    backgroundColor: color,
     pointerEvents: "none",
     ...maskLayers(
       topSrc,
@@ -194,6 +216,27 @@ export function TornSheet({
     pointerEvents: "none",
   });
 
+  // The sheet's own torn face catching light along the top tear (mockup:
+  // pale stock core on the warm papers, bright violet glow on agents).
+  // Masked by the same top strip, so the highlight follows every serration.
+  const topLipStyle: CSSProperties = {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: `${EDGE_H}px`,
+    background: `linear-gradient(180deg, ${LIP_TOKEN[tint]} 0%, transparent 55%)`,
+    pointerEvents: "none",
+    maskImage: `url(${topSrc})`,
+    WebkitMaskImage: `url(${topSrc})`,
+    maskRepeat: "repeat-x",
+    WebkitMaskRepeat: "repeat-x",
+    maskSize: `${EDGE_W}px ${EDGE_H}px`,
+    WebkitMaskSize: `${EDGE_W}px ${EDGE_H}px`,
+    maskPosition: `${-scaleOffset(plan.topOffset)}px top`,
+    WebkitMaskPosition: `${-scaleOffset(plan.topOffset)}px top`,
+  };
+
   const paperStyle: CSSProperties = {
     position: "relative",
     background: TINT_TOKEN[tint],
@@ -216,6 +259,7 @@ export function TornSheet({
       <div style={paperStyle}>
         <span aria-hidden="true" style={skinCast("top")} />
         <span aria-hidden="true" style={skinCast("bottom")} />
+        <span aria-hidden="true" style={topLipStyle} />
         {rule !== undefined ? (
           <span
             aria-hidden="true"
