@@ -148,11 +148,34 @@ runs **inward**: the skin is the top layer and the paper is revealed
 beneath it, so a sheet casting *outward* onto the skin would render the
 stack upside down. The sheet keeps only a slight seat.
 
-**The skin's cut edge is lit** (`--skin-lip`): in the reference the torn
-black curls up and catches light, so the few pixels of rim around every
-sheet read lighter than the open field — not white, since torn black card
-shows dark fibre, just lit. Without it the tear reads as a shape stamped
-out of a flat field rather than as a layer torn away.
+**The skin is THICK stock, and a tear through thick stock shows its
+cross-section.** Walking up from the paper into the black in the reference,
+luminance runs **72 at 2px, 41 at 4px, 17 at 6px**, then the body's ~16:
+a bright narrow cut face catching light, falling into the dark body within
+about six pixels. That band is the whole reason the reference reads as
+thick paper rather than as a shape cut out of a flat field — a single flat
+rim is too dark and too even to carry it.
+
+So the rim is **three graded bands** (`--skin-lip-1..3`, lightest against
+the paper), each cut by the *same* tear so the cross-section follows every
+serration. Warm-neutral, never white: torn black card shows dark fibre.
+
+Two mechanics this depends on, both learned by rendering it wrong first:
+
+- **Every band must tile the tear at the same horizontal phase.** Each
+  band's box is a few px wider than the paper's, and `mask-position` is
+  measured from that box's own origin — so without adding the inset back,
+  the bands tile at different phases, their serrations stop lining up, and
+  four misaligned copies read as a grey haze instead of a cut face.
+- **The mask's own fray must stay tight** (~1px). Four bands stack on one
+  mask, so any softness in it is paid for four times over.
+
+The tear itself needs both ends of the spectrum: big scalloped waves
+swinging it 20–30px *and* sharp teeth a few px across riding on them, with
+fibres standing proud in places and notches bitten in elsewhere at heavily
+varied sizes. Weighting only the low octaves gives a smooth ribbon; only
+the high ones gives a straight band with a frayed hairline; wisps that only
+ever push outward give an even scallop.
 
 *(A pale fibre core along the tear was tried and cut: real torn stock shows
 it, but at this scale on these tints it read as an outline rather than as

@@ -17,7 +17,9 @@ afterEach(cleanup);
 
 interface SheetParts {
   wrapper: HTMLElement;
-  /** The skin's rim, behind the paper (inset -4). */
+  /** Every band of the torn cross-section, outermost first. */
+  rim: HTMLElement[];
+  /** The outermost band — the open skin behind the sheet. */
   fringe: HTMLElement;
   paper: HTMLElement;
 }
@@ -26,13 +28,15 @@ function sheetOf(ui: React.ReactElement): SheetParts {
   const { container } = render(ui);
   const wrapper = container.firstElementChild as HTMLElement | null;
   expect(wrapper).not.toBeNull();
-  const fringe = wrapper?.children[0] as HTMLElement | undefined;
-  const paper = wrapper?.children[1] as HTMLElement | undefined;
-  expect(fringe).toBeDefined();
+  const kids = [...(wrapper?.children ?? [])] as HTMLElement[];
+  const paper = kids.at(-1);
+  const rim = kids.slice(0, -1);
+  expect(rim.length, "the torn cross-section is a stack of graded bands").toBeGreaterThanOrEqual(3);
   expect(paper).toBeDefined();
   return {
     wrapper: wrapper as HTMLElement,
-    fringe: fringe as HTMLElement,
+    rim,
+    fringe: rim[0],
     paper: paper as HTMLElement,
   };
 }
@@ -129,17 +133,21 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
     }
   });
 
-  it("frames the paper with the black fringe, cut by the same tear", () => {
-    const { fringe, paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
-    const fringeStyle = styleOf(fringe);
-    // The rim is the skin's lit cut edge, not the flat field behind it.
-    expect(fringeStyle).toContain("var(--skin-lip)");
-    expect(fringeStyle).toContain("mask-image");
-    // Same tear on both, so the rim follows the tear instead of outlining it.
+  it("shows the stock's thickness as a graded cross-section along the tear", () => {
+    const { rim, paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
     const edges = (s: string): string[] => s.match(/edge-(top|bottom)-\d/g) ?? [];
-    expect(edges(fringeStyle)).toEqual(edges(styleOf(paper)));
-    // The fringe sits proud of the paper — that gap IS the visible rim.
-    expect(fringeStyle).toContain("inset: -4px");
+    // Every band is cut by the SAME tear, so the cross-section follows each
+    // serration rather than outlining the sheet.
+    for (const band of rim) {
+      expect(styleOf(band)).toContain("mask-image");
+      expect(edges(styleOf(band))).toEqual(edges(styleOf(paper)));
+    }
+    // Insets step inward, and the lit cut face sits against the paper —
+    // thick stock, not a line.
+    const insets = rim.map((b) => Number(/inset: -(\d+)px/.exec(styleOf(b))?.[1]));
+    expect(insets).toEqual([...insets].sort((a, b) => b - a));
+    expect(styleOf(rim[0])).toContain("var(--bg)");
+    expect(styleOf(rim.at(-1) as HTMLElement)).toContain("var(--skin-lip-1)");
   });
 
   it("renders the optional accent left-rule through its token", () => {

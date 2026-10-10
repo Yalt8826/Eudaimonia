@@ -69,30 +69,33 @@ def edge_profile(rng: np.random.Generator, width: int) -> np.ndarray:
 
 
 def fibre_wisps(rng: np.random.Generator, width: int, count: int) -> np.ndarray:
-    """Thin strands pulled proud of the tear — what makes it read as paper.
+    """Strands pulled proud of the tear, and notches bitten into it.
 
-    Each wisp is a narrow raised-cosine bump, wrapped so the strip still
-    tiles. They push the boundary outward only (a tear sheds fibres, it does
-    not bite neat notches).
+    A real tear is lacy: fibres stand out in places and the edge is eaten
+    away in others, at wildly varying sizes. Wisps only ever pushing one way
+    gives an even scallop, which is what the first pass looked like beside
+    the reference. Returns a signed offset; wrapped so the strip still tiles.
     """
-    y = np.zeros(width, dtype=np.float64)
+    out = np.zeros(width, dtype=np.float64)
     x = np.arange(width)
     for _ in range(count):
         centre = rng.integers(0, width)
-        half = int(rng.integers(3, 14))
-        height = rng.uniform(2.5, 8.0)
+        # Heavy-tailed sizes: mostly small fibres, occasionally a big bite.
+        half = int(max(2, rng.gamma(1.6, 5.0)))
+        height = rng.uniform(2.0, 11.0)
+        outward = rng.random() < 0.62
         offset = (x - centre + width // 2) % width - width // 2
         inside = np.abs(offset) <= half
         bump = np.zeros(width)
         bump[inside] = height * 0.5 * (1.0 + np.cos(np.pi * offset[inside] / half))
-        y = np.maximum(y, bump)
-    return y
+        out = np.maximum(out, bump) if outward else np.minimum(out, -bump)
+    return out
 
 
 def strip(seed: int, flip: bool) -> Image.Image:
     """One edge strip: opaque below the tear, transparent above it."""
     rng = np.random.default_rng(seed)
-    boundary = HEIGHT / 2.0 + edge_profile(rng, WIDTH) - fibre_wisps(rng, WIDTH, 60)
+    boundary = HEIGHT / 2.0 + edge_profile(rng, WIDTH) - fibre_wisps(rng, WIDTH, 90)
 
     # Supersample vertically: each output row averages SUPERSAMPLE probes, so
     # the boundary lands antialiased instead of stair-stepped.
@@ -100,11 +103,13 @@ def strip(seed: int, flip: bool) -> Image.Image:
     coverage = (rows[:, None] >= boundary[None, :]).astype(np.float64)
     alpha = coverage.reshape(HEIGHT, SUPERSAMPLE, WIDTH).mean(axis=1)
 
-    # Fray the last sliver of paper: right at the tear, thin the alpha a
-    # little and speckle it, so the boundary has fibre rather than a clean cut.
+    # Fray the last sliver, but keep it TIGHT. The sheet stacks four graded
+    # bands on this one mask to render the stock's thickness, so any
+    # softness here is paid for four times over and the cut face turns into
+    # a grey halo. One pixel of fibre, not three.
     distance = np.arange(HEIGHT)[:, None] - boundary[None, :]
-    fray = np.clip(distance / 2.5, 0.0, 1.0)
-    speckle = rng.uniform(0.70, 1.0, size=(HEIGHT, WIDTH))
+    fray = np.clip(distance / 1.1, 0.0, 1.0)
+    speckle = rng.uniform(0.82, 1.0, size=(HEIGHT, WIDTH))
     alpha = alpha * (fray + (1.0 - fray) * speckle)
 
     if flip:

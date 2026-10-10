@@ -76,12 +76,20 @@
      It runs INWARD because the skin is the top layer and the paper is
      revealed beneath it (01 §2 placement ruling). A sheet casting outward
      onto the skin would render the stack upside down. */
-  /* The torn lip of the skin itself. In the reference the black's cut edge
-     curls up and catches the light, so the few pixels of rim around every
-     sheet read lighter than the open field — NOT white (torn black card
-     shows dark fibre, not pale), just lit. This is what keeps the tear from
-     looking like a shape cut out of a flat field. */
-  --skin-lip: #1F1F21;
+  /* The torn edge of THICK stock, which is a cross-section, not a line.
+     Measured off the reference: walking up from the paper into the black,
+     luminance runs 72 at 2px, 41 at 4px, 17 at 6px, then the body's ~16.
+     That bright narrow band is the card's own thickness catching light,
+     and it is the whole reason the reference reads as thick paper rather
+     than as a shape cut out of a flat field. A single flat rim (the first
+     attempt, #1F1F21) is too dark and too even to read as thickness.
+
+     Three graded bands, lightest against the paper, cut by the SAME tear
+     so the cross-section follows every serration. Warm-neutral, not white:
+     torn black card shows dark fibre. */
+  --skin-lip-1: #6E6E74;  /* against the paper — the lit cut face */
+  --skin-lip-2: #45454A;
+  --skin-lip-3: #232327;  /* falling into the body */
   --skin-cast-max: rgba(0, 0, 0, 0.42);
   --skin-cast-mid: rgba(0, 0, 0, 0.23);
   --skin-cast-far: rgba(0, 0, 0, 0.09);

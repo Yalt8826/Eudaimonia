@@ -41,8 +41,21 @@ const EDGE_H = Math.round(160 * STRIP_SCALE);
 /** Rendered tiling period, px — scaled with the height so the tear keeps shape. */
 const EDGE_W = Math.round(TORN_STRIP_WIDTH * STRIP_SCALE);
 
-/** How far the skin's rim sits proud of the paper, px. */
-const RIM = 4;
+/**
+ * The torn cross-section of the skin, outermost first. Thick stock shows
+ * its own thickness along a tear — a bright narrow cut face against the
+ * paper, falling into the dark body within about 6px. Measured off the
+ * reference (luminance 72 at 2px, 41 at 4px, 17 at 6px), approximated here
+ * as graded bands cut by the SAME tear, so the cross-section follows every
+ * serration instead of outlining it.
+ */
+const RIM_BANDS: ReadonlyArray<{ inset: number; color: string }> = [
+  { inset: 8, color: "var(--bg)" },
+  { inset: 6, color: "var(--skin-lip-3)" },
+  { inset: 4, color: "var(--skin-lip-2)" },
+  { inset: 2, color: "var(--skin-lip-1)" },
+];
+
 
 /** The paper tints (01 §1 + 2026-10-10 amendment) — taxonomy, never valence. */
 export type TornSheetTint =
@@ -143,13 +156,24 @@ export function TornSheet({
   // reference the black's cut edge curls and catches light, and without
   // that the tear reads as a shape stamped out of a flat field rather than
   // as a layer torn away (placement ruling, 01 §2).
-  const fringeStyle: CSSProperties = {
+  // Each band's box is `inset` px wider than the paper's, and mask-position
+  // is measured from that box's own origin — so without compensation every
+  // band tiles the tear at a slightly different horizontal phase and the
+  // serrations stop lining up. Four misaligned copies read as a grey haze
+  // instead of a cut face. Adding the inset back puts every band on the
+  // same absolute phase, so the cross-section steps cleanly.
+  const rimStyle = (inset: number, color: string): CSSProperties => ({
     position: "absolute",
-    inset: `${-RIM}px`,
-    background: "var(--skin-lip)",
+    inset: `${-inset}px`,
+    background: color,
     pointerEvents: "none",
-    ...maskLayers(topSrc, bottomSrc, scaleOffset(plan.topOffset), scaleOffset(plan.bottomOffset)),
-  };
+    ...maskLayers(
+      topSrc,
+      bottomSrc,
+      scaleOffset(plan.topOffset) + inset,
+      scaleOffset(plan.bottomOffset) + inset,
+    ),
+  });
 
   // The paper sits inside the fringe's box by RIM on every side, cut by the
   // SAME tear — so the few pixels of difference are a dark ragged rim that
@@ -186,7 +210,9 @@ export function TornSheet({
 
   return (
     <section className={className} style={outerStyle}>
-      <span aria-hidden="true" style={fringeStyle} />
+      {RIM_BANDS.map((band) => (
+        <span key={band.inset} aria-hidden="true" style={rimStyle(band.inset, band.color)} />
+      ))}
       <div style={paperStyle}>
         <span aria-hidden="true" style={skinCast("top")} />
         <span aria-hidden="true" style={skinCast("bottom")} />
