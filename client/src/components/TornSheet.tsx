@@ -216,16 +216,18 @@ export function TornSheet({
     pointerEvents: "none",
   });
 
-  // The sheet's own torn face catching light along the top tear (mockup:
-  // pale stock core on the warm papers, bright violet glow on agents).
-  // Masked by the same top strip, so the highlight follows every serration.
+  // The sheet's torn faces catching light, per tint (mockup 2026-10-10):
+  // the TOP tear shows the white stock core fading into the tint's glow —
+  // bright violet on agents — and the BOTTOM tear tears DARK, the sheet's
+  // underside merging into the black band. Both masked by the same strips
+  // their edges use, so they follow every serration.
   const topLipStyle: CSSProperties = {
     position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     height: `${EDGE_H}px`,
-    background: `linear-gradient(180deg, ${LIP_TOKEN[tint]} 0%, transparent 55%)`,
+    background: `linear-gradient(180deg, rgba(255,255,255,0.85) 0%, ${LIP_TOKEN[tint]} 30%, transparent 60%)`,
     pointerEvents: "none",
     maskImage: `url(${topSrc})`,
     WebkitMaskImage: `url(${topSrc})`,
@@ -235,6 +237,24 @@ export function TornSheet({
     WebkitMaskSize: `${EDGE_W}px ${EDGE_H}px`,
     maskPosition: `${-scaleOffset(plan.topOffset)}px top`,
     WebkitMaskPosition: `${-scaleOffset(plan.topOffset)}px top`,
+  };
+
+  const bottomLipStyle: CSSProperties = {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: `${EDGE_H}px`,
+    background: `linear-gradient(0deg, var(--skin-lip-3) 0%, var(--skin-lip-2) 22%, transparent 58%)`,
+    pointerEvents: "none",
+    maskImage: `url(${bottomSrc})`,
+    WebkitMaskImage: `url(${bottomSrc})`,
+    maskRepeat: "repeat-x",
+    WebkitMaskRepeat: "repeat-x",
+    maskSize: `${EDGE_W}px ${EDGE_H}px`,
+    WebkitMaskSize: `${EDGE_W}px ${EDGE_H}px`,
+    maskPosition: `${-scaleOffset(plan.bottomOffset)}px bottom`,
+    WebkitMaskPosition: `${-scaleOffset(plan.bottomOffset)}px bottom`,
   };
 
   const paperStyle: CSSProperties = {
@@ -260,6 +280,8 @@ export function TornSheet({
         <span aria-hidden="true" style={skinCast("top")} />
         <span aria-hidden="true" style={skinCast("bottom")} />
         <span aria-hidden="true" style={topLipStyle} />
+        <span aria-hidden="true" style={bottomLipStyle} />
+        <span aria-hidden="true" style={topLipStyle} />
         {rule !== undefined ? (
           <span
             aria-hidden="true"
@@ -273,15 +295,26 @@ export function TornSheet({
             }}
           />
         ) : null}
-        {/* Paper surface: fiber striations + a lit top edge, both static
-              and faint — texture reads as paper tooth (gate 4: never moves). */}
+        {/* Paper surface: fiber striations + crumple mottling + a lit top
+              edge, all static and faint — texture reads as paper tooth and
+              crumple (gate 4: never moves). */}
         <span
           aria-hidden="true"
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage:
-              "repeating-linear-gradient(105deg, rgba(43,41,38,0.05) 0px, rgba(43,41,38,0.05) 1px, transparent 1px, transparent 4px)",
+            backgroundImage: `url(${foldDarkUrl})`,
+            opacity: 0.05,
+            pointerEvents: "none",
+          }}
+        />
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: `url(${foldLitUrl})`,
+            opacity: 0.04,
             pointerEvents: "none",
           }}
         />

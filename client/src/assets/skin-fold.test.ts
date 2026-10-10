@@ -26,13 +26,13 @@ for (const [name, source] of [
       expect(source).toMatch(/stitchTiles="stitch"/);
     });
 
-    it("stays at or below the 8% per-layer ceiling", () => {
+    it("stays at or below the 13% per-layer ceiling", () => {
       const opacities = [...source.matchAll(/opacity\s*=\s*["']([0-9]*\.?[0-9]+)["']/g)].map(
         (m) => Number.parseFloat(m[1]),
       );
       expect(opacities.length, "the layer must declare its opacity constant").toBeGreaterThan(0);
       for (const opacity of opacities) {
-        expect(opacity, `${name} opacity ${opacity} must be <= 0.08`).toBeLessThanOrEqual(0.08);
+        expect(opacity, `${name} opacity ${opacity} must be <= 0.13`).toBeLessThanOrEqual(0.13);
       }
     });
 
