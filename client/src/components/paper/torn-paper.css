@@ -85,12 +85,16 @@
   pointer-events: none;
 }
 
-.torn-section__skin--1 { --band: 6; --band-color: var(--bg); }
-.torn-section__skin--2 { --band: 5; --band-color: var(--skin-lip-5); }
-.torn-section__skin--3 { --band: 4; --band-color: var(--skin-lip-4); }
-.torn-section__skin--4 { --band: 3; --band-color: var(--skin-lip-3); }
-.torn-section__skin--5 { --band: 2; --band-color: var(--skin-lip-2); }
-.torn-section__skin--6 { --band: 1; --band-color: var(--skin-lip-1); }
+/* No band paints the base colour. An outermost --bg band covered the
+   page's own crinkled background with flat paint, which is exactly what
+   made the black between sheets read as a solid strip — the texture was
+   there the whole time, underneath. Outside the mask the sheet is
+   transparent, so the skin IS the page background, granular and all. */
+.torn-section__skin--1 { --band: 5; --band-color: var(--skin-lip-5); }
+.torn-section__skin--2 { --band: 4; --band-color: var(--skin-lip-4); }
+.torn-section__skin--3 { --band: 3; --band-color: var(--skin-lip-3); }
+.torn-section__skin--4 { --band: 2; --band-color: var(--skin-lip-2); }
+.torn-section__skin--5 { --band: 1; --band-color: var(--skin-lip-1); }
 
 /* ---- the paper ------------------------------------------------------ */
 .torn-section__paper {

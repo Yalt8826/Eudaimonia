@@ -10,9 +10,17 @@ not a frequency — it is the irregularity of the event itself.
 So the contour is authored as a sequence of points placed by hand, one
 lobe at a time, modelling how a sheet actually comes apart:
 
-  - rounded lobes of wildly varying width (8px to 70px) and height,
-    revised 2026-10-11 to a tighter range: the first pass read as mountain
-    peaks against the reference, whose tear swings about half as far
+  - BROAD rounded lobes, 60-130px wide, whose crowns are three points at a
+    similar height — a crest written as a single point is a triangle no
+    matter how it is smoothed, which is what the second pass looked like
+  - a shallow range OVERALL, but not an even one: most of each edge sits
+    within about +/-15px while two or three excursions per edge go much
+    further. Flattening everything equally (the third pass) traded
+    triangles for a band of near-uniform thickness, which the reference
+    never is — it is quiet for long stretches and then tears hard
+  - LONG shallow runs, 90px and more, where the fibre gave way cleanly;
+    the reference spends most of its length quiet and tears hard in a few
+    places, rather than tearing evenly everywhere
   - asymmetric flanks — a tear leans the way it was pulled
   - occasional DEEP undercuts, where the path steps BACKWARDS in x so the
     black genuinely overhangs the paper beneath it
@@ -51,89 +59,46 @@ Point = tuple[float, float]
 # undercut, a long shallow run through the middle, then heavier tearing
 # again toward the right.
 TEAR_A_TOP: list[Point] = [
-    (0, 50),
-    (19, 60), (27, 57),            # secondary nick on the rise
-    (44, 71),                      # first lobe
-    (58, 67), (52, 64),            # undercut — x steps back, black overhangs
-    (71, 46),                      # deep trough
-    (98, 55),
-    (121, 74),                     # tall lobe
-    (136, 66),
-    (158, 43),
-    (173, 49), (181, 46),          # secondary nick
-    (206, 78),                     # tallest lobe
-    (222, 69),
-    (247, 53),
-    (263, 58),                     # small lobe on the descent
-    (288, 37),                     # deep undercut trough
-    (309, 57),
-    (334, 49),
-    (357, 72),
-    (372, 68), (366, 65),          # second overhang
-    (389, 45),
-    (417, 52),
-    (433, 49),                     # --- long shallow run begins
-    (459, 57),
-    (478, 54),
-    (501, 64),
-    (524, 47),                     # --- shallow run ends
-    (547, 75),
-    (561, 67),
-    (583, 51),
-    (599, 56),
-    (627, 39),
-    (651, 70),
-    (668, 62),
-    (689, 48),
-    (704, 54),                     # secondary
-    (731, 44),
-    (757, 73),
-    (773, 64),
-    (800, 50),                     # == first y: the seam
+    # A shallow, barely-disturbed run to open with.
+    (0, 54), (16, 57), (34, 55), (52, 58), (74, 56), (96, 60),
+    # A BROAD lobe — the top is three points at a similar height, which is
+    # what makes it read as a rounded clump instead of a triangle.
+    (118, 64), (140, 72), (160, 79), (178, 77), (196, 71), (214, 62),
+    # Down to a moderate trough, with a secondary nick on the way.
+    (232, 55), (246, 50), (258, 53), (272, 40), (292, 34), (312, 39),
+    # ---- a long shallow run: ~90px where the fibre gave way cleanly ----
+    (334, 50), (356, 49), (378, 52), (400, 50), (422, 53), (444, 51),
+    # The deepest bite of this edge, and still a shallow one.
+    (462, 46), (480, 42), (498, 44), (516, 49),
+    # Second broad lobe, rounded top, overhanging on its right flank.
+    (538, 56), (560, 63), (580, 72), (598, 76), (614, 74), (626, 66),
+    (636, 68), (630, 65),
+    (652, 60), (672, 55),
+    # ---- a second shallow run into the seam ----
+    (692, 57), (714, 54), (736, 58), (756, 63), (772, 60),
+    (800, 54),
 ]
 
 # --- tear A, bottom edge ----------------------------------------------------
 # A different rhythm on purpose: the heavy tearing sits left-of-centre here,
 # where the top edge is quietest, so the two never echo each other.
 TEAR_A_BOTTOM: list[Point] = [
-    (0, 57),
-    (26, 46),
-    (41, 51), (35, 54),            # overhang
-    (63, 69),
-    (88, 49),
-    (104, 54),
-    (127, 41),
-    (149, 63),
-    (164, 59),
-    (186, 74),
-    (203, 66),
-    (227, 48),
-    (242, 52),
-    (268, 76),
-    (284, 68),
-    (311, 43),
-    (329, 50),
-    (352, 38),                     # deepest bite
-    (374, 60),
-    (396, 55),
-    (419, 71),
-    (436, 67), (430, 64),          # overhang
-    (453, 45),
-    (481, 58),
-    (498, 53),                     # --- shallow run
-    (523, 73),
-    (541, 64),
-    (566, 42),
-    (588, 51),
-    (607, 48),
-    (634, 70),
-    (657, 49),
-    (679, 57),
-    (702, 40),
-    (724, 62),
-    (748, 54),
-    (771, 66),
-    (800, 57),                     # == first y: the seam
+    # Opens shallow, then a wide low trough rather than a sharp valley.
+    (0, 58), (22, 55), (44, 58), (66, 54), (88, 50), (108, 45),
+    (126, 43), (146, 46), (168, 51),
+    # Broad lobe with a rounded crown.
+    (190, 57), (212, 63), (232, 72), (250, 78), (266, 75), (282, 64),
+    (300, 58), (316, 61), (310, 58),
+    (334, 52), (352, 48), (372, 50),
+    # ---- long shallow run ----
+    (394, 47), (416, 49), (438, 46), (460, 48),
+    # Second broad lobe.
+    (482, 53), (504, 59), (524, 65), (542, 70), (558, 69), (574, 66),
+    (594, 60), (614, 54), (634, 49),
+    # The deepest bite, wide-bottomed.
+    (652, 38), (668, 33), (686, 38), (706, 50),
+    (728, 54), (750, 57), (772, 60),
+    (800, 58),
 ]
 
 TABLES: dict[str, dict[str, list[Point]]] = {
@@ -188,7 +153,9 @@ def fibre(seed: int, samples: int) -> np.ndarray:
     Deliberately NOT a sum of sinusoids — that is what made the old contour
     periodic. This is irregular value noise at a few px, interpolated, with
     a linear ramp removed so the two ends meet and the strip still tiles.
-    Sparse deeper nicks ride on top, because a tear catches and jumps.
+    Dense BROKEN nicks ride on top — a fringe of fine fibre, not one
+    smooth line. A tear catches and jumps, and the edge it leaves is
+    granular at 1-3px.
     """
     rng = np.random.default_rng(seed)
     knots = int(samples / 1.6)  # a knot every ~1.6px: the reference's teeth are 2-3px
@@ -200,10 +167,10 @@ def fibre(seed: int, samples: int) -> np.ndarray:
     out = rough * 1.35 + detail
 
     # Nicks: short, irregular, mostly biting IN toward the black.
-    for _ in range(120):
+    for _ in range(260):
         start = int(rng.integers(0, samples))
-        width = int(max(2, rng.gamma(1.5, 1.9)))
-        depth = rng.uniform(1.2, 4.2) * (1.0 if rng.random() < 0.65 else -1.0)
+        width = int(max(1, rng.gamma(1.2, 1.5)))
+        depth = rng.uniform(0.8, 3.4) * (1.0 if rng.random() < 0.65 else -1.0)
         idx = (np.arange(start, start + width)) % samples
         shape = np.sin(np.linspace(0, np.pi, width))
         out[idx] -= depth * shape
