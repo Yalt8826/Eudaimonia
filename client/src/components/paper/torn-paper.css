@@ -85,15 +85,12 @@
   pointer-events: none;
 }
 
-.torn-section__skin--1 { --band: 9; --band-color: var(--bg); }
-.torn-section__skin--2 { --band: 8; --band-color: var(--skin-lip-8); }
-.torn-section__skin--3 { --band: 7; --band-color: var(--skin-lip-7); }
-.torn-section__skin--4 { --band: 6; --band-color: var(--skin-lip-6); }
-.torn-section__skin--5 { --band: 5; --band-color: var(--skin-lip-5); }
-.torn-section__skin--6 { --band: 4; --band-color: var(--skin-lip-4); }
-.torn-section__skin--7 { --band: 3; --band-color: var(--skin-lip-3); }
-.torn-section__skin--8 { --band: 2; --band-color: var(--skin-lip-2); }
-.torn-section__skin--9 { --band: 1; --band-color: var(--skin-lip-1); }
+.torn-section__skin--1 { --band: 6; --band-color: var(--bg); }
+.torn-section__skin--2 { --band: 5; --band-color: var(--skin-lip-5); }
+.torn-section__skin--3 { --band: 4; --band-color: var(--skin-lip-4); }
+.torn-section__skin--4 { --band: 3; --band-color: var(--skin-lip-3); }
+.torn-section__skin--5 { --band: 2; --band-color: var(--skin-lip-2); }
+.torn-section__skin--6 { --band: 1; --band-color: var(--skin-lip-1); }
 
 /* ---- the paper ------------------------------------------------------ */
 .torn-section__paper {

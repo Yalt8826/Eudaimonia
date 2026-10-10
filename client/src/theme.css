@@ -55,17 +55,24 @@
   /* Sampled off the measured falloff (72 at 2px, 41 at 4px, 17 at 6px) at
      1px steps. Four bands at 2px steps was too coarse: where the tear runs
      near-horizontal the steps separate and read as stair-stepping rather
-     than as a cut face. 1px steps resolve into a ramp. Deepened to 8 bands
-     2026-10-11 along with the heavier tear: a thicker torn edge shows more
-     of its own cross-section. */
-  --skin-lip-1: #76767C;
-  --skin-lip-2: #65656B;
-  --skin-lip-3: #55555B;
-  --skin-lip-4: #46464B;
-  --skin-lip-5: #38383D;
-  --skin-lip-6: #2B2B2F;
-  --skin-lip-7: #202023;
-  --skin-lip-8: #171719;
+     than as a cut face. 1px steps resolve into a ramp.
+
+     NARROWED AND DARKENED 2026-10-11, measured against the reference.
+     Walking into the black from the paper, the reference runs
+       85 · 68 · 54 · 41 · 28 · 22 · 18  at 1-7px
+     while nine bands ran 77 · 49 · 59 · 58 · 45 · 33 · 23 — lighter from
+     3px inward and two px wider, which reads as a grey outline drawn
+     around the sheet rather than as the black layer's own torn edge. Five
+     lip bands now sit BELOW the reference curve,
+       69 · 51 · 37 · 26 · 17  at 1-5px, then the body
+     so the boundary is crisper and darker than the reference rather than
+     softer. The fine fibre and the contact shadow are untouched: what
+     shrank is the grey, not the material. */
+  --skin-lip-1: #44444A;
+  --skin-lip-2: #323237;
+  --skin-lip-3: #242428;
+  --skin-lip-4: #19191D;
+  --skin-lip-5: #111114;
 
   /* The skin's edge falling ONTO the paper below it (the skin is the top
      layer). Measured: 42% at the tear, gone by ~28px. */
