@@ -29,22 +29,20 @@ import edgeBottom3 from "../assets/torn/edge-bottom-3.png";
 const EDGE_TOP = [edgeTop1, edgeTop2, edgeTop3];
 const EDGE_BOTTOM = [edgeBottom1, edgeBottom2, edgeBottom3];
 
-// The generator writes 1600x96 strips. They render at 45% so the tear
-// reads at a phone's scale — about 43px of bite rather than 96px, which
-// swallowed short sheets whole — and downscaling only sharpens the detail.
-const STRIP_SCALE = 0.45;
+// The generator writes 1600x160 strips, rendered at 50%: an 80px band whose
+// tear swings 20-30px vertically, matching the reference, where the black
+// band's thickness varies enormously across the width. Downscaling only
+// sharpens the fine serration.
+const STRIP_SCALE = 0.5;
 
 /** Rendered height of one edge strip, px. */
-const EDGE_H = Math.round(96 * STRIP_SCALE);
+const EDGE_H = Math.round(160 * STRIP_SCALE);
 
 /** Rendered tiling period, px — scaled with the height so the tear keeps shape. */
 const EDGE_W = Math.round(TORN_STRIP_WIDTH * STRIP_SCALE);
 
 /** How far the skin's rim sits proud of the paper, px. */
 const RIM = 4;
-
-/** How far the pale fibre core sits proud of the paper, px — inside the rim. */
-const CORE = 2;
 
 /** The paper tints (01 §1 + 2026-10-10 amendment) — taxonomy, never valence. */
 export type TornSheetTint =
@@ -140,13 +138,15 @@ export function TornSheet({
     filter: "drop-shadow(var(--sheet-seat))",
   } as CSSProperties;
 
-  // The fringe: the black skin's own torn rim. Same masks, offset by a few
-  // pixels and painted in the base, so a dark ragged rim frames the light
-  // paper rather than the paper floating on black (placement ruling, 01 §2).
+  // The skin's own torn rim, cut by the same tear a few pixels proud of the
+  // paper. Painted in --skin-lip rather than the flat base: in the
+  // reference the black's cut edge curls and catches light, and without
+  // that the tear reads as a shape stamped out of a flat field rather than
+  // as a layer torn away (placement ruling, 01 §2).
   const fringeStyle: CSSProperties = {
     position: "absolute",
     inset: `${-RIM}px`,
-    background: "var(--bg)",
+    background: "var(--skin-lip)",
     pointerEvents: "none",
     ...maskLayers(topSrc, bottomSrc, scaleOffset(plan.topOffset), scaleOffset(plan.bottomOffset)),
   };
@@ -154,28 +154,19 @@ export function TornSheet({
   // The paper sits inside the fringe's box by RIM on every side, cut by the
   // SAME tear — so the few pixels of difference are a dark ragged rim that
   // follows the tear exactly, rather than an outline drawn around it.
-  // The pale fibre core: torn coloured stock is white inside, and that thin
-  // bright line along the tear is most of what makes paper read as torn
-  // rather than as a shape with a ragged outline. It sits between the skin's
-  // rim and the paper, cut by the same tear.
-  const coreStyle: CSSProperties = {
-    position: "absolute",
-    inset: `${-CORE}px`,
-    background: "var(--paper-core)",
-    pointerEvents: "none",
-    ...maskLayers(topSrc, bottomSrc, scaleOffset(plan.topOffset), scaleOffset(plan.bottomOffset)),
-  };
-
   // The skin's torn edge falling onto the paper below it. Clipped by the
   // paper's own mask (overflow hidden + the mask), so the cast follows the
   // tear instead of running straight across.
+  // Stops trace the measured falloff (theme.css --skin-cast-*): steep for
+  // the first few pixels, then a long thin tail. A single linear ramp reads
+  // as a gradient laid over the paper; this reads as a shadow.
   const skinCast = (edge: "top" | "bottom"): CSSProperties => ({
     position: "absolute",
     left: 0,
     right: 0,
     [edge]: 0,
-    height: `${Math.round(EDGE_H * 1.15)}px`,
-    background: `linear-gradient(${edge === "top" ? 180 : 0}deg, var(--skin-cast), transparent)`,
+    height: "var(--skin-cast-depth)",
+    background: `linear-gradient(${edge === "top" ? 180 : 0}deg, var(--skin-cast-max) 0%, var(--skin-cast-mid) 14%, var(--skin-cast-far) 36%, transparent 100%)`,
     pointerEvents: "none",
   });
 
@@ -196,7 +187,6 @@ export function TornSheet({
   return (
     <section className={className} style={outerStyle}>
       <span aria-hidden="true" style={fringeStyle} />
-      <span aria-hidden="true" style={coreStyle} />
       <div style={paperStyle}>
         <span aria-hidden="true" style={skinCast("top")} />
         <span aria-hidden="true" style={skinCast("bottom")} />

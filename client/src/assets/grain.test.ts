@@ -3,13 +3,15 @@ import grainSource from "./grain.svg?raw";
 
 // Gate 4 (01 v2 §7): the grain asset is static — no animation constructs of
 // any kind — and every opacity constant stays under the ceiling. The ceiling
-// is 16% as amended 2026-10-10 (01 §2 L0): the skin is crumpled black stock,
+// is 8% as amended 2026-10-10 (01 §2 L0): the skin is crumpled black stock,
 // which needs a coarse fold scale as well as fine tooth, and 2% was set when
 // it was a flat field. The ceiling is bounded by the only text that sits on
-// the skin — the Plaza header — which now rides a dark scrim so the
-// texture is not capped by it. The real bound is the rendered result,
-// measured: mean #14, std 14.9. Vite's ?raw import hands the test the
-// asset's exact source at bundle time.
+// the skin — the Plaza header — which rides a dark scrim so the texture is
+// not capped by it. The real bound is the rendered result, matched to the
+// reference by measurement: mean 13.7 and std [4.4, 3.6, 2.7, 2.2] across
+// successive 2x downsamples, against the reference's 12.5 and
+// [4.6, 3.5, 2.8, 2.6]. Vite's ?raw import hands the test the asset's
+// exact source at bundle time.
 
 const GRAIN = grainSource;
 
@@ -62,24 +64,25 @@ describe("grain asset (01 §2 L0, gate 4)", () => {
     }
   });
 
-  it("carries both texture scales — the crumple and the tooth", () => {
+  it("carries the reference's texture scales — crinkle, broad, tooth", () => {
     const frequencies = [...GRAIN.matchAll(/baseFrequency\s*=\s*["']([^"']+)["']/g)].map(
       (m) => Number.parseFloat(m[1].trim().split(/\s+/)[0]),
     );
-    expect(frequencies.length, "two turbulence scales").toBeGreaterThanOrEqual(2);
-    // A fold scale an order of magnitude below the tooth: without it the
-    // skin is a flat field with static on top, which is what 2% looked like.
-    expect(Math.min(...frequencies)).toBeLessThan(0.05);
-    expect(Math.max(...frequencies)).toBeGreaterThan(0.3);
+    expect(frequencies.length, "three turbulence scales").toBeGreaterThanOrEqual(3);
+    // The reference measures a dominant feature around 4.5px — a fine dense
+    // crinkle, not big soft folds. A broad whisper underneath keeps the
+    // texture from vanishing under downsampling the way folds-only did.
+    expect(Math.min(...frequencies), "a broad scale").toBeLessThan(0.05);
+    expect(Math.max(...frequencies), "a fine tooth").toBeGreaterThan(0.5);
   });
 
-  it("stays at or below the 16% opacity ceiling (amended 2026-10-10)", () => {
+  it("stays at or below the 8% opacity ceiling (amended 2026-10-10)", () => {
     const opacities = [...GRAIN.matchAll(/opacity\s*=\s*["']([0-9]*\.?[0-9]+)["']/g)].map((m) =>
       Number.parseFloat(m[1]),
     );
     expect(opacities.length, "the grain must declare its opacity constant").toBeGreaterThan(0);
     for (const opacity of opacities) {
-      expect(opacity, `grain opacity ${opacity} must be <= 0.16 (16%)`).toBeLessThanOrEqual(0.16);
+      expect(opacity, `grain opacity ${opacity} must be <= 0.08 (8%)`).toBeLessThanOrEqual(0.08);
     }
   });
 });

@@ -66,21 +66,29 @@
   /* torn-paper primitive defaults (01 §2 L2) */
   --fringe-w: 1.25rem;      /* ragged fringe width; text padding >= fringe */
   --torn-rotation: -0.4deg; /* static, <= 1deg */
-  /* Depth at the tear, which is a question of WHICH LAYER IS ON TOP. The
-     skin is the top layer and the paper is revealed beneath it (01 §2
-     placement ruling), so the shadow runs inward: the skin's torn edge
-     falls ONTO the paper. A sheet casting outward onto the skin would
-     render the stack upside down — paper on top of black — which is what
-     the first pass did.
+  /* Depth at the tear, measured off the ratified reference render rather
+     than guessed. Sampling straight down from a torn edge into the paper
+     below gives a shadow of 42% at the edge, decaying to nothing by ~28px:
+       +0px 57.5% of far paper · +4px 76.9% · +10px 91.4% · +20px 97.7%
+     That is a tight contact shadow, not the broad 55%/49px wash a first
+     pass assumed.
 
-     --skin-cast      the skin's edge falling on the paper below (inward)
-     --sheet-seat     a slight seat under the whole sheet, so it still sits
-                      in the skin rather than floating free of it
-     --paper-core     torn coloured stock shows its pale fibre core along
-                      the tear; a thin band of it rides every torn edge */
-  --skin-cast: rgba(0, 0, 0, 0.55);
-  --sheet-seat: 0 2px 4px rgba(0, 0, 0, 0.85);
-  --paper-core: #EFE7D8;
+     It runs INWARD because the skin is the top layer and the paper is
+     revealed beneath it (01 §2 placement ruling). A sheet casting outward
+     onto the skin would render the stack upside down. */
+  /* The torn lip of the skin itself. In the reference the black's cut edge
+     curls up and catches the light, so the few pixels of rim around every
+     sheet read lighter than the open field — NOT white (torn black card
+     shows dark fibre, not pale), just lit. This is what keeps the tear from
+     looking like a shape cut out of a flat field. */
+  --skin-lip: #1F1F21;
+  --skin-cast-max: rgba(0, 0, 0, 0.42);
+  --skin-cast-mid: rgba(0, 0, 0, 0.23);
+  --skin-cast-far: rgba(0, 0, 0, 0.09);
+  --skin-cast-depth: 28px;
+  /* The sheet barely sits proud at all — in the reference the paper is
+     BELOW the skin, so there is almost nothing to cast outward. */
+  --sheet-seat: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 /* ---- Obsidian-dialect callout mapping (v1 §6 contract; 01 §2 end) ------

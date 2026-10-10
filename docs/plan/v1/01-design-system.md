@@ -107,7 +107,7 @@ reserved for system failure a human must fix.
 below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
 was a flat field with noise over it; the ratified mockup reads as crumpled
 black stock, which needs a coarse fold scale (lit for relief) as well as
-fine tooth. Ceiling is now **≤16% per layer**, and the asset carries exactly
+fine tooth. Ceiling is **≤8% per layer**, and the asset carries exactly
 two scales. Still static, always — gate 4 is a plain string match, so even
 naming an animation construct in a comment trips it.
 
@@ -119,63 +119,44 @@ Each layer now maps its own flat value to black, so flat ground contributes
 nothing over a near-black base and only ridges tilted into the light carry
 any. Measured after the fix: mean **#11**, against the reference's **#10**.
 
-**The transfer is a threshold, not just a re-centring.** Nothing shows below
-a lighting value of 0.885, so creases read as sparse bright catches on a
-black field rather than an even grey wash. That is the difference between
-std 9 and std 15 at the same darkness — and std 15 is what the reference
-render measures. Three scales: coarse fold, the creases between folds, fine
-tooth.
+**Matched to the reference by measurement, not by eye.** Sampling an open
+black patch of the ratified render, in CSS pixels, gives **mean 12.5** and
+**std 4.6 / 3.5 / 2.8 / 2.6** across successive 2× downsamples — a *fine
+dense crinkle*, close-grained and nearly black, not big soft folds. Earlier
+passes built 80px folds at std 14 and read as lighting on a grey field; the
+character was wrong before the amplitude was. The asset now carries a
+dominant crinkle at the reference's own scale, a whisper of broad shading
+beneath it (without which the texture dies under downsampling faster than
+the reference does), and fine tooth over both: **mean 13.7, std 4.4 / 3.6 /
+2.7 / 2.2**. Opacities ≤8% per layer.
 
-**What bounds it is measurement, not the declared opacity.** The only text
-that ever sits on bare skin is the Plaza header, and rather than cap the
-crumple at whatever the header survives, the header rides its own dark
-scrim (`theme.css` body) and the skin is free everywhere else. Rendered and
-measured: open skin **mean #14, std 14.2** against the reference's #10 /
-15.4; header ground mean #07, with `--muted` at **6.78** on its brightest
-pixel. Ceiling ≤16% per layer, which the sparse threshold needs and the
-scrim affords.
+**Both layers are zero-mean, which is what keeps the skin black.**
+`feDiffuseLighting` returns `sin(elevation)` on flat ground — 0.848, not
+0.5 — so a transfer centred on 0.5 lifts the whole field: the skin rendered
+at **#1C** against a `#0B0B0C` base, visibly washed. Each layer now maps its
+own flat value to black.
 
-**The skin is the top layer, so shadows run inward.** A sheet casting
-outward onto the skin renders the stack upside down — paper on top of
-black. Instead the skin's torn edge falls *onto* the paper below
-(`--skin-cast`), clipped by the paper's own tear, and the sheet keeps only
-a slight seat beneath it (`--sheet-seat`).
+**The only text on bare skin is the Plaza header**, and it rides a dark
+scrim (`theme.css` body) rather than capping the texture. The reference has
+the same darker top.
 
-**Torn coloured stock shows its pale fibre core** (`--paper-core`): a thin
-band riding every tear, between the skin's rim and the tint. It is most of
-what makes a shape read as *torn* rather than as a shape with a ragged
-outline — three concentric bands cut by one tear: skin rim, fibre core,
-paper.
+**Depth at the tear is measured too.** Sampling straight down from a torn
+edge into the paper below the reference gives a shadow of **42% at the
+edge, decaying to nothing by ~28px** (+0px 57.5% of far paper · +4px 76.9%
+· +10px 91.4% · +20px 97.7%) — a tight contact shadow, not a broad wash. It
+runs **inward**: the skin is the top layer and the paper is revealed
+beneath it, so a sheet casting *outward* onto the skin would render the
+stack upside down. The sheet keeps only a slight seat.
 
-**Sheets cast two shadows, not one** (`--sheet-shadow-contact`,
-`--sheet-shadow-cast`): a tight contact shadow pinning the tear to the skin
-and a broad soft cast lifting the sheet off it. Both flat black — torn
-paper never glows — and both applied as `drop-shadow`, never `box-shadow`,
-so they trace the masked silhouette instead of a rectangle. They read
-*because* the skin is textured: a shadow on an untextured black field is
-invisible, so the zero-mean grain and these two land together. **Per the user's placement ruling,
-torn paper sits *under* this skin**: sheets are revealed where the black
-tears away, so the ragged fringe is the black layer's own edge — dark
-fringe framing light paper, never paper edges floating on black.
+**The skin's cut edge is lit** (`--skin-lip`): in the reference the torn
+black curls up and catches light, so the few pixels of rim around every
+sheet read lighter than the open field — not white, since torn black card
+shows dark fibre, just lit. Without it the tear reads as a shape stamped
+out of a flat field rather than as a layer torn away.
 
-**L1 — glass, for touching only.** Buttons, nav bubbles, chips, sheet
-handles: `--glass-fill` + 1px border + `blur(14px) saturate(140%)`,
-radius 16. The blur budget gets *easier*: glass exists only on interactive
-elements, so most screens run zero live blur. One blurred layer per screen
-remains the ceiling; behind long lists, static fill.
-
-**L2 — torn paper, for reading** *(and, since 2026-10-10, for the Plaza's
-sections — see §2a)*. One shared primitive (`TornSheet`): a **raster alpha
-mask**, tint prop, and two calibrated variables —
-`--fringe-w` with **text padding ≥ fringe width** (fringe exclusion zone)
-and grain **lighter than the skin's, static**. Rotation ≤1°, static.
-Shadow flat; torn paper never glows. Calibration surfaces: the **weekly
-review** (longest text — if 500+ words read comfortably there, every sheet
-is fine) and **nutrition detail** (densest table-on-paper).
-
-Obsidian exports keep the dialect; callouts may style as torn slips in
-`theme.css` — same four-state mapping (success / failure(system-only) /
-warning / neutral-note for dormancy).
+*(A pale fibre core along the tear was tried and cut: real torn stock shows
+it, but at this scale on these tints it read as an outline rather than as
+fibre.)*
 
 ### 2a. Sheets are paper, controls are glass (amended 2026-10-10)
 

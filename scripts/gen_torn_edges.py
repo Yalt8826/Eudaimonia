@@ -26,7 +26,7 @@ import numpy as np
 from PIL import Image
 
 WIDTH = 1600
-HEIGHT = 96
+HEIGHT = 160
 SUPERSAMPLE = 8  # vertical subpixel samples, for an antialiased boundary
 OUT = pathlib.Path(__file__).resolve().parent.parent / "client/src/assets/torn"
 
@@ -35,17 +35,26 @@ OUT = pathlib.Path(__file__).resolve().parent.parent / "client/src/assets/torn"
 # Amplitudes are tuned against the reference render: a tear swings far more
 # than a decorative wobble, and a shy edge reads as a torn-paper filter
 # rather than as torn paper.
+# Tuned against the reference render's own edge, which needs BOTH ends of
+# the spectrum: big scalloped waves that swing the tear 20-30px vertically,
+# AND fine sharp teeth a few px across riding on them. Weighting only the
+# low octaves gives a smooth ribbon; only the high ones gives a straight
+# band with a frayed hairline. The reference has a thick black band whose
+# thickness varies enormously across the width — that is the low octaves.
 OCTAVES: list[tuple[int, float]] = [
-    (1, 11.0),
-    (2, 7.5),
-    (3, 5.0),
-    (5, 3.4),
-    (8, 2.2),
-    (13, 1.5),
-    (21, 1.0),
-    (34, 0.7),
-    (55, 0.45),
-    (89, 0.3),
+    (1, 22.0),
+    (2, 14.0),
+    (3, 9.0),
+    (5, 6.0),
+    (8, 4.0),
+    (13, 3.0),
+    (21, 2.4),
+    (34, 2.0),
+    (55, 1.6),
+    (89, 1.2),
+    (144, 0.9),
+    (233, 0.6),
+    (377, 0.4),
 ]
 
 
@@ -70,8 +79,8 @@ def fibre_wisps(rng: np.random.Generator, width: int, count: int) -> np.ndarray:
     x = np.arange(width)
     for _ in range(count):
         centre = rng.integers(0, width)
-        half = int(rng.integers(5, 26))
-        height = rng.uniform(3.0, 11.0)
+        half = int(rng.integers(3, 14))
+        height = rng.uniform(2.5, 8.0)
         offset = (x - centre + width // 2) % width - width // 2
         inside = np.abs(offset) <= half
         bump = np.zeros(width)
@@ -83,7 +92,7 @@ def fibre_wisps(rng: np.random.Generator, width: int, count: int) -> np.ndarray:
 def strip(seed: int, flip: bool) -> Image.Image:
     """One edge strip: opaque below the tear, transparent above it."""
     rng = np.random.default_rng(seed)
-    boundary = HEIGHT / 2.0 + edge_profile(rng, WIDTH) - fibre_wisps(rng, WIDTH, 34)
+    boundary = HEIGHT / 2.0 + edge_profile(rng, WIDTH) - fibre_wisps(rng, WIDTH, 60)
 
     # Supersample vertically: each output row averages SUPERSAMPLE probes, so
     # the boundary lands antialiased instead of stair-stepped.
@@ -94,7 +103,7 @@ def strip(seed: int, flip: bool) -> Image.Image:
     # Fray the last sliver of paper: right at the tear, thin the alpha a
     # little and speckle it, so the boundary has fibre rather than a clean cut.
     distance = np.arange(HEIGHT)[:, None] - boundary[None, :]
-    fray = np.clip(distance / 4.5, 0.0, 1.0)
+    fray = np.clip(distance / 2.5, 0.0, 1.0)
     speckle = rng.uniform(0.70, 1.0, size=(HEIGHT, WIDTH))
     alpha = alpha * (fray + (1.0 - fray) * speckle)
 

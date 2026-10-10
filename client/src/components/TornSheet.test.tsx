@@ -8,18 +8,17 @@ import { tornEdgePlan, TORN_VARIANTS } from "./torn";
 // rotation <= 1deg, deterministic tears, and no animation constructs (gate 4).
 //
 // v3: the tear is a raster alpha mask, not a clip path (paper separates along
-// its fibres, and a polygon reads as a sawtooth). The fringe is now a sibling
+// its fibres, and a polygon reads as a sawtooth). The fringe is a sibling
 // inset behind the paper rather than its parent, so the SAME tear cuts both
-// and the few pixels between them are the dark rim.
+// and the few pixels between them are the dark rim. Depth at the tear runs
+// INWARD — the skin is the top layer, so it casts onto the paper below.
 
 afterEach(cleanup);
 
 interface SheetParts {
   wrapper: HTMLElement;
-  /** The skin's rim, furthest back (inset -4). */
+  /** The skin's rim, behind the paper (inset -4). */
   fringe: HTMLElement;
-  /** The pale fibre core, between rim and paper (inset -2). */
-  core: HTMLElement;
   paper: HTMLElement;
 }
 
@@ -28,15 +27,12 @@ function sheetOf(ui: React.ReactElement): SheetParts {
   const wrapper = container.firstElementChild as HTMLElement | null;
   expect(wrapper).not.toBeNull();
   const fringe = wrapper?.children[0] as HTMLElement | undefined;
-  const core = wrapper?.children[1] as HTMLElement | undefined;
-  const paper = wrapper?.children[2] as HTMLElement | undefined;
+  const paper = wrapper?.children[1] as HTMLElement | undefined;
   expect(fringe).toBeDefined();
-  expect(core).toBeDefined();
   expect(paper).toBeDefined();
   return {
     wrapper: wrapper as HTMLElement,
     fringe: fringe as HTMLElement,
-    core: core as HTMLElement,
     paper: paper as HTMLElement,
   };
 }
@@ -59,7 +55,7 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
     // The tear bites a full edge-strip height into the sheet, so padding
     // carries that as an explicit px term on top of the fringe — text can
     // never land inside the tear.
-    expect(styleOf(paper)).toMatch(/padding-top:\s*calc\(var\(--fringe-w\) \* 0\.55 \+ 43px\)/);
+    expect(styleOf(paper)).toMatch(/padding-top:\s*calc\(var\(--fringe-w\) \* 0\.55 \+ 80px\)/);
   });
 
   it("renders each paper tint through its token, never a literal color", () => {
@@ -107,21 +103,8 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
     expect(style).toContain("repeat-x");
     // Rendered at 45%: the strip keeps its proportions and only the solid
     // middle flexes, so the tear never stretches with sheet height.
-    expect(style).toContain("720px 43px");
+    expect(style).toContain("800px 80px");
     expect(paper.style.clipPath).toBe("");
-  });
-
-  it("shows the pale fibre core along the tear, between rim and paper", () => {
-    const { fringe, core, paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
-    const coreStyle = styleOf(core);
-    expect(coreStyle).toContain("var(--paper-core)");
-    // Torn coloured stock is white inside: the core sits INSIDE the skin's
-    // rim and OUTSIDE the paper, so a thin pale line rides every tear.
-    expect(styleOf(fringe)).toContain("inset: -4px");
-    expect(coreStyle).toContain("inset: -2px");
-    // Same tear on all three, or the bands would not be concentric.
-    const edges = (s: string): string[] => s.match(/edge-(top|bottom)-\d/g) ?? [];
-    expect(edges(coreStyle)).toEqual(edges(styleOf(paper)));
   });
 
   it("casts the skin's edge INWARD onto the paper, not the paper outward", () => {
@@ -130,7 +113,7 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
     // comes from it falling on the paper below. A sheet casting outward
     // would render the stack upside down.
     const casts = [...paper.querySelectorAll("span")].filter((s) =>
-      (s.getAttribute("style") ?? "").includes("var(--skin-cast)"),
+      (s.getAttribute("style") ?? "").includes("var(--skin-cast-max)"),
     );
     expect(casts.length, "one cast per torn edge, top and bottom").toBe(2);
     expect(styleOf(wrapper)).toContain("var(--sheet-seat)");
@@ -138,8 +121,8 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
   });
 
   it("is static — no animation constructs in any generated style (gate 4)", () => {
-    const { wrapper, fringe, core, paper } = sheetOf(<TornSheet>text</TornSheet>);
-    for (const el of [wrapper, fringe, core, paper]) {
+    const { wrapper, fringe, paper } = sheetOf(<TornSheet>text</TornSheet>);
+    for (const el of [wrapper, fringe, paper]) {
       const style = styleOf(el).toLowerCase();
       expect(style).not.toContain("animation");
       expect(style).not.toContain("transition");
@@ -149,7 +132,8 @@ describe("TornSheet (01 §2 L2, v3 torn paper)", () => {
   it("frames the paper with the black fringe, cut by the same tear", () => {
     const { fringe, paper } = sheetOf(<TornSheet seed="plaza">text</TornSheet>);
     const fringeStyle = styleOf(fringe);
-    expect(fringeStyle).toContain("var(--bg)");
+    // The rim is the skin's lit cut edge, not the flat field behind it.
+    expect(fringeStyle).toContain("var(--skin-lip)");
     expect(fringeStyle).toContain("mask-image");
     // Same tear on both, so the rim follows the tear instead of outlining it.
     const edges = (s: string): string[] => s.match(/edge-(top|bottom)-\d/g) ?? [];

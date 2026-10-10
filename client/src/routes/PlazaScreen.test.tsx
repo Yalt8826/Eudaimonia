@@ -65,7 +65,7 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
   it("renders on torn paper sheets — five tinted TornSheets, raster-torn", () => {
     const container = plaza();
     const sheets = [...container.querySelectorAll("section")].filter((el) =>
-      (el.children[2]?.getAttribute("style") ?? "").includes("mask-image"),
+      (el.children[1]?.getAttribute("style") ?? "").includes("mask-image"),
     );
     expect(sheets.length).toBe(5);
   });
