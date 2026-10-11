@@ -216,21 +216,22 @@ FRINGE_SCALE = 2
 
 RELIEF = {
     "fragments": 54,       # attempts per edge; the zone field gates them
-    "clump_share": 0.24,   # the few places a whole flake came away
+    "clump_share": 0.32,   # the few places a whole flake came away
     "clump_w": (26, 68),   # clumps: wide enough for the modelling to read
     "clump_drop": (9.0, 19.0),
     "chip_w": (8, 26),     # chips: the common small fragment
     "chip_drop": (2.5, 7.0),
-    "crown": (62, 124),     # the lit ridge where the scrap lifts away
-    "lit_share": 0.62,     # how many fragments catch light at all
+    "crown": (78, 158),     # the lit ridge where the scrap lifts away
+    "lit_share": 0.70,      # of CLUMPS, before the clustering field
+    "lit_share_chip": 0.05, # chips stay dark; a lit chip is a bright dot     # how many fragments catch light at all
     "body": (4, 12),       # the dark body it falls to at the tip
     "lean": 0.30,          # how hard the light favours one flank
-    "contact": 0.58,
+    "contact": 0.70,
     # The light comes from above. A top edge's cut face tilts up into it;
     # a bottom edge's tilts away, so the same crown brightness on both
     # lights a face that should be in shadow — and a lit rim under the
     # sheet is read as an outline, not as relief.
-    "downlight": 0.42,       # the narrow shadow it drops on the paper
+    "downlight": 0.78,       # the narrow shadow it drops on the paper
 }
 
 
@@ -287,32 +288,15 @@ def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) ->
             rgba[yi, x, :3] = value
             rgba[yi, x, 3] = min(1.0, alpha)
 
-    # 1. A FEW lit facets on the open cut, well back from the contour.
-    #    These predate the relief below and must stay sparse now that
-    #    fragments carry their own light: a run that hugs the contour for
-    #    its whole length draws a line along it, and a line along the
-    #    contour is the grey halo this edge must not have. So each run is
-    #    dotted rather than solid, its depth wanders, and it is dim.
-    x = 0
-    while x < w_px:
-        run = int(max(4, rng.gamma(2.0, 7.0)) * s)
-        if rng.random() < 0.10 + 0.26 * zone_lit[x % w_px]:
-            depth = rng.uniform(1.6, 4.4) * s
-            base = rng.uniform(42, 88) * lit_gain
-            # Dotted at CSS granularity, not raster granularity: gaps
-            # narrower than a display pixel close up again when the
-            # raster is drawn back down, and the run becomes the solid
-            # line along the contour that this breaking exists to prevent.
-            keep = rng.random(int(run / s) + 2) >= 0.42
-            for i in range(run):
-                if not keep[i // s]:
-                    continue
-                xx = (x + i) % w_px
-                fade = np.sin(np.pi * (i + 0.5) / run) ** 0.5
-                put(xx, ys[xx] - depth + rng.uniform(-1.4, 1.0) * s,
-                    base * rng.uniform(0.80, 1.18),
-                    rng.uniform(0.18, 0.46) * fade * (0.45 + 0.55 * zone_lit[xx]))
-        x += run + int(max(6, rng.gamma(2.2, 11.0)) * s)
+    # 1. (removed) There used to be runs of lit facets hugging the
+    #    contour here. They predate the relief and they were the wrong
+    #    idea: light placed RELATIVE TO THE CONTOUR follows the contour,
+    #    which is the definition of an outline however finely it is
+    #    broken up. Light now belongs to fragments, which are discrete
+    #    and sparse, so it cannot trace the tear. Measured first: by the
+    #    end they were almost entirely overwritten by later marks anyway
+    #    (0.1% of columns survived above the contour), so removing them
+    #    costs nothing and removes a standing temptation to turn them up.
 
     # 2. Recesses inside the black: darker than the skin's own crinkle, so
     #    they read as hollows between the lit facets rather than as paint.
@@ -322,8 +306,9 @@ def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) ->
         d0 = rng.uniform(1.2, 6.0) * s
         for i in range(w):
             xx = (cx + i) % w_px
-            put(xx, ys[xx] - d0, 3.0,
-                rng.uniform(0.25, 0.60) * np.sin(np.pi * (i + 0.5) / w))
+            fade = np.sin(np.pi * (i + 0.5) / w)
+            for k in range(s):
+                put(xx, ys[xx] - d0 + k, 0.0, rng.uniform(0.45, 0.85) * fade)
 
     # 3. COARSE SCALE: fragments of the black layer, delaminated and
     #    hanging over the sheet, still attached at the tear.
@@ -353,7 +338,8 @@ def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) ->
             # below to read at all. A fragment is WIDER THAN IT HANGS —
             # when that reverses it stops being a scrap and becomes a
             # tooth, and a row of teeth is fur.
-            if rng.random() < RELIEF["clump_share"]:
+            is_clump = rng.random() < RELIEF["clump_share"]
+            if is_clump:
                 w = int(rng.uniform(*RELIEF["clump_w"]) * s)
                 drop = rng.uniform(*RELIEF["clump_drop"]) * s
             else:
@@ -381,12 +367,23 @@ def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) ->
             glint = np.cumsum(rng.normal(0.0, 1.0, w))
             glint -= glint.mean()
             glint = np.clip(glint / (abs(glint).max() + 1e-6), 0.0, 1.0)
-            glint = np.clip((glint - 0.18) / 0.45, 0.0, 1.0) ** 0.6
+            glint = np.clip((glint - 0.10) / 0.55, 0.0, 1.0) ** 0.5
 
             crown = rng.uniform(*RELIEF["crown"]) * lit_gain
             base = rng.uniform(*RELIEF["body"])
             lean = rng.uniform(-1.0, 1.0)   # which flank the light favours
-            lit = rng.random() < RELIEF["lit_share"]
+            # Light belongs to the LARGE raised crowns. A chip is a few px
+            # of hang: a highlight on one is a bright dot, and a scatter of
+            # bright dots along the tear is the outline again, just
+            # dotted. A clump has a ridge wide enough to show a crown, a
+            # body falling away from it, and a shadow under it — which is
+            # the whole of what makes a fragment read as a solid thing.
+            #
+            # And lit fragments CLUSTER: the slow field leaves whole
+            # stretches dark, so the highlights come in patches with gaps
+            # rather than spaced evenly along the edge.
+            share = RELIEF["lit_share"] if is_clump else RELIEF["lit_share_chip"]
+            lit = rng.random() < share * (0.15 + 1.9 * zone_lit[cx])
             # Where along the hang the fold-ridge sits. Never at the
             # attachment line: a crown at y=0 on every fragment is a
             # highlight strung along the contour, i.e. an outline.
@@ -415,12 +412,13 @@ def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) ->
                         shade += (crown - base) * float(np.exp(-near * near)) * float(glint[i])
                     put(xx, ys[xx] + yy, float(np.clip(shade * flank, 3, 170)), 0.95)
                 # The hollow behind it, inside the black.
-                if rng.random() < 0.5:
-                    put(xx, ys[xx] - rng.uniform(0.4, 2.4) * s, 3.0,
-                        rng.uniform(0.25, 0.55) * prof)
+                if rng.random() < 0.72:
+                    for k in range(s):
+                        put(xx, ys[xx] - rng.uniform(0.4, 2.4) * s + k, 0.0,
+                            rng.uniform(0.45, 0.88) * prof)
                 # Narrow contact shadow where it lies on the exposed paper.
                 for k in range(1, 2 * s + 1):
-                    put(xx, ys[xx] + depth + k, 7.0,
+                    put(xx, ys[xx] + depth + k, 3.0,
                         max(0.0, RELIEF["contact"] - 0.18 * (k / s)) * prof)
 
     # 4. FINE SCALE: short broken strands, concentrated where the edge is

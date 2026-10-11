@@ -52,43 +52,7 @@
      along a tear: a lit cut face against the paper falling into the dark
      body within a few px. Measured off the reference (luminance 72 at 2px,
      41 at 4px, 17 at 6px). NOT white — torn black card shows dark fibre. */
-  /* Sampled off the measured falloff (72 at 2px, 41 at 4px, 17 at 6px) at
-     1px steps. Four bands at 2px steps was too coarse: where the tear runs
-     near-horizontal the steps separate and read as stair-stepping rather
-     than as a cut face. 1px steps resolve into a ramp.
 
-     NARROWED AND DARKENED 2026-10-11, measured against the reference.
-     Walking into the black from the paper, the reference runs
-       85 · 68 · 54 · 41 · 28 · 22 · 18  at 1-7px
-     while nine bands ran 77 · 49 · 59 · 58 · 45 · 33 · 23 — lighter from
-     3px inward and two px wider, which reads as a grey outline drawn
-     around the sheet rather than as the black layer's own torn edge. Five
-     lip bands now sit BELOW the reference curve,
-       38 · 30 · 24 · 18 · 13  at 1-5px, then the body
-     so the boundary is crisper and darker than the reference rather than
-     softer. The fine fibre and the contact shadow are untouched: what
-     shrank is the grey, not the material.
-
-     Darkened again 2026-10-11, and this is the point of the number: at
-     69 the first band drew a 2px grey line along 98% of the contour —
-     measurably a continuous halo, which is the one thing a torn edge
-     must not have. The cross-section still steps, so the stock still
-     reads thick; what carries the LIGHT now is the fringe's relief,
-     which is irregular by construction and lights under 10% of columns.
-     Raise these and the halo comes straight back; measure before you
-     do. */
-  --skin-lip-1: #26262B;
-  --skin-lip-2: #1E1E22;
-  --skin-lip-3: #18181C;
-  --skin-lip-4: #121216;
-  --skin-lip-5: #0D0D10;
-
-  /* The skin's edge falling ONTO the paper below it (the skin is the top
-     layer). Measured: 42% at the tear, gone by ~28px. */
-  --skin-cast-max: rgba(0, 0, 0, 0.42);
-  --skin-cast-mid: rgba(0, 0, 0, 0.23);
-  --skin-cast-far: rgba(0, 0, 0, 0.09);
-  --skin-cast-depth: 28px;
   /* state colors — two calibrated pairs, same hue per surface (01 §1) */
   --alive-glass: #3FB950;   --alive-paper: #27963C;
   --dead-glass: #F85149;    --dead-paper: #D64545;
@@ -131,19 +95,36 @@
      revealed beneath it (01 §2 placement ruling). A sheet casting outward
      onto the skin would render the stack upside down. */
   /* The torn edge of THICK stock, which is a cross-section, not a line.
-     Measured off the reference: walking up from the paper into the black,
-     luminance runs 72 at 2px, 41 at 4px, 17 at 6px, then the body's ~16.
-     That bright narrow band is the card's own thickness catching light,
-     and it is the whole reason the reference reads as thick paper rather
-     than as a shape cut out of a flat field. A single flat rim (the first
-     attempt, #1F1F21) is too dark and too even to read as thickness.
+     Five bands, cut by the SAME tear so the cross-section follows every
+     serration, graded from the band against the paper down into the body.
+     Warm-neutral, not white: torn black card shows dark fibre.
 
-     Three graded bands, lightest against the paper, cut by the SAME tear
-     so the cross-section follows every serration. Warm-neutral, not white:
-     torn black card shows dark fibre. */
-  --skin-lip-1: #6E6E74;  /* against the paper — the lit cut face */
-  --skin-lip-2: #45454A;
-  --skin-lip-3: #232327;  /* falling into the body */
+     THESE BANDS ARE THE MASK OFFSET BY 1-5px, so they follow the contour
+     exactly and whatever luminance they carry becomes a rim along the
+     ENTIRE tear. That is the one thing a torn edge must not have, and it
+     is worth knowing how the measurement went, because it cost three
+     wrong answers:
+
+       #6E6E74 · #45454A · #232327   a 3px rim at luminance 110 / 69 / 35
+                                     on 100% of columns (measured with the
+                                     fringe layer disabled, which is the
+                                     only way to attribute it)
+       this ramp                     32 / 26 / 21 / 17 / 13
+
+     The step is still there, so the stock still reads thick. What carries
+     the LIGHT is the fringe's relief, which is attached to discrete
+     fragments and so cannot trace the tear.
+
+     Before raising these, profile the rim (scripts/rim.py). Do NOT anchor
+     a metric on "the first mint pixel": this tear is ragged enough that
+     such a window sits on its own antialiasing and reads ~98% on every
+     build, which is how a rim survived three passes that each claimed to
+     have removed it. */
+  --skin-lip-1: #202024;  /* against the paper — the lit cut face */
+  --skin-lip-2: #1A1A1E;
+  --skin-lip-3: #151518;
+  --skin-lip-4: #111114;
+  --skin-lip-5: #0D0D10;  /* falling into the body */
   --skin-cast-max: rgba(0, 0, 0, 0.42);
   --skin-cast-mid: rgba(0, 0, 0, 0.23);
   --skin-cast-far: rgba(0, 0, 0, 0.09);
