@@ -16,7 +16,7 @@ interface RouteCase {
 }
 
 const ROUTE_MAP: readonly RouteCase[] = [
-  { path: "/", expected: "Eudaimonia", chrome: true },
+  { path: "/", expected: "Today's Plan", chrome: true },
   { path: "/inbox", expected: "Inbox", chrome: true },
   { path: "/habits/wake", expected: "I'M AWAKE", chrome: false },
   { path: "/week/2026-W41", expected: "Week", chrome: true },

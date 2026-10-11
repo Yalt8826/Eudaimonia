@@ -114,6 +114,11 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, Rgba, number, string]> = [
   ["--accent-1", GLASS, 9.34, "on glass"],
   ["--accent-2", GLASS, 5.57, "on glass"],
   ["--accent-2-ink", CREAM, 5.98, "on cream"],
+  // The Plaza's greeting is a teal->plum gradient clipped to the text, so
+  // BOTH endpoints are the heading's colour somewhere along its length and
+  // both must clear the floor against the page itself, not against glass.
+  ["--accent-1", BG, 10.57, "on the page (greeting gradient start)"],
+  ["--accent-2", BG, 6.30, "on the page (greeting gradient end)"],
 ];
 
 /**
@@ -145,6 +150,15 @@ const SECTION_TINTS = [
   "--paper-blush",
   "--paper-butter",
   "--paper-violet",
+] as const;
+
+/** The five sheets the Plaza actually renders (spec §2.1 palette). */
+const SHEET_TINTS = [
+  "--sheet-mint",
+  "--sheet-sky",
+  "--sheet-blush",
+  "--sheet-butter",
+  "--sheet-lavender",
 ] as const;
 
 /** [token, measured CR from 01 §1] — state glass tier, floor >= 4.5. */
@@ -212,6 +226,38 @@ describe("contrast lint (01 v2 §7 gate 1) — computed, not transcribed", () =>
   // 2026-10-10). Two assertions, and the first is the reason for the second:
   // the paper pair genuinely fails on these grounds, so the dot gets a well
   // back down to the matte skin and carries the GLASS pair there instead.
+  describe("the nav bubbles, which float over every surface", () => {
+    // A bubble is not backed by --bg: it drifts over the black skin AND
+    // over all five sheets as the page scrolls. Measured on the fill
+    // alone the icon reads 14.88 on the skin and 1.22 on butter, so the
+    // bubble carries a veil beneath the fill. The floor has to hold on
+    // the LIGHTEST paper, which is the hardest case.
+    const VEIL = token("--bubble-veil");
+    const FILL = token("--glass-fill");
+    for (const sheet of SHEET_TINTS) {
+      it(`--text on a bubble over ${sheet}: >= ${TEXT_FLOOR}`, () => {
+        const surface = compositeOver(FILL, compositeOver(VEIL, token(sheet)));
+        const ratio = contrastRatio(token("--text"), surface);
+        expect(
+          ratio,
+          `--text on a bubble over ${sheet}: computed ${ratio.toFixed(2)} — ` +
+            `thin the veil and the icons stop reading on paper`,
+        ).toBeGreaterThanOrEqual(TEXT_FLOOR);
+      });
+    }
+
+    it("would fail on paper WITHOUT the veil, which is why it is there", () => {
+      for (const sheet of SHEET_TINTS) {
+        const ratio = contrastRatio(token("--text"), compositeOver(FILL, token(sheet)));
+        expect(
+          ratio,
+          `--text on bare glass over ${sheet} computes ${ratio.toFixed(2)} — if this ` +
+            `ever clears ${TEXT_FLOOR}, the sheets were paled and the veil may be redundant`,
+        ).toBeLessThan(TEXT_FLOOR);
+      }
+    });
+  });
+
   describe("the hue-law accent on its own sheet", () => {
     // The accent marks who acts (01 §4). On paper it must use the -ink
     // pair: the raw accents are tuned for glass and the black skin, and

@@ -6,7 +6,11 @@ afterEach(cleanup);
 
 it("renders the plaza at /", () => {
   render(<App />);
-  expect(screen.getByRole("heading", { name: "Eudaimonia" })).toBeTruthy();
+  // The heading is a time-of-day greeting, not the app's name — match the
+  // shape so the test does not depend on the hour it runs at.
+  expect(
+    screen.getByRole("heading", { name: /^(Good (morning|afternoon|evening)|Welcome back), / }),
+  ).toBeTruthy();
 });
 
 it("renders the global chrome (bubble cluster) on the plaza", () => {

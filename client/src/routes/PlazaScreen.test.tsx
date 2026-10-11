@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { PlazaScreen } from "./PlazaScreen";
+import { DAILY_LINES } from "./greeting";
 
 // The Plaza (04 `/`) rendered in the torn-paper language per the ratified
 // mockup — with the honesty laws asserted: until the P1 adapters land, every
@@ -20,11 +21,18 @@ function plaza(): HTMLElement {
 }
 
 describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
-  it("renders the header hierarchy: date label, title, tagline", () => {
+  it("greets its owner: long date, time-of-day greeting, daily line", () => {
     const container = plaza();
-    expect(screen.getByRole("heading", { name: "Eudaimonia" })).toBeTruthy();
-    expect(container.textContent).toContain("Today ·");
-    expect(container.textContent).toContain("A calmer, more intentional you");
+    expect(
+      screen.getByRole("heading", { name: /^(Good (morning|afternoon|evening)|Welcome back), / }),
+      "the header greets rather than naming the app at its owner",
+    ).toBeTruthy();
+    // Long-form date, and one of the cycling daily lines beneath it.
+    expect(container.textContent).toMatch(
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), \d{1,2} \w+/,
+    );
+    expect(DAILY_LINES.some((line) => (container.textContent ?? "").includes(line))).toBe(true);
+    expect(container.querySelector('a[href="/settings"]'), "no gear in the header").toBeNull();
   });
 
   it("renders the five mockup sections in order", () => {
@@ -57,7 +65,9 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
 
   it("links each strip to its real route", () => {
     const container = plaza();
-    for (const href of ["/routine", "/inbox", "/meals", "/timeline", "/agents", "/settings"]) {
+    // /settings is no longer here: it moved out of the header gear and into
+    // the nav cluster's Settings bubble, so the Plaza owns only its strips.
+    for (const href of ["/routine", "/inbox", "/meals", "/timeline", "/agents"]) {
       expect(container.querySelector(`a[href="${href}"]`), href).not.toBeNull();
     }
   });

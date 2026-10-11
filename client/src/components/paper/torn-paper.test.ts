@@ -23,6 +23,9 @@ function readRepoFile(relative: string): string {
 
 const CSS = readRepoFile("src/components/paper/torn-paper.css");
 const THEME = readRepoFile("src/theme.css");
+const METRICS = JSON.parse(readRepoFile("src/assets/paper/tear-metrics.json")) as {
+  reach: Record<string, { top: number; bottom: number }>;
+};
 
 /** Blends that leave a mid-grey source pixel equal to the backdrop. */
 const TINT_SAFE_BLENDS = ["soft-light", "overlay", "normal"];
@@ -139,6 +142,46 @@ describe("torn-paper.css — the component must not undo the measured palette", 
       }
       expect(rule).toContain(`tear-${tear}-top.svg`);
       expect(rule).toContain(`fringe-${tear}-top.png`);
+    }
+  });
+
+  it("keeps text clear of the tear's MATERIAL on every contour", () => {
+    // The padding used to be `tear-h + 0.4rem` on every edge — a worst
+    // case no authored contour reaches. Tightening it is only safe
+    // against a measurement, because the thing text must clear is not the
+    // contour but the fringe clumps hanging up to 14px past it. The reach
+    // is measured off the emitted PNGs by scripts/author_tears.py; if a
+    // contour is ever retouched, regenerating moves these numbers and
+    // this test is what notices.
+    const BREATHING_ROOM = 5;
+    const forTear = (tear: string): { top: number; bottom: number } => {
+      const rule =
+        tear === "a"
+          ? /\.torn-section \{([\s\S]*?)\n\}/.exec(CSS)?.[1]
+          : new RegExp(`\\.torn-section--tear-${tear} \\{([^}]*)\\}`).exec(CSS)?.[1];
+      const num = (prop: string): number => {
+        const m = new RegExp(`--${prop}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(rule ?? "");
+        expect(m, `tear-${tear} declares --${prop}`).not.toBeNull();
+        return Number(m?.[1]);
+      };
+      return { top: num("pad-top"), bottom: num("pad-bottom") };
+    };
+
+    for (const [tear, reach] of Object.entries(METRICS.reach)) {
+      const pad = forTear(tear);
+      for (const edge of ["top", "bottom"] as const) {
+        expect(
+          pad[edge],
+          `tear-${tear} ${edge}: padding ${pad[edge]}px does not clear the ` +
+            `measured material reach of ${reach[edge]}px — text would sit under the fringe`,
+        ).toBeGreaterThanOrEqual(reach[edge] + BREATHING_ROOM);
+        // And not wastefully loose, which is what made the page too long.
+        expect(
+          pad[edge],
+          `tear-${tear} ${edge}: padding ${pad[edge]}px is more than 15px ` +
+            `past the ${reach[edge]}px it needs — that is empty sheet`,
+        ).toBeLessThanOrEqual(reach[edge] + 15);
+      }
     }
   });
 

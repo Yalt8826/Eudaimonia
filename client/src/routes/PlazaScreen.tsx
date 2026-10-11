@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Chevron, CoverageLine, Dot, Pill, Row } from "../components/ui";
 import { TornPaperSection } from "../components/paper/TornPaperSection";
 import { PLAZA_STRIPS } from "./plazaModel";
+import { dailyLine, dateLabel, greetingFor } from "./greeting";
 
 // The Plaza (04 `/`): the read-only dashboard on the shared coverage view.
 // Rendered in the torn-paper language per the ratified mockup (2026-10-10).
@@ -14,74 +15,54 @@ const mono = {
   fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 } as const;
 
-function todayLabel(now: Date): string {
-  return now.toLocaleDateString("en-GB", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function Header() {
   const now = new Date();
   return (
-    <header style={{ position: "relative", padding: "0.4rem 1.15rem 1rem" }}>
-      <Link
-        to="/settings"
-        aria-label="Settings"
-        style={{
-          position: "absolute",
-          right: 0,
-          top: "0.6rem",
-          width: "3rem",
-          height: "3rem",
-          borderRadius: "9999px",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--glass-fill)",
-          border: "1px solid var(--glass-border)",
-          color: "var(--text)",
-        }}
-      >
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <path
-            d="M12 3.5v2.2M12 18.3v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
-      </Link>
+    // No settings gear here any more — Settings is a bubble in the nav
+    // cluster, and the same destination in two places is one too many.
+    <header style={{ position: "relative", padding: "0.4rem 1.15rem 1.1rem" }}>
       <p
         style={{
           ...mono,
           margin: 0,
-          fontSize: "0.85rem",
+          fontSize: "0.8rem",
           letterSpacing: "0.08em",
           color: "var(--muted)",
         }}
       >
-        Today · {todayLabel(now)}
+        {dateLabel(now)}
       </p>
       <h1
         style={{
-          margin: "0.2rem 0 0.25rem",
-          fontSize: "1.9rem",
+          margin: "0.25rem 0 0.3rem",
+          // Clamped: "Good afternoon, Yashas" is 22 characters and wrapped
+          // to two lines at 320px, which left the greeting looking broken
+          // rather than long.
+          fontSize: "clamp(1.4rem, 6.4vw, 1.9rem)",
           fontWeight: 700,
           letterSpacing: "-0.01em",
-          color: "var(--text)",
+          // Teal into plum across the greeting. Both ends are measured
+          // against --bg in contrast.test.ts; `color` stays set as the
+          // fallback for anything that cannot clip a background to text,
+          // where transparent text would otherwise disappear entirely.
+          color: "var(--accent-1)",
+          backgroundImage: "linear-gradient(100deg, var(--accent-1), var(--accent-2))",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          width: "fit-content",
         }}
       >
-        Eudaimonia
+        {greetingFor(now)}
       </h1>
       <p style={{ ...mono, margin: 0, fontSize: "0.8rem", color: "var(--muted)" }}>
-        A calmer, more intentional you
+        {dailyLine(now)}
       </p>
     </header>
   );
 }
+
 
 function WakeChipRow() {
   return (

@@ -1,0 +1,27 @@
+/* The bubble cluster's non-inline rules.
+
+   Two things cannot be expressed as inline styles, and both are about what
+   happens when the thing is touched:
+
+   TAP HIGHLIGHT. Mobile WebKit/Blink paint a translucent blue rectangle
+   over a link the instant it is touched, before navigation runs. On round
+   glass bubbles it flashes as a blue SQUARE behind the circle, which is
+   what it looked like: a blue mark appearing before the action. It is the
+   UA's own affordance and the only way off it is this property.
+
+   FOCUS. Clearing the tap highlight must not clear keyboard focus with it.
+   `outline: none` alone would leave someone navigating by keyboard with no
+   idea where they are, so the ring is restored on :focus-visible — which
+   fires for keyboard and not for pointer, exactly the distinction wanted. */
+
+[data-nav="bubble-cluster"] a,
+[data-nav="bubble-cluster"] button {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+[data-nav="bubble-cluster"] a:focus-visible,
+[data-nav="bubble-cluster"] button:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 3px;
+}

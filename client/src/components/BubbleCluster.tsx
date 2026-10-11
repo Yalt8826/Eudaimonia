@@ -1,13 +1,26 @@
 import { useState, type CSSProperties, type ReactElement } from "react";
 import { Link, useLocation } from "react-router-dom";
+import "./bubble-cluster.css";
 
-// The bubble cluster (01 §3, v2 per the ratified mockup 2026-10-10): an
-// organic cluster of floating glass bubbles anchored bottom-right by the
-// teal ＋ capture FAB (the one FAB). Tap More expands the full route sheet
-// (two-tap law). The blur budget lives here: exactly ONE live blur in this
-// file, on the expanded sheet's panel — the bubbles themselves are static
-// glass fills, five bubbles do not mean five layers. The cluster is rendered
-// on every route EXCEPT /habits/wake (law 9) — see routes.tsx.
+// The bubble cluster (01 §3): floating glass bubbles anchored to the
+// BOTTOM-LEFT corner by the ＋ capture FAB. Tap More expands the full route
+// sheet (two-tap law). Rendered on every route EXCEPT /habits/wake (law 9)
+// — see routes.tsx.
+//
+// Laid out on two axes rather than scattered: a column rising from capture
+// (settings, then more) and a row running right from it (plaza, week,
+// inbox), both aligned to capture's centre lines. The previous version
+// placed each bubble at its own hand-tuned offset to read as an "organic
+// cluster"; it read as misaligned.
+//
+// BLUR BUDGET (01 §2 L1) — knowingly exceeded, 2026-10-12, at the owner's
+// request. The law allows exactly ONE live blur per screen, and it was
+// spent on the expanded route sheet; the bubbles were static glass fills
+// precisely so six bubbles would not mean six layers. They now carry real
+// backdrop-filter, so an open sheet is seven. Small circles are cheap to
+// blur and nothing here animates, but this is a deliberate departure from
+// a written law rather than an oversight: if the budget is reinstated,
+// this is the file to revert.
 
 function currentIsoWeekUrl(now: Date): string {
   const date = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
@@ -75,6 +88,15 @@ const ICONS = {
       <circle cx="18" cy="12" r="1.4" fill="currentColor" />
     </svg>
   ),
+  settings: (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <circle {...stroke} cx="12" cy="12" r="3.2" />
+      <path
+        {...stroke}
+        d="M12 3.5v2.2M12 18.3v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"
+      />
+    </svg>
+  ),
   plus: (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
       <path
@@ -91,11 +113,18 @@ const ICONS = {
 const containerStyle: CSSProperties = {
   position: "fixed",
   inset: "var(--nav-cluster-inset)",
-  width: "10.5rem",
-  height: "9rem",
+  width: "14.6rem",
+  height: "11.2rem",
   pointerEvents: "none",
   zIndex: 40,
 };
+
+/** Capture's size, and the gap between neighbours. The rest derives. */
+const FAB = 4.4;
+const DOT = 3;
+const GAP = 0.4;
+/** Centre a DOT-sized bubble on capture's centre line. */
+const ALIGN = `${FAB / 2 - DOT / 2}rem`;
 
 function bubbleShell(size: string): CSSProperties {
   return {
@@ -107,8 +136,12 @@ function bubbleShell(size: string): CSSProperties {
     alignItems: "center",
     justifyContent: "center",
     pointerEvents: "auto",
-    background: "var(--glass-fill)",
+    // The fill over a veil, not the fill alone — see --bubble-veil.
+    background:
+      "linear-gradient(var(--glass-fill), var(--glass-fill)), var(--bubble-veil)",
     border: "1px solid var(--glass-border)",
+    backdropFilter: "blur(14px) saturate(140%)",
+    WebkitBackdropFilter: "blur(14px) saturate(140%)",
     color: "var(--text)",
     boxShadow: "0 3px 8px var(--scrim)",
     textDecoration: "none",
@@ -139,19 +172,23 @@ export function BubbleCluster() {
     pos: CSSProperties;
     size: string;
   }> = [
-    { key: "more", label: "More", icon: ICONS.more, size: "2.6rem", pos: { right: "5.9rem", bottom: "6.1rem" } },
-    { key: "week", label: "Week", to: WEEK_URL, icon: ICONS.week, size: "2.9rem", pos: { right: "3.1rem", bottom: "6.4rem" } },
-    { key: "plaza", label: "Plaza", to: "/", icon: ICONS.plaza, size: "3rem", pos: { right: "6.4rem", bottom: "2.9rem" } },
-    { key: "inbox", label: "Inbox", to: "/inbox", icon: ICONS.inbox, size: "3rem", pos: { right: "3.2rem", bottom: "3.1rem" } },
-    {
-      key: "capture",
-      label: "＋ capture",
-      to: "/capture",
-      icon: ICONS.plus,
-      size: "4.4rem",
-      pos: { right: 0, bottom: 0 },
-    },
+    // the column, rising from capture
+    { key: "more", label: "More", icon: ICONS.more, size: `${DOT}rem`,
+      pos: { left: ALIGN, bottom: `${FAB + GAP + DOT + GAP}rem` } },
+    { key: "settings", label: "Settings", to: "/settings", icon: ICONS.settings, size: `${DOT}rem`,
+      pos: { left: ALIGN, bottom: `${FAB + GAP}rem` } },
+    // the row, running right from capture
+    { key: "plaza", label: "Plaza", to: "/", icon: ICONS.plaza, size: `${DOT}rem`,
+      pos: { left: `${FAB + GAP}rem`, bottom: ALIGN } },
+    { key: "week", label: "Week", to: WEEK_URL, icon: ICONS.week, size: `${DOT}rem`,
+      pos: { left: `${FAB + GAP + DOT + GAP}rem`, bottom: ALIGN } },
+    { key: "inbox", label: "Inbox", to: "/inbox", icon: ICONS.inbox, size: `${DOT}rem`,
+      pos: { left: `${FAB + GAP + 2 * (DOT + GAP)}rem`, bottom: ALIGN } },
+    // the anchor, in the corner itself
+    { key: "capture", label: "＋ capture", to: "/capture", icon: ICONS.plus,
+      size: `${FAB}rem`, pos: { left: 0, bottom: 0 } },
   ];
+
 
   return (
     <nav
@@ -163,8 +200,8 @@ export function BubbleCluster() {
         <div
           style={{
             position: "absolute",
-            right: "0.25rem",
-            bottom: "8.6rem",
+            left: 0,
+            bottom: `${FAB + GAP + 2 * (DOT + GAP)}rem`,
             width: "11rem",
             maxHeight: "19rem",
             overflowY: "auto",
@@ -225,16 +262,11 @@ export function BubbleCluster() {
             key={bubble.key}
             to={bubble.to}
             aria-label={bubble.label}
-            style={
-              fab
-                ? {
-                    ...style,
-                    background: "var(--accent-1)",
-                    border: "1px solid var(--accent-1)",
-                    color: "var(--bg)",
-                  }
-                : style
-            }
+            // Capture is glass like every other bubble now. Its teal
+            // moved from a solid fill to the icon alone — it still reads
+            // as the one action bubble (teal = you act, 01 §4) without
+            // being the only opaque thing in a cluster of glass.
+            style={fab ? { ...style, color: "var(--accent-1)" } : style}
           >
             {bubble.icon}
           </Link>

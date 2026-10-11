@@ -42,6 +42,9 @@
      never stretches the contour (spec §8). */
   --tear-w: 800px;
   --tear-h: 112px;
+  /* tear-a: material reaches 94.0 top, 84.5 bottom */
+  --pad-top: 100px;
+  --pad-bottom: 91px;
   --tear-x: 0px; /* phase into the tiled strip; varies the tear per sheet */
 
   --paper-color: var(--sheet-mint);
@@ -136,7 +139,17 @@
   background-blend-mode: soft-light;
   /* The tear bites a full strip height into the sheet, so content clears
      it vertically as well as clearing the sides. */
-  padding: calc(var(--tear-h) + 0.4rem) 1.6rem;
+  /* Text clears the tear's MATERIAL, not merely its contour: the fringe's
+     clumps hang up to 14px past the contour, and text tucked under a
+     hanging fragment is the one way this surface actually breaks. The
+     reach is measured off the emitted PNGs by scripts/author_tears.py and
+     written to assets/paper/tear-metrics.json; these two numbers are that
+     measurement plus 6px of breathing room, and torn-paper.test.ts fails
+     the build if they ever fall under it.
+
+     The old value was `tear-h + 0.4rem` = 118.4px on every edge, which
+     padded for a worst case no authored contour reaches. */
+  padding: var(--pad-top) 1.6rem var(--pad-bottom);
 }
 
 /* The skin's edge falling onto the paper. Stops trace the measured
@@ -236,6 +249,9 @@
   --tear-bottom: url("../../assets/paper/tear-b-bottom.svg");
   --fringe-top: url("../../assets/paper/fringe-b-top.png");
   --fringe-bottom: url("../../assets/paper/fringe-b-bottom.png");
+  /* tear-b: material reaches 85.5 top, 93.0 bottom */
+  --pad-top: 92px;
+  --pad-bottom: 99px;
 }
 
 .torn-section--tear-c {
@@ -243,4 +259,7 @@
   --tear-bottom: url("../../assets/paper/tear-c-bottom.svg");
   --fringe-top: url("../../assets/paper/fringe-c-top.png");
   --fringe-bottom: url("../../assets/paper/fringe-c-bottom.png");
+  /* tear-c: material reaches 91.0 top, 89.5 bottom */
+  --pad-top: 97px;
+  --pad-bottom: 96px;
 }

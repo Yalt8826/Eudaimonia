@@ -82,10 +82,24 @@
      --glass-fill over --bg. */
   --dot-well: linear-gradient(var(--glass-fill), var(--glass-fill)), var(--bg);
 
-  /* navigation — the bubble cluster (01 §3). Its position is ONE variable,
-     bottom-right default; the position setting flips this token only
-     (inset shorthand: top right bottom left). */
-  --nav-cluster-inset: auto 1rem 1rem auto;
+  /* navigation — the bubble cluster (01 §3). Its position is ONE variable;
+     the position setting flips this token only (inset shorthand: top right
+     bottom left). Bottom-LEFT since 2026-10-12, anchored by the capture
+     FAB in the corner. 0.75rem hugs the screen edge while keeping the
+     bubbles off it. */
+  --nav-cluster-inset: auto auto 0.75rem 0.75rem;
+  /* The bubbles float over BOTH the black skin and the coloured sheets, so
+     --glass-fill alone is not enough to sit an icon on: white-on-glass
+     measures 14.88 over the skin but 1.22 over butter, because the fill is
+     6% white and the paper underneath is doing all the work. This dark
+     veil goes UNDER the fill so the bubble composites to roughly the same
+     surface wherever it floats — the self-glass law (01 §5) applied to a
+     thing that moves instead of a thing that sits still.
+
+     0.62 is the lowest alpha that clears 4.5 on all five sheets (butter,
+     the lightest, measures 5.21); it stays translucent enough that the
+     blurred colour still reads through. contrast.test.ts holds it. */
+  --bubble-veil: rgba(11, 11, 12, 0.62);
 
   /* torn-paper primitive defaults (01 §2 L2) */
   --fringe-w: 1.25rem;      /* ragged fringe width; text padding >= fringe */
@@ -207,4 +221,10 @@ body {
    between two sheets is one band of the matte skin, not a gutter between
    cards. The overlap is less than the tear's own bite, so no sheet ever
    covers another's content. */
-.plaza-sheet + .plaza-sheet { margin-top: -1.15rem; }
+/* How far each sheet rides up into the one above it. The black between
+   two sheets is one band of torn skin, not a gutter between cards, and at
+   -1.15rem it measured ~104px — more black than the design wants. Each
+   extra pixel of overlap removes a pixel of that band; -4.5rem lands it
+   near 50px. Raising this further starts to bury one sheet's bottom tear
+   under the next sheet's top tear. */
+.plaza-sheet + .plaza-sheet { margin-top: -4.5rem; }
