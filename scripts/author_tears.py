@@ -202,80 +202,125 @@ def as_points(ys: np.ndarray) -> list[Point]:
 
 
 
-def fringe_raster(ys: np.ndarray, seed: int, edge: str) -> Image.Image:
-    """The fringe: fibre and relief along the cut, transparent everywhere else.
+def slow_field(rng: np.random.Generator, width: int, knots: int) -> np.ndarray:
+    """A wrapping 0..1 field: how a stretch of the edge behaves."""
+    k = rng.uniform(0.0, 1.0, size=knots + 1)
+    k[-1] = k[0]
+    return np.interp(np.linspace(0, knots, width, endpoint=False), np.arange(knots + 1), k)
+
+
+def fringe_raster(ys: np.ndarray, seed: int, edge: str, clumped: bool = True) -> Image.Image:
+    """The fringe: the MATERIAL of the cut, transparent everywhere else.
 
     Drawn from the SAME contour as the mask, so it cannot drift.
 
-    What is visible depends on which side of the tear a pixel falls, and
-    that decides what gets drawn where:
+    Visibility decides what gets drawn where. Above the contour the
+    backdrop is black skin, so light marks read and dark ones are nearly
+    invisible — except against the skin's own crinkle, where slightly
+    darker marks read as RECESSES. Below the contour the backdrop is
+    coloured paper, so dark marks read.
 
-      ABOVE the contour the backdrop is the black skin, so only LIGHT
-      marks register — these are the relief, the lit edge of the torn
-      card, and they are what makes the cut read as thick rather than
-      flat. Dark paint there would be invisible.
+    Torn thick stock has structure at two scales, and the single-scale
+    version read as a textured mask rather than paper:
 
-      BELOW the contour the backdrop is coloured paper, so DARK marks
-      register — strands of black fibre overhanging the exposed sheet,
-      plus the localized shadow they drop onto it. Irregular along the
-      edge, never a uniform band.
+      FINE   individual fibres, 1-3px, shed along the tear
+      COARSE clumps and fragments, 5-30px, where the top layer
+             delaminated and hangs over the sheet still attached — each
+             with its own lit crown and the shadow it drops
 
-    Alpha is zero everywhere else, so the asset never paints over the
-    continuous black skin.
+    And it is not uniform along its length. Three slow fields decide the
+    CHARACTER of each stretch rather than merely its amount: some run
+    clean, some shed fibre, some tear away in fragments. An edge that
+    does the same thing everywhere is a texture, not an event.
     """
     rng = np.random.default_rng(seed)
     rgba = np.zeros((HEIGHT, WIDTH, 4), dtype=np.float64)
 
-    # Density varies slowly along the edge: some stretches tear cleanly,
-    # others shed a lot of fibre. Without this it reads as a stamped strip.
-    knots = 26
-    coarse = rng.uniform(0.25, 1.0, size=knots + 1)
-    coarse[-1] = coarse[0]
-    density = np.interp(np.linspace(0, knots, WIDTH, endpoint=False), np.arange(knots + 1), coarse)
+    zone_fibre = slow_field(rng, WIDTH, 18)
+    zone_frag = slow_field(rng, WIDTH, 11)
+    zone_lit = slow_field(rng, WIDTH, 14)
 
     def put(x: int, y: float, value: float, alpha: float) -> None:
         yi = int(round(y))
-        if 0 <= yi < HEIGHT and 0 <= x < WIDTH and alpha > rgba[yi, x, 3]:
+        x %= WIDTH
+        if 0 <= yi < HEIGHT and alpha > rgba[yi, x, 3]:
             rgba[yi, x, :3] = value
-            rgba[yi, x, 3] = alpha
+            rgba[yi, x, 3] = min(1.0, alpha)
 
-    for x in range(WIDTH):
-        yc = ys[x]
-        d = density[x]
+    # 1. Light catching the cut face, in BROKEN RUNS that hug the contour.
+    #    Scattered single pixels read as noise; a run that follows the
+    #    edge for 10-30px and then stops reads as a lit facet.
+    x = 0
+    while x < WIDTH:
+        run = int(max(4, rng.gamma(2.0, 9.0)))
+        if rng.random() < 0.32 + 0.5 * zone_lit[x % WIDTH]:
+            depth = rng.uniform(0.8, 3.2)
+            base = rng.uniform(70, 150)
+            for i in range(run):
+                xx = (x + i) % WIDTH
+                fade = np.sin(np.pi * (i + 0.5) / run) ** 0.5
+                put(xx, ys[xx] - depth + rng.uniform(-0.7, 0.7),
+                    base * rng.uniform(0.80, 1.18),
+                    rng.uniform(0.30, 0.85) * fade * (0.45 + 0.55 * zone_lit[xx]))
+        x += run + int(max(3, rng.gamma(2.0, 7.0)))
 
-        # Relief on the black side: short lit catches on the cut face,
-        # strongest in the first 2-3px and gone by about 6.
-        if rng.random() < 0.42 * d + 0.08:
-            depth = rng.uniform(0.6, 5.2)
-            lit = rng.uniform(70, 135) * (0.45 + 0.55 * np.exp(-depth / 2.4))
-            put(x, yc - depth, lit, rng.uniform(0.30, 0.85) * (0.4 + 0.6 * d))
-        if rng.random() < 0.18 * d:
-            put(x, yc - rng.uniform(0.0, 1.6), rng.uniform(110, 165), rng.uniform(0.25, 0.6))
+    # 2. Recesses inside the black: darker than the skin's own crinkle, so
+    #    they read as hollows between the lit facets rather than as paint.
+    for _ in range(90):
+        cx = int(rng.integers(0, WIDTH))
+        w = int(max(3, rng.gamma(2.0, 3.0)))
+        d0 = rng.uniform(1.2, 6.0)
+        for i in range(w):
+            xx = (cx + i) % WIDTH
+            put(xx, ys[xx] - d0, 3.0,
+                rng.uniform(0.25, 0.60) * np.sin(np.pi * (i + 0.5) / w))
 
-        # Localized shadow on the paper side: irregular, never a band.
-        if rng.random() < 0.40:
-            for k in range(int(rng.integers(1, 3))):
-                put(x, yc + 0.5 + k, 10.0, rng.uniform(0.10, 0.40) * (0.5 + 0.5 * d))
+    # 3. COARSE SCALE: clumps of the black layer still attached, hanging
+    #    over the sheet. Opaque, rounded, with a lit crown where the torn
+    #    core shows and a soft shadow underneath.
+    if clumped:
+        for _ in range(70):
+            cx = int(rng.integers(0, WIDTH))
+            if rng.random() > 0.15 + 0.85 * zone_frag[cx]:
+                continue
+            w = int(max(5, rng.gamma(2.4, 4.5)))
+            drop = rng.uniform(1.8, 8.5) * (0.5 + 0.5 * zone_frag[cx])
+            body = rng.uniform(7, 22)
+            for i in range(w):
+                xx = (cx + i) % WIDTH
+                prof = np.sin(np.pi * (i + 0.5) / w) ** 0.55
+                depth = drop * prof
+                for yy in range(int(depth) + 1):
+                    put(xx, ys[xx] + yy, body * rng.uniform(0.85, 1.2), 0.94)
+                if rng.random() < 0.45:
+                    put(xx, ys[xx] + 0.2, rng.uniform(55, 115), rng.uniform(0.18, 0.5))
+                for k in range(1, 4):
+                    put(xx, ys[xx] + depth + k, 6.0, max(0.0, 0.42 - 0.12 * k) * prof)
 
-    # Broken fibres overhanging the paper: strands rooted at the tear,
-    # leaning, of varied length. SHORT and SPARSE — the first pass ran
-    # 1500 strands averaging 4px and the edge read as fur, not as torn
-    # card. Torn paper sheds a little fibre; it does not grow a pelt.
+    # 4. FINE SCALE: short broken strands, concentrated where the edge is
+    #    fibrous. Short and sparse — 1500 long ones read as fur.
     for _ in range(420):
         x0 = int(rng.integers(0, WIDTH))
-        d = density[x0]
-        if rng.random() > 0.25 + 0.75 * d:
+        if rng.random() > 0.2 + 0.8 * zone_fibre[x0]:
             continue
         length = max(1.0, rng.gamma(1.4, 1.15))
         lean = rng.uniform(-0.55, 0.55)
         thick = 1 if rng.random() < 0.82 else 2
         dark = rng.uniform(10, 38)
         for step in range(int(length)):
-            x = int(x0 + lean * step) % WIDTH
-            y = ys[x] + 0.5 + step
+            xx = int(x0 + lean * step) % WIDTH
             fade = (1.0 - step / (length + 0.5)) ** 0.7
             for w in range(thick):
-                put(x, y + w, dark, min(0.80, rng.uniform(0.35, 0.80) * fade))
+                put(xx, ys[xx] + 0.5 + step + w, dark,
+                    min(0.80, rng.uniform(0.35, 0.80) * fade))
+
+    # 5. The contact shadow the edge drops on the paper — irregular, never
+    #    a band, and lighter where the stretch tore clean.
+    for x in range(WIDTH):
+        if rng.random() < 0.34 + 0.3 * zone_frag[x]:
+            for k in range(int(rng.integers(1, 3))):
+                put(x, ys[x] + 0.5 + k, 10.0,
+                    rng.uniform(0.08, 0.34) * (0.5 + 0.5 * zone_frag[x]))
 
     if edge == "bottom":
         rgba = rgba[::-1, :, :]
@@ -322,7 +367,11 @@ def main() -> None:
             # the contour must be flipped to match before drawing on it.
             draw_ys = ys if edge == "top" else (HEIGHT - ys)
             fr = OUT / f"fringe-{name}-{edge}.png"
-            fringe_raster(draw_ys, seed + 7, edge).save(fr, optimize=True)
+            # One boundary at a time: the TOP edge carries the clumped
+            # treatment under review; the bottom keeps the previous
+            # single-scale fringe, so both appear in the same render and
+            # can be compared directly.
+            fringe_raster(draw_ys, seed + 7, edge, clumped=(edge == "top")).save(fr, optimize=True)
             print(f"wrote {fr.name} — fringe from the same contour, {fr.stat().st_size // 1024}KB")
     print("\ntear-b and tear-c are authored once tear-a is approved as the reference.")
 
