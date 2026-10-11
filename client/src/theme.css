@@ -64,15 +64,24 @@
      3px inward and two px wider, which reads as a grey outline drawn
      around the sheet rather than as the black layer's own torn edge. Five
      lip bands now sit BELOW the reference curve,
-       69 · 51 · 37 · 26 · 17  at 1-5px, then the body
+       38 · 30 · 24 · 18 · 13  at 1-5px, then the body
      so the boundary is crisper and darker than the reference rather than
      softer. The fine fibre and the contact shadow are untouched: what
-     shrank is the grey, not the material. */
-  --skin-lip-1: #44444A;
-  --skin-lip-2: #323237;
-  --skin-lip-3: #242428;
-  --skin-lip-4: #19191D;
-  --skin-lip-5: #111114;
+     shrank is the grey, not the material.
+
+     Darkened again 2026-10-11, and this is the point of the number: at
+     69 the first band drew a 2px grey line along 98% of the contour —
+     measurably a continuous halo, which is the one thing a torn edge
+     must not have. The cross-section still steps, so the stock still
+     reads thick; what carries the LIGHT now is the fringe's relief,
+     which is irregular by construction and lights under 10% of columns.
+     Raise these and the halo comes straight back; measure before you
+     do. */
+  --skin-lip-1: #26262B;
+  --skin-lip-2: #1E1E22;
+  --skin-lip-3: #18181C;
+  --skin-lip-4: #121216;
+  --skin-lip-5: #0D0D10;
 
   /* The skin's edge falling ONTO the paper below it (the skin is the top
      layer). Measured: 42% at the tear, gone by ~28px. */
