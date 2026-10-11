@@ -1,5 +1,8 @@
-import type { TornRule } from "../components/TornSheet";
-import type { PaperVariant, TearVariant } from "../components/paper/TornPaperSection";
+import type {
+  PaperVariant,
+  SectionAccent,
+  TearVariant,
+} from "../components/paper/TornPaperSection";
 
 // The Plaza's strip model — the shape T1.6's coverage-view feed will fill.
 // Until the P1 adapters land (T1.2–T1.5), every strip renders its TRUE state:
@@ -21,8 +24,12 @@ export interface PlazaStrip {
    */
   tear: TearVariant;
   tearOffset?: number;
-  /** Carried by TornSheet, which the Plaza no longer renders. */
-  rule?: TornRule;
+  /**
+   * The hue-law accent (01 §4): teal where you act, plum where agents
+   * act. Only two sections carry one; an accent on every sheet signals
+   * nothing.
+   */
+  accent?: SectionAccent;
   /** Where the chevron leads (the section's real route). */
   to: string;
   state: StripState;
@@ -41,7 +48,7 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
     title: "Today's Plan",
     variant: "mint",
     tear: "a",
-    rule: "accent-1",
+    accent: "accent-1",
     to: "/routine",
     state: "uninstrumented",
     lines: ["not yet instrumented · week-plan adapter lands in P1"],
@@ -81,7 +88,7 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
     variant: "lavender",
     tear: "b",
     tearOffset: 420,
-    rule: "accent-2",
+    accent: "accent-2",
     to: "/agents",
     state: "uninstrumented",
     lines: ["no agents instrumented yet · invocation feed arrives in P4"],

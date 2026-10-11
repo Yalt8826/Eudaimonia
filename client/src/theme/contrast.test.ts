@@ -116,6 +116,15 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, Rgba, number, string]> = [
   ["--accent-2-ink", CREAM, 5.98, "on cream"],
 ];
 
+/**
+ * [accent token, sheet token, measured CR] — the hue-law accent painted
+ * onto the sheet that carries it. Non-text, floor >= 3.0.
+ */
+const ACCENT_SHEET_PAIRS: ReadonlyArray<readonly [string, string, number]> = [
+  ["--accent-1-ink", "--sheet-mint", 3.58],
+  ["--accent-2-ink", "--sheet-lavender", 3.55],
+];
+
 /** [tint token, measured ink CR from 01 §1] — warm dark ink over each tint. */
 const PAPER_INK_PAIRS: ReadonlyArray<readonly [string, number]> = [
   // Section tints resampled from the ratified mockup 2026-10-10 and
@@ -203,6 +212,40 @@ describe("contrast lint (01 v2 §7 gate 1) — computed, not transcribed", () =>
   // 2026-10-10). Two assertions, and the first is the reason for the second:
   // the paper pair genuinely fails on these grounds, so the dot gets a well
   // back down to the matte skin and carries the GLASS pair there instead.
+  describe("the hue-law accent on its own sheet", () => {
+    // The accent marks who acts (01 §4). On paper it must use the -ink
+    // pair: the raw accents are tuned for glass and the black skin, and
+    // on a saturated sheet they disappear. Both assertions matter — the
+    // second is why the first one exists.
+    for (const [accent, sheet, measured] of ACCENT_SHEET_PAIRS) {
+      it(`${accent} on ${sheet}: >= ${NON_TEXT_FLOOR} non-text (measured ${measured})`, () => {
+        const ratio = contrastRatio(token(accent), token(sheet));
+        expect(
+          ratio,
+          `${accent} on ${sheet}: computed ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(NON_TEXT_FLOOR);
+        expect(
+          Math.abs(ratio - measured),
+          `${accent} on ${sheet}: computed ${ratio.toFixed(2)} drifted from ${measured}`,
+        ).toBeLessThanOrEqual(TOLERANCE);
+      });
+    }
+
+    it("the RAW accents would be invisible there, which is why the pairs exist", () => {
+      for (const [raw, sheet] of [
+        ["--accent-1", "--sheet-mint"],
+        ["--accent-2", "--sheet-lavender"],
+      ] as const) {
+        const ratio = contrastRatio(token(raw), token(sheet));
+        expect(
+          ratio,
+          `${raw} on ${sheet} computes ${ratio.toFixed(2)} — if this ever clears ` +
+            `${NON_TEXT_FLOOR}, the sheet was paled and the -ink pair may be redundant`,
+        ).toBeLessThan(NON_TEXT_FLOOR);
+      }
+    });
+  });
+
   describe("state dots on saturated section tints", () => {
     it("would fail the non-text floor if painted straight onto the tint", () => {
       for (const tintToken of SECTION_TINTS) {

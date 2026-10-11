@@ -10,7 +10,13 @@
   --bg: #0B0B0C;            --text: #EDEDEA;         --muted: #9A9A94;
   /* accents — you act / agents act (hue law, 01 §4) */
   --accent-1: #2DD4BF;      --accent-2: #B872F2;
-  --accent-2-ink: #7E22CE;  /* plum's paper pair (5.98 on cream) */
+  --accent-2-ink: #7E22CE;  /* plum's paper pair (5.98 on cream, 3.55 on lavender) */
+  --accent-1-ink: #0F766E;  /* teal's paper pair (3.58 on mint) */
+  /* The raw accents are for glass and the black skin ONLY. On their own
+     section paper they vanish: --accent-1 measures 1.22 on mint and
+     --accent-2 measures 1.59 on lavender, against a 3.0 non-text floor.
+     An accent painted onto a sheet uses the -ink pair, and the pairing is
+     asserted in contrast.test.ts rather than left to whoever edits next. */
   /* glass — touching only (01 §2 L1) */
   --glass-fill: rgba(255,255,255,0.06);
   --glass-border: rgba(255,255,255,0.10);   /* 1px */

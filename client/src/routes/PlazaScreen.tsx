@@ -142,6 +142,7 @@ export function PlazaScreen() {
           variant={strip.variant}
           tear={strip.tear}
           tearOffset={strip.tearOffset}
+          accent={strip.accent}
           className="plaza-sheet"
         >
           <div style={{ display: "grid", gap: "0.55rem" }}>

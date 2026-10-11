@@ -15,6 +15,13 @@ export type PaperVariant = "mint" | "sky" | "blush" | "butter" | "lavender";
 /** The authored tear contours. Three, so no two sheets share a silhouette. */
 export type TearVariant = "a" | "b" | "c";
 
+/**
+ * The hue law (01 §4): teal marks where YOU act, plum where AGENTS act.
+ * Optional, and most sheets go without — an accent on every section is
+ * decoration, not a signal.
+ */
+export type SectionAccent = "accent-1" | "accent-2";
+
 export interface TornPaperSectionProps {
   title: string;
   variant: PaperVariant;
@@ -26,6 +33,8 @@ export interface TornPaperSectionProps {
    * anywhere along its width.
    */
   tearOffset?: number;
+  /** The hue-law accent, if this section carries one. */
+  accent?: SectionAccent;
   children: ReactNode;
   className?: string;
   id?: string;
@@ -46,6 +55,7 @@ export function TornPaperSection({
   variant,
   tear = "a",
   tearOffset = 0,
+  accent,
   children,
   className = "",
   id,
@@ -55,6 +65,7 @@ export function TornPaperSection({
     "torn-section",
     `torn-section--${variant}`,
     tear === "a" ? "" : `torn-section--tear-${tear}`,
+    accent === undefined ? "" : `torn-section--${accent}`,
     className,
   ]
     .filter(Boolean)
@@ -78,6 +89,9 @@ export function TornPaperSection({
 
         <div className="torn-section__content">
           <h2 className="torn-section__heading">{title}</h2>
+          {accent === undefined ? null : (
+            <span aria-hidden="true" className="torn-section__accent" />
+          )}
           {children}
         </div>
       </div>

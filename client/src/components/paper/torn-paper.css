@@ -190,6 +190,31 @@
   color: var(--paper-text);
 }
 
+/* ---- the section accent ----------------------------------------------
+   The hue law (01 §4): teal where YOU act, plum where AGENTS act. Two of
+   the five sheets carry it; the rest are unaccented, which is what makes
+   it mean anything.
+
+   It is a short mark under the heading, INSIDE the content box. The
+   earlier form was a 3px rule at the paper's left edge running its full
+   height — that is a border, it sits on the torn perimeter, and it
+   fights the tear for the eye. A sheet of torn paper has no edge
+   treatment; the accent belongs with the content it labels.
+
+   Painted from the -ink pair, never the raw accent: --accent-1 measures
+   1.22 on mint and --accent-2 1.59 on lavender, both invisible. */
+.torn-section__accent {
+  display: block;
+  width: 2.25rem;
+  height: 2px;
+  margin: -0.2rem 0 0.7rem;
+  border-radius: 1px;
+  background: var(--section-accent);
+}
+
+.torn-section--accent-1 { --section-accent: var(--accent-1-ink); }
+.torn-section--accent-2 { --section-accent: var(--accent-2-ink); }
+
 /* ---- variants -------------------------------------------------------- */
 .torn-section--mint { --paper-color: var(--sheet-mint); --paper-text: var(--sheet-mint-ink); }
 .torn-section--sky { --paper-color: var(--sheet-sky); --paper-text: var(--sheet-sky-ink); }
