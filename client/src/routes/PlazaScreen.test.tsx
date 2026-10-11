@@ -88,6 +88,8 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
     const bands = section?.querySelectorAll(".torn-section__skin") ?? [];
     expect(bands.length, "graded bands of the skin's cut face").toBe(5);
     expect(section?.querySelector(".torn-section__paper")).not.toBeNull();
+    // Fibre and relief ride their own layer, generated from the same contour.
+    expect(section?.querySelector(".torn-section__fringe")).not.toBeNull();
     // The shadow runs inward, cast by the skin onto the paper beneath it.
     expect(section?.querySelectorAll(".torn-section__cast").length).toBe(2);
   });

@@ -74,14 +74,19 @@ describe("torn-paper.css — the component must not undo the measured palette", 
   });
 
   it("reaches each replaceable asset through exactly one property (spec §6)", () => {
-    for (const prop of ["--tear-top", "--tear-bottom", "--paper-fiber", "--fringe-fiber"]) {
+    for (const prop of ["--tear-top", "--tear-bottom", "--paper-fiber", "--fringe-top", "--fringe-bottom"]) {
       const declarations = [...CSS.matchAll(new RegExp(`${prop}:\\s*url\\(`, "g"))];
       expect(declarations.length, `${prop} is declared and swappable`).toBeGreaterThan(0);
     }
     // The mask and the fringe are different assets doing different jobs
     // (spec §2.3): shape versus material. Collapsing them loses the tear.
     expect(CSS).toContain("--paper-fiber: url");
-    expect(CSS).toContain("--fringe-fiber: url");
+    expect(CSS).toContain("--fringe-top: url");
+    // The fringe must not paint a background of its own, or it covers the
+    // continuous black skin it is supposed to sit on.
+    const fringeRule = /\.torn-section__fringe \{[^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(fringeRule).not.toMatch(/background-color/);
+    expect(fringeRule).toContain("background-image");
   });
 
   it("tiles the tear instead of stretching it over the section height", () => {

@@ -81,6 +81,10 @@ export function TornPaperSection({
           {children}
         </div>
       </div>
+
+      {/* Fibre and relief along the cut, carrying its own alpha — above
+          both the paper and the skin, painting over neither. */}
+      <div aria-hidden="true" className="torn-section__fringe" />
     </section>
   );
 }

@@ -27,7 +27,12 @@
      is neutral only at #808080, and the source means 156, so blending it
      raw would lighten every sheet and shift the measured palette. */
   --paper-fiber: url("../../assets/paper/paper-fibers.prepared.webp");
-  --fringe-fiber: url("../../assets/paper/fringe-fibers.stub.png");
+  /* The fringe, generated from the SAME contour as the mask above
+     (scripts/author_tears.py), which is the only way the two stay
+     aligned. Transparent everywhere but the cut, so it never paints over
+     the continuous black skin. */
+  --fringe-top: url("../../assets/paper/fringe-a-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-a-bottom.png");
 
   /* ---- geometry ----------------------------------------------------- */
   /* 1:1 with the authored SVG — no downscaling. The contour is drawn at
@@ -79,10 +84,27 @@
   inset: calc(var(--band) * -1px);
   --band-x: calc(var(--tear-x) + var(--band) * 1px);
   background-color: var(--band-color);
-  background-image: var(--fringe-fiber);
-  background-repeat: repeat-x;
-  background-size: 512px auto;
   pointer-events: none;
+}
+
+/* ---- the fringe ------------------------------------------------------
+   Fibre and relief along the cut. NOT masked and NOT given a background
+   colour: the asset carries its own alpha, drawn from the same contour,
+   so it lands on the tear without painting anything over the skin.
+
+   It sits above the paper so its dark strands overhang the exposed
+   sheet, and above the skin bands so its lit catches read against the
+   black. Which marks are visible is decided by which side of the tear
+   they fall on — see the generator. */
+.torn-section__fringe {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--fringe-top), var(--fringe-bottom);
+  background-repeat: repeat-x, repeat-x;
+  background-size: var(--tear-w) var(--tear-h), var(--tear-w) var(--tear-h);
+  background-position: var(--tear-x) top, var(--tear-x) bottom;
 }
 
 /* No band paints the base colour. An outermost --bg band covered the

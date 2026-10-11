@@ -45,6 +45,7 @@ from __future__ import annotations
 import pathlib
 
 import numpy as np
+from PIL import Image
 
 WIDTH = 800
 HEIGHT = 112
@@ -179,16 +180,110 @@ def fibre(seed: int, samples: int) -> np.ndarray:
     return out - ramp - out[0] + out[0]
 
 
-def contour(points: list[Point], seed: int) -> list[Point]:
-    """Authored lobes carrying authored-scale fibre."""
-    samples = WIDTH
-    ys = macro(points, samples) + fibre(seed, samples)
+def contour_ys(points: list[Point], seed: int) -> np.ndarray:
+    """The drawn boundary: authored lobes carrying authored-scale fibre.
+
+    ONE source of truth. The silhouette SVG and the fringe raster are both
+    built from this array, which is the only way the two can align — a
+    fringe drawn independently of the mask will drift along the edge and
+    read as a stamped-on strip.
+    """
+    ys = macro(points, WIDTH) + fibre(seed, WIDTH)
     ys = np.clip(ys, MIN_Y, MAX_Y)
     ys[-1] = ys[0]
-    xs = np.linspace(0.0, float(WIDTH), samples, endpoint=False)
+    return ys
+
+
+def as_points(ys: np.ndarray) -> list[Point]:
+    xs = np.linspace(0.0, float(WIDTH), len(ys), endpoint=False)
     pts = [(float(x), float(y)) for x, y in zip(xs, ys)]
     pts.append((float(WIDTH), float(ys[0])))
     return pts
+
+
+
+def fringe_raster(ys: np.ndarray, seed: int, edge: str) -> Image.Image:
+    """The fringe: fibre and relief along the cut, transparent everywhere else.
+
+    Drawn from the SAME contour as the mask, so it cannot drift.
+
+    What is visible depends on which side of the tear a pixel falls, and
+    that decides what gets drawn where:
+
+      ABOVE the contour the backdrop is the black skin, so only LIGHT
+      marks register — these are the relief, the lit edge of the torn
+      card, and they are what makes the cut read as thick rather than
+      flat. Dark paint there would be invisible.
+
+      BELOW the contour the backdrop is coloured paper, so DARK marks
+      register — strands of black fibre overhanging the exposed sheet,
+      plus the localized shadow they drop onto it. Irregular along the
+      edge, never a uniform band.
+
+    Alpha is zero everywhere else, so the asset never paints over the
+    continuous black skin.
+    """
+    rng = np.random.default_rng(seed)
+    rgba = np.zeros((HEIGHT, WIDTH, 4), dtype=np.float64)
+
+    # Density varies slowly along the edge: some stretches tear cleanly,
+    # others shed a lot of fibre. Without this it reads as a stamped strip.
+    knots = 26
+    coarse = rng.uniform(0.25, 1.0, size=knots + 1)
+    coarse[-1] = coarse[0]
+    density = np.interp(np.linspace(0, knots, WIDTH, endpoint=False), np.arange(knots + 1), coarse)
+
+    def put(x: int, y: float, value: float, alpha: float) -> None:
+        yi = int(round(y))
+        if 0 <= yi < HEIGHT and 0 <= x < WIDTH and alpha > rgba[yi, x, 3]:
+            rgba[yi, x, :3] = value
+            rgba[yi, x, 3] = alpha
+
+    for x in range(WIDTH):
+        yc = ys[x]
+        d = density[x]
+
+        # Relief on the black side: short lit catches on the cut face,
+        # strongest in the first 2-3px and gone by about 6.
+        if rng.random() < 0.42 * d + 0.08:
+            depth = rng.uniform(0.6, 5.2)
+            lit = rng.uniform(70, 135) * (0.45 + 0.55 * np.exp(-depth / 2.4))
+            put(x, yc - depth, lit, rng.uniform(0.30, 0.85) * (0.4 + 0.6 * d))
+        if rng.random() < 0.18 * d:
+            put(x, yc - rng.uniform(0.0, 1.6), rng.uniform(110, 165), rng.uniform(0.25, 0.6))
+
+        # Localized shadow on the paper side: irregular, never a band.
+        if rng.random() < 0.40:
+            for k in range(int(rng.integers(1, 3))):
+                put(x, yc + 0.5 + k, 10.0, rng.uniform(0.10, 0.40) * (0.5 + 0.5 * d))
+
+    # Broken fibres overhanging the paper: strands rooted at the tear,
+    # leaning, of varied length. SHORT and SPARSE — the first pass ran
+    # 1500 strands averaging 4px and the edge read as fur, not as torn
+    # card. Torn paper sheds a little fibre; it does not grow a pelt.
+    for _ in range(420):
+        x0 = int(rng.integers(0, WIDTH))
+        d = density[x0]
+        if rng.random() > 0.25 + 0.75 * d:
+            continue
+        length = max(1.0, rng.gamma(1.4, 1.15))
+        lean = rng.uniform(-0.55, 0.55)
+        thick = 1 if rng.random() < 0.82 else 2
+        dark = rng.uniform(10, 38)
+        for step in range(int(length)):
+            x = int(x0 + lean * step) % WIDTH
+            y = ys[x] + 0.5 + step
+            fade = (1.0 - step / (length + 0.5)) ** 0.7
+            for w in range(thick):
+                put(x, y + w, dark, min(0.80, rng.uniform(0.35, 0.80) * fade))
+
+    if edge == "bottom":
+        rgba = rgba[::-1, :, :]
+
+    out = np.zeros((HEIGHT, WIDTH, 4), dtype=np.uint8)
+    out[..., :3] = np.clip(rgba[..., :3], 0, 255).astype(np.uint8)
+    out[..., 3] = np.clip(rgba[..., 3] * 255.0, 0, 255).astype(np.uint8)
+    return Image.fromarray(out, mode="RGBA")
 
 
 def polyline(points: list[Point]) -> str:
@@ -217,13 +312,18 @@ def main() -> None:
         for edge, points in edges.items():
             check(points, f"tear-{name}-{edge}")
             seed = 101 if edge == "top" else 211
-            drawn = contour(points, seed)
+            ys = contour_ys(points, seed)
+
             path = OUT / f"tear-{name}-{edge}.svg"
-            path.write_text(svg(drawn, edge))
-            print(
-                f"wrote {path.name} — {len(points)} authored lobes + fibre, "
-                f"{path.stat().st_size // 1024}KB"
-            )
+            path.write_text(svg(as_points(ys), edge))
+            print(f"wrote {path.name} — {len(points)} authored lobes + fibre")
+
+            # The bottom edge is drawn in top orientation and flipped, so
+            # the contour must be flipped to match before drawing on it.
+            draw_ys = ys if edge == "top" else (HEIGHT - ys)
+            fr = OUT / f"fringe-{name}-{edge}.png"
+            fringe_raster(draw_ys, seed + 7, edge).save(fr, optimize=True)
+            print(f"wrote {fr.name} — fringe from the same contour, {fr.stat().st_size // 1024}KB")
     print("\ntear-b and tear-c are authored once tear-a is approved as the reference.")
 
 
