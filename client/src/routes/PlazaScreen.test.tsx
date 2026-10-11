@@ -62,21 +62,52 @@ describe("PlazaScreen (04 `/`, mockup-ratified torn-paper language)", () => {
     }
   });
 
-  // The Plaza is mid-migration (spec §10): Today's Plan is rebuilt on
-  // TornPaperSection, the other four stay on the previous sheet until it
-  // is approved. Both are torn paper; they differ in how the tear is cut.
-  it("renders every section as torn paper — one on the spec sheet, four on the old", () => {
+  it("renders all five sections on the one torn-paper primitive", () => {
     const container = plaza();
-    const sections = [...container.querySelectorAll("section")];
-
-    const spec = sections.filter((el) => el.classList.contains("torn-section"));
-    expect(spec.length, "Today's Plan, on TornPaperSection").toBe(1);
-    expect(spec[0].classList.contains("torn-section--mint")).toBe(true);
-
-    const legacy = sections.filter((el) =>
+    const spec = [...container.querySelectorAll("section.torn-section")];
+    expect(spec.length, "every sheet is a TornPaperSection").toBe(5);
+    // One primitive, five sheets (01 §2: no second sheet component).
+    const legacy = [...container.querySelectorAll("section")].filter((el) =>
       (el.children[1]?.getAttribute("style") ?? "").includes("mask-image"),
     );
-    expect(legacy.length, "the four not yet migrated").toBe(4);
+    expect(legacy.length, "nothing left on the previous sheet").toBe(0);
+  });
+
+  it("gives every sheet its own tint, for life (tint-as-taxonomy)", () => {
+    const container = plaza();
+    const spec = [...container.querySelectorAll("section.torn-section")];
+    const tints = spec.map(
+      (el) => [...el.classList].find((c) => /^torn-section--(?!tear-)/.test(c)) ?? "",
+    );
+    expect(tints).toEqual([
+      "torn-section--mint",
+      "torn-section--sky",
+      "torn-section--blush",
+      "torn-section--butter",
+      "torn-section--lavender",
+    ]);
+    expect(new Set(tints).size, "no tint is reused").toBe(5);
+  });
+
+  it("never shows the same silhouette twice in the same place", () => {
+    // Three authored contours cover five sheets, so two must repeat a
+    // shape. What must not repeat is the shape AND its phase into the
+    // tiled strip — that is a visibly stamped page (spec §2.2).
+    const container = plaza();
+    const spec = [...container.querySelectorAll("section.torn-section")];
+    const cut = spec.map((el) => {
+      const tear = [...el.classList].find((c) => c.startsWith("torn-section--tear-")) ?? "tear-a";
+      const offset = (el as HTMLElement).style.getPropertyValue("--tear-x") || "0px";
+      return `${tear}@${offset}`;
+    });
+    expect(new Set(cut).size, `two sheets cut identically: ${cut.join(", ")}`).toBe(cut.length);
+    // And no two ADJACENT sheets share even the contour, since their
+    // edges meet across one band of skin.
+    for (let i = 1; i < cut.length; i += 1) {
+      expect(cut[i].split("@")[0], "adjacent sheets share a contour").not.toBe(
+        cut[i - 1].split("@")[0],
+      );
+    }
   });
 
   it("gives the spec sheet its own torn cross-section, cut by the same contour", () => {

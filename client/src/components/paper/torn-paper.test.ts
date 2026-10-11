@@ -126,6 +126,22 @@ describe("torn-paper.css — the component must not undo the measured palette", 
     }
   });
 
+  it("swaps the fringe with the mask, never one without the other", () => {
+    // They are generated from ONE contour array in author_tears.py and
+    // only align as a pair. tear-b and tear-c first shipped overriding
+    // the mask alone, which puts the material of one edge on the
+    // silhouette of another — the fringe then floats off the tear.
+    for (const tear of ["b", "c"]) {
+      const rule = new RegExp(`\\.torn-section--tear-${tear} \\{([^}]*)\\}`).exec(CSS)?.[1];
+      expect(rule, `tear-${tear} is declared`).toBeTruthy();
+      for (const prop of ["--tear-top", "--tear-bottom", "--fringe-top", "--fringe-bottom"]) {
+        expect(rule, `tear-${tear} must override ${prop}`).toContain(prop);
+      }
+      expect(rule).toContain(`tear-${tear}-top.svg`);
+      expect(rule).toContain(`fringe-${tear}-top.png`);
+    }
+  });
+
   it("tiles the tear instead of stretching it over the section height", () => {
     // A single mask stretched over a tall section elongates the contour
     // (spec §8). Top and bottom keep natural proportions; the middle flexes.

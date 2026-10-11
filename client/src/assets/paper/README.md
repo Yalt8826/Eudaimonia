@@ -8,11 +8,23 @@ them can be swapped without touching `TornPaperSection.tsx`.
 
 | File | Role | Status |
 |---|---|---|
-| `tear-a-{top,bottom}.svg` | torn silhouette, vector contour | **hand-authored**, retouchable |
-| `tear-{b,c}-{top,bottom}.svg` | the other contours | authored once tear-a is approved |
+| `tear-{a,b,c}-{top,bottom}.svg` | torn silhouette, vector contour | **hand-authored**, retouchable |
+| `fringe-{a,b,c}-{top,bottom}.png` | fibre and relief along the cut | generated from the same contour |
 | `paper-fibers.webp` | supplied paper artwork | source, untouched |
 | `paper-fibers.prepared.webp` | the same, re-centred on mid-grey | derived, generated |
-| `fringe-a-{top,bottom}.png` | fibre and relief along the cut | generated from the same contour |
+
+Three contours cover five sheets, so two of them repeat a silhouette. What
+must not repeat is the shape AND its phase: `tearOffset` starts a sheet
+further into the tiled strip, so the two never show the same lobes in the
+same places. Asserted in `PlazaScreen.test.tsx`, which also requires that
+no two ADJACENT sheets share a contour at all — their edges meet across
+one band of skin.
+
+**A mask and its fringe are a pair.** They are generated from one contour
+array and only align together; overriding `--tear-*` without
+`--fringe-*` puts the material of one edge on the silhouette of another.
+`torn-paper.test.ts` fails the build if a tear variant overrides one
+without the other.
 
 ## No placeholders left
 
@@ -41,6 +53,23 @@ asserted in `torn-paper.test.ts`.
 Strands are short and sparse on purpose. The first pass ran 1500 of them
 averaging 4px and the edge read as fur rather than torn card; torn paper
 sheds a little fibre, it does not grow a pelt.
+
+**Where the light goes.** Only the large raised crowns catch it, and they
+cluster, so highlights come in patches with dark stretches between — 14
+patches on tear-a's top edge, median 3.5 CSS px, median gap 21 CSS px.
+This is the whole discipline of the edge, and it has one rule behind it:
+**light placed relative to the contour follows the contour**, which is an
+outline however finely it is broken up. So light is attached to discrete
+fragments, never to the edge itself. Chips stay dark — a chip is a few px
+of hang, and a scatter of bright dots along a tear is the outline again.
+
+The same rule governs `--skin-lip-*` in `theme.css`: those bands ARE the
+mask offset by 1-5px, so whatever luminance they carry becomes a rim along
+the entire tear. They are held under luminance 40 by a test.
+
+The relief lives in one `RELIEF` block in `scripts/author_tears.py` and
+knows nothing about the contour or the paper texture, so it can be retuned
+or replaced without regenerating geometry.
 
 **On `paper-fibers.prepared.webp`.** `soft-light` is neutral only at
 mid-grey, and the supplied artwork means 156. Blended raw it lightens every

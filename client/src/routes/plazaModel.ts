@@ -1,4 +1,5 @@
-import type { TornRule, TornSheetTint } from "../components/TornSheet";
+import type { TornRule } from "../components/TornSheet";
+import type { PaperVariant, TearVariant } from "../components/paper/TornPaperSection";
 
 // The Plaza's strip model — the shape T1.6's coverage-view feed will fill.
 // Until the P1 adapters land (T1.2–T1.5), every strip renders its TRUE state:
@@ -10,7 +11,17 @@ export type StripState = "uninstrumented" | "alive" | "dead" | "paused" | "behav
 export interface PlazaStrip {
   id: string;
   title: string;
-  tint: TornSheetTint;
+  /** The sheet's paper. Section identity for life (tint-as-taxonomy). */
+  variant: PaperVariant;
+  /**
+   * Which authored contour this sheet tears with, and how far into the
+   * tiled strip it starts. Three contours cover five sheets, so two of
+   * them repeat a silhouette — the offset is what keeps those two from
+   * showing the same lobes in the same places (spec §2.2).
+   */
+  tear: TearVariant;
+  tearOffset?: number;
+  /** Carried by TornSheet, which the Plaza no longer renders. */
   rule?: TornRule;
   /** Where the chevron leads (the section's real route). */
   to: string;
@@ -28,7 +39,8 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "plan",
     title: "Today's Plan",
-    tint: "mint",
+    variant: "mint",
+    tear: "a",
     rule: "accent-1",
     to: "/routine",
     state: "uninstrumented",
@@ -37,7 +49,8 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "waiting",
     title: "Waiting On",
-    tint: "sky",
+    variant: "sky",
+    tear: "b",
     to: "/inbox",
     state: "uninstrumented",
     lines: ["not yet instrumented · loops arrive with P2 writes"],
@@ -45,7 +58,8 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "habits",
     title: "Habits",
-    tint: "blush",
+    variant: "blush",
+    tear: "c",
     to: "/meals",
     state: "uninstrumented",
     lines: [], // the nutrition/reading rows carry the honest state themselves
@@ -54,7 +68,9 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "yesterday",
     title: "Yesterday",
-    tint: "butter",
+    variant: "butter",
+    tear: "a",
+    tearOffset: 260,
     to: "/timeline",
     state: "uninstrumented",
     lines: ["not yet instrumented · day-report adapter lands in P1"],
@@ -62,7 +78,9 @@ export const PLAZA_STRIPS: readonly PlazaStrip[] = [
   {
     id: "agents",
     title: "Agents",
-    tint: "violet",
+    variant: "lavender",
+    tear: "b",
+    tearOffset: 420,
     rule: "accent-2",
     to: "/agents",
     state: "uninstrumented",

@@ -1,13 +1,5 @@
 import { Link } from "react-router-dom";
-import {
-  Chevron,
-  CoverageLine,
-  Dot,
-  Pill,
-  Row,
-  SectionHeading,
-} from "../components/ui";
-import { TornSheet } from "../components/TornSheet";
+import { Chevron, CoverageLine, Dot, Pill, Row } from "../components/ui";
 import { TornPaperSection } from "../components/paper/TornPaperSection";
 import { PLAZA_STRIPS } from "./plazaModel";
 
@@ -138,77 +130,22 @@ export function PlazaScreen() {
       }}
     >
       <Header />
-      {PLAZA_STRIPS.map((strip) =>
-        // Today's Plan is the first section rebuilt on the torn-paper spec
-        // (§10: get one sheet's surface, mask and fringe right before
-        // touching the rest). The other four stay on the previous sheet
-        // until this one is approved, so the two sit side by side.
-        strip.id === "plan" ? (
-          <TornPaperSection
-            key={strip.id}
-            title={strip.title}
-            variant="mint"
-            tear="a"
-            className="plaza-sheet"
-          >
-            <div style={{ display: "grid", gap: "0.55rem" }}>
-              {strip.lines.map((line) => (
-                <p
-                  key={line}
-                  style={{
-                    ...mono,
-                    margin: 0,
-                    fontSize: "0.8125rem",
-                    lineHeight: 1.6,
-                    opacity: 0.78,
-                  }}
-                >
-                  {line}
-                </p>
-              ))}
-              <Link
-                to={strip.to}
-                aria-label={`${strip.title} — open`}
-                style={{
-                  ...mono,
-                  justifySelf: "end",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  fontSize: "0.78rem",
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "currentColor",
-                  opacity: 0.72,
-                  textDecoration: "none",
-                }}
-              >
-                open <Chevron />
-              </Link>
-            </div>
-          </TornPaperSection>
-        ) : (
-        <TornSheet
+      {PLAZA_STRIPS.map((strip) => (
+        // One primitive for all five sheets. Each owns its tint for life
+        // and tears with its own contour; where two share a contour the
+        // offset phases the tiled strip so they do not show the same
+        // lobes in the same places (spec §2.2).
+        <TornPaperSection
           key={strip.id}
-          tint={strip.tint}
-          seed={`plaza:${strip.id}`}
-          rule={strip.rule}
+          id={strip.id}
+          title={strip.title}
+          variant={strip.variant}
+          tear={strip.tear}
+          tearOffset={strip.tearOffset}
           className="plaza-sheet"
         >
           <div style={{ display: "grid", gap: "0.55rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <SectionHeading>{strip.title}</SectionHeading>
-              {strip.wakeChip ? null : <span style={{ flex: "1 1 auto" }} />}
-              <Link
-                to={strip.to}
-                aria-label={`${strip.title} — open`}
-                style={{ color: "var(--paper-ink)", display: "inline-flex" }}
-              >
-                <Chevron />
-              </Link>
-            </div>
-
-            {strip.id === "habits" ? (
+            {strip.wakeChip ? (
               <>
                 <WakeChipRow />
                 <div style={{ display: "grid" }}>
@@ -219,12 +156,42 @@ export function PlazaScreen() {
             ) : null}
 
             {strip.lines.map((line) => (
-              <CoverageLine key={line}>{line}</CoverageLine>
+              <p
+                key={line}
+                style={{
+                  ...mono,
+                  margin: 0,
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.6,
+                  opacity: 0.78,
+                }}
+              >
+                {line}
+              </p>
             ))}
+
+            <Link
+              to={strip.to}
+              aria-label={`${strip.title} — open`}
+              style={{
+                ...mono,
+                justifySelf: "end",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                fontSize: "0.78rem",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "currentColor",
+                opacity: 0.72,
+                textDecoration: "none",
+              }}
+            >
+              open <Chevron />
+            </Link>
           </div>
-        </TornSheet>
-        ),
-      )}
+        </TornPaperSection>
+      ))}
     </main>
   );
 }

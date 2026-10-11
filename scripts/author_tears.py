@@ -102,8 +102,112 @@ TEAR_A_BOTTOM: list[Point] = [
     (800, 58),
 ]
 
+# ---------------------------------------------------------------------------
+# TEAR B — a busier edge than A. Where A opens with a long clean run, B tears
+# in a cluster of three smaller lobes up front and then runs quiet for most
+# of its second half. Its deepest excursion is near the start, not the end,
+# so stacking B under A never repeats a rhythm.
+# ---------------------------------------------------------------------------
+
+TEAR_B_TOP: list[Point] = [
+    (0, 50), (18, 54), (38, 61), (56, 67),
+    # Three smaller lobes in quick succession — each crown is still written
+    # as points at a similar height, so none of them turns into a tooth.
+    (72, 70), (86, 68), (100, 62),
+    (116, 66), (132, 71), (146, 69), (158, 63),
+    (174, 68), (190, 74), (206, 72), (220, 65),
+    # An undercut: x steps back, so the paper overhangs itself here.
+    (232, 59), (244, 55), (238, 52),
+    (256, 48), (274, 44),
+    # The deepest bite of this edge, wide-bottomed rather than pointed.
+    (292, 33), (310, 28), (330, 31), (350, 38),
+    # ---- a long shallow run, ~110px, where the fibre parted cleanly ----
+    (372, 46), (396, 44), (420, 47), (444, 45), (468, 48), (482, 46),
+    # One broad late lobe, asymmetrical: slow rise, quicker fall.
+    (502, 52), (524, 59), (548, 66), (570, 71), (588, 70), (602, 64),
+    (614, 58),
+    # Second undercut, shallower than the first.
+    (628, 54), (640, 51), (634, 49),
+    (654, 47), (676, 50),
+    # ---- quiet into the seam ----
+    (700, 53), (724, 51), (748, 54), (772, 52),
+    (800, 50),
+]
+
+TEAR_B_BOTTOM: list[Point] = [
+    (0, 62), (24, 59), (46, 62), (68, 60),
+    # A long quiet opening — B's bottom is the calmest of the six edges, which
+    # is what lets the sheet below it read as the louder one.
+    (92, 63), (116, 61), (140, 64), (164, 62),
+    # First lobe, broad and low-crowned.
+    (186, 68), (208, 74), (228, 79), (246, 77), (262, 71),
+    (278, 65), (272, 62),
+    (296, 59), (318, 55),
+    # A moderate trough with a secondary nick on its floor.
+    (338, 47), (354, 43), (366, 46), (380, 41), (398, 39), (418, 44),
+    # ---- shallow run ----
+    (440, 52), (464, 50), (488, 53), (512, 51),
+    # The deepest bite, late and wide.
+    (534, 44), (554, 37), (574, 34), (596, 39), (616, 48),
+    # Final lobe, overhanging on its left flank.
+    (636, 55), (650, 61), (644, 64),
+    (666, 67), (686, 70), (704, 68), (720, 64),
+    (742, 63), (766, 65),
+    (800, 62),
+]
+
+# ---------------------------------------------------------------------------
+# TEAR C — the quietest of the three. Two wide, lazy lobes and a single deep
+# excursion, with the longest clean runs of any edge. A page of nothing but
+# busy tears reads as noise; C is what gives the stack somewhere to rest.
+# ---------------------------------------------------------------------------
+
+TEAR_C_TOP: list[Point] = [
+    (0, 56), (26, 53), (52, 56), (78, 54),
+    # ---- the longest clean run in the set, ~130px ----
+    (104, 57), (130, 55), (156, 58), (182, 56), (206, 59),
+    # One wide, lazy lobe: the crown is four points, so it is a dome.
+    (230, 64), (256, 70), (282, 75), (306, 77), (326, 76), (344, 72),
+    (362, 66), (380, 60),
+    # Undercut on the lobe's trailing flank.
+    (394, 56), (406, 53), (400, 50),
+    (420, 48), (442, 51),
+    # ---- second clean run ----
+    (466, 49), (490, 52), (514, 50), (538, 53),
+    # The single deep excursion of this edge.
+    (560, 44), (580, 36), (600, 30), (622, 33), (644, 41), (664, 48),
+    # A second, smaller dome into the seam.
+    (686, 54), (708, 60), (728, 63), (746, 61),
+    # Second undercut, shallow.
+    (758, 58), (768, 56), (762, 54),
+    (780, 55),
+    (800, 56),
+]
+
+TEAR_C_BOTTOM: list[Point] = [
+    (0, 51), (28, 54), (54, 52), (80, 55),
+    # Opens with a wide shallow dome rather than a trough.
+    (106, 60), (132, 66), (158, 70), (182, 72), (204, 70), (224, 65),
+    (244, 59),
+    # Undercut.
+    (258, 55), (270, 52), (264, 50),
+    # ---- long clean run, ~120px ----
+    (286, 48), (312, 51), (338, 49), (364, 52), (390, 50), (406, 53),
+    # The deep excursion, mid-edge and wide-bottomed.
+    (428, 45), (448, 38), (470, 33), (492, 35), (512, 42), (532, 49),
+    # ---- second clean run ----
+    (556, 53), (582, 51), (608, 54), (634, 52),
+    # Final lazy dome, asymmetrical — quick rise, slow fall.
+    (656, 58), (676, 66), (694, 71), (710, 70), (724, 66),
+    (738, 62), (732, 59),
+    (754, 56), (778, 53),
+    (800, 51),
+]
+
 TABLES: dict[str, dict[str, list[Point]]] = {
     "a": {"top": TEAR_A_TOP, "bottom": TEAR_A_BOTTOM},
+    "b": {"top": TEAR_B_TOP, "bottom": TEAR_B_BOTTOM},
+    "c": {"top": TEAR_C_TOP, "bottom": TEAR_C_BOTTOM},
 }
 
 
@@ -484,7 +588,10 @@ def main() -> None:
     for name, edges in TABLES.items():
         for edge, points in edges.items():
             check(points, f"tear-{name}-{edge}")
-            seed = 101 if edge == "top" else 211
+            # Per-tear seeds: sharing one would give three different
+            # silhouettes the identical fibre and the identical fragments,
+            # which reads as one edge redrawn rather than three tears.
+            seed = {"a": 101, "b": 307, "c": 523}[name] + (0 if edge == "top" else 110)
             ys = contour_ys(points, seed)
 
             path = OUT / f"tear-{name}-{edge}.svg"
@@ -497,7 +604,6 @@ def main() -> None:
             fr = OUT / f"fringe-{name}-{edge}.png"
             fringe_raster(draw_ys, seed + 7, edge).save(fr, optimize=True)
             print(f"wrote {fr.name} — fringe from the same contour, {fr.stat().st_size // 1024}KB")
-    print("\ntear-b and tear-c are authored once tear-a is approved as the reference.")
 
 
 if __name__ == "__main__":

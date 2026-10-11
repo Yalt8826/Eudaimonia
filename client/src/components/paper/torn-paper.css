@@ -202,12 +202,20 @@
 
 /* Tear variants: three authored contours, so no two sheets share a
    silhouette (spec §2.2 — do not repeat one shape down the page). */
+/* The fringe MUST be swapped with the mask. They are generated from one
+   contour array in scripts/author_tears.py and only align as a pair: a
+   tear-b sheet wearing tear-a's fringe shows the material of one edge on
+   the silhouette of another, which reads as a misprint. */
 .torn-section--tear-b {
   --tear-top: url("../../assets/paper/tear-b-top.svg");
   --tear-bottom: url("../../assets/paper/tear-b-bottom.svg");
+  --fringe-top: url("../../assets/paper/fringe-b-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-b-bottom.png");
 }
 
 .torn-section--tear-c {
   --tear-top: url("../../assets/paper/tear-c-top.svg");
   --tear-bottom: url("../../assets/paper/tear-c-bottom.svg");
+  --fringe-top: url("../../assets/paper/fringe-c-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-c-bottom.png");
 }
