@@ -1,0 +1,91 @@
+{
+  "tint": {
+    "median_rgb": [
+      168.67,
+      219.67,
+      198.56
+    ],
+    "delta_vs_token": [
+      -0.33,
+      -0.33,
+      -0.44
+    ],
+    "pass": true,
+    "note": "interior=116736px (86% of paper)"
+  },
+  "ink_contrast": {
+    "ink_rgb": [
+      25.3,
+      49.3,
+      42.8
+    ],
+    "paper_rgb": [
+      168.7,
+      219.7,
+      198.6
+    ],
+    "ratio": 9.0,
+    "pass": true
+  },
+  "texture": {
+    "luminance_stddev_physical": 4.55,
+    "luminance_stddev_css_pooled": 3.09,
+    "threshold": 5,
+    "pass": false
+  },
+  "no_rim": {
+    "threshold_pct": 10,
+    "top": {
+      "pct_above_35_band_mean": 5.6,
+      "pct_above_35_strict_max": 15.1,
+      "columns": 390
+    },
+    "bottom": {
+      "pct_above_35_band_mean": 5.9,
+      "pct_above_35_strict_max": 16.2,
+      "columns": 390
+    },
+    "pass": true
+  },
+  "relief": {
+    "top": {
+      "pct_above_60": 14.1,
+      "patches": 31,
+      "patches_gap_merged": 19
+    },
+    "expect_pct": "8-15",
+    "expect_patches": "12-18",
+    "bottom": {
+      "pct_above_60": 14.1,
+      "patches": 34,
+      "patches_gap_merged": 21
+    },
+    "pass": false
+  },
+  "text_clearance": {
+    "min_css_px_ink_to_fringe": 25,
+    "required": "> 6",
+    "pass": true
+  },
+  "tiling": {
+    "contour_y_at_x0": 52.4,
+    "contour_y_at_x800": 52.4,
+    "source_endpoint_delta_top": 0.0,
+    "source_endpoint_delta_bottom": 0.0,
+    "tiles_visible_at_390px": 0.4875,
+    "pass": true,
+    "note": "repeat-x tile is wider than the viewport, so no seam is on screen (true of the web reference at 390px too); stretch is disproven by the contour-fidelity check when a mask-only render is supplied"
+  },
+  "cast_profile_pct_of_far_paper": {
+    "+0px": 35.4,
+    "+4px": 45.1,
+    "+10px": 73.7,
+    "+20px": 99.7
+  },
+  "cast_reference_theme_css": {
+    "+0px": 57.5,
+    "+4px": 76.9,
+    "+10px": 91.4,
+    "+20px": 97.7
+  }
+}
