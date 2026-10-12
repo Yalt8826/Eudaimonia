@@ -95,7 +95,13 @@ export function PlazaScreen() {
         // Sheets run nearly the full width and their tears very nearly
         // touch: the black between them is the skin showing through a
         // series of tears, not a stack of cards with margins.
-        padding: "1.1rem 0 9.5rem",
+        // 9.5rem of black used to sit below the last sheet, sized so the
+        // floating cluster could never cover the final OPEN link. That is
+        // most of a phone screen spent on nothing. 4rem instead: scrolled
+        // all the way down the cluster's upper bubbles can now reach the
+        // last sheet's link, which is ordinary behaviour for a floating
+        // nav and costs far less than the empty screen did.
+        padding: "1.1rem 0 4rem",
         // The phone design is the design (04, mockup-ratified). On a wide
         // window the column caps rather than stretching: a sheet spanning
         // 1280px puts its text far outside the 60-70ch measure (01 §6) and

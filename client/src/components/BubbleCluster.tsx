@@ -3,13 +3,14 @@ import { Link, useLocation } from "react-router-dom";
 import "./bubble-cluster.css";
 
 // The bubble cluster (01 §3): floating glass bubbles anchored to the
-// BOTTOM-LEFT corner by the ＋ capture FAB. Tap More expands the full route
+// BOTTOM-RIGHT corner by the ＋ capture FAB. Tap More expands the full route
 // sheet (two-tap law). Rendered on every route EXCEPT /habits/wake (law 9)
 // — see routes.tsx.
 //
 // Laid out on two axes rather than scattered: a column rising from capture
-// (settings, then more) and a row running right from it (plaza, week,
-// inbox), both aligned to capture's centre lines. The previous version
+// (settings, then more) and a row running LEFT from it (plaza, week,
+// inbox), both aligned to capture's centre lines. Every bubble is placed
+// from the right edge, so the whole cluster mirrors with one token. The previous version
 // placed each bubble at its own hand-tuned offset to read as an "organic
 // cluster"; it read as misaligned.
 //
@@ -174,19 +175,19 @@ export function BubbleCluster() {
   }> = [
     // the column, rising from capture
     { key: "more", label: "More", icon: ICONS.more, size: `${DOT}rem`,
-      pos: { left: ALIGN, bottom: `${FAB + GAP + DOT + GAP}rem` } },
+      pos: { right: ALIGN, bottom: `${FAB + GAP + DOT + GAP}rem` } },
     { key: "settings", label: "Settings", to: "/settings", icon: ICONS.settings, size: `${DOT}rem`,
-      pos: { left: ALIGN, bottom: `${FAB + GAP}rem` } },
-    // the row, running right from capture
+      pos: { right: ALIGN, bottom: `${FAB + GAP}rem` } },
+    // the row, running left from capture
     { key: "plaza", label: "Plaza", to: "/", icon: ICONS.plaza, size: `${DOT}rem`,
-      pos: { left: `${FAB + GAP}rem`, bottom: ALIGN } },
+      pos: { right: `${FAB + GAP}rem`, bottom: ALIGN } },
     { key: "week", label: "Week", to: WEEK_URL, icon: ICONS.week, size: `${DOT}rem`,
-      pos: { left: `${FAB + GAP + DOT + GAP}rem`, bottom: ALIGN } },
+      pos: { right: `${FAB + GAP + DOT + GAP}rem`, bottom: ALIGN } },
     { key: "inbox", label: "Inbox", to: "/inbox", icon: ICONS.inbox, size: `${DOT}rem`,
-      pos: { left: `${FAB + GAP + 2 * (DOT + GAP)}rem`, bottom: ALIGN } },
+      pos: { right: `${FAB + GAP + 2 * (DOT + GAP)}rem`, bottom: ALIGN } },
     // the anchor, in the corner itself
     { key: "capture", label: "＋ capture", to: "/capture", icon: ICONS.plus,
-      size: `${FAB}rem`, pos: { left: 0, bottom: 0 } },
+      size: `${FAB}rem`, pos: { right: 0, bottom: 0 } },
   ];
 
 
@@ -198,12 +199,16 @@ export function BubbleCluster() {
     >
       {sheetOpen ? (
         <div
+          data-sheet=""
           style={{
             position: "absolute",
-            left: 0,
+            right: 0,
             bottom: `${FAB + GAP + 2 * (DOT + GAP)}rem`,
             width: "11rem",
-            maxHeight: "19rem",
+            // Tall enough that the seventeen routes usually need no
+            // scrolling at all; it still scrolls on a short screen, but
+            // the bar itself is hidden in bubble-cluster.css.
+            maxHeight: "min(68vh, 32rem)",
             overflowY: "auto",
             padding: "0.6rem 0.75rem",
             borderRadius: "16px",

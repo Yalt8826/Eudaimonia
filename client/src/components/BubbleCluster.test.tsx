@@ -21,16 +21,19 @@ function clusterAt(path: string): HTMLElement {
   return container;
 }
 
-function source(): string {
+function readRepoFile(relative: string): string {
   for (const base of [process.cwd(), join(process.cwd(), "client")]) {
     try {
-      return readFileSync(join(base, "src/components/BubbleCluster.tsx"), "utf8");
+      return readFileSync(join(base, relative), "utf8");
     } catch {
       // try the next base
     }
   }
-  throw new Error("cannot locate BubbleCluster.tsx");
+  throw new Error(`cannot locate ${relative}`);
 }
+
+const source = (): string => readRepoFile("src/components/BubbleCluster.tsx");
+const clusterCss = (): string => readRepoFile("src/components/bubble-cluster.css");
 
 describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
   it("renders six bubbles including the ＋ capture FAB", () => {
@@ -43,7 +46,7 @@ describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
     expect(container.querySelector('button[aria-label="More"]')).not.toBeNull();
   });
 
-  it("anchors to the BOTTOM-LEFT corner, every bubble hugging the edge", () => {
+  it("anchors to the BOTTOM-RIGHT corner, every bubble hugging the edge", () => {
     const container = clusterAt("/");
     const nav = container.querySelector("[data-nav]") as HTMLElement;
     // The position is one token, so the component must not hard-code a side.
@@ -51,12 +54,13 @@ describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
     // Capture sits in the corner itself; everything else is placed off it.
     const fab = container.querySelector('a[aria-label="＋ capture"]') as HTMLElement;
     const style = fab.getAttribute("style") ?? "";
-    expect(style, "capture is the corner anchor").toMatch(/left:\s*0/);
+    expect(style, "capture is the corner anchor").toMatch(/right:\s*0/);
     expect(style, "capture is the corner anchor").toMatch(/bottom:\s*0/);
-    // No bubble may be placed from the right edge — that was the old anchor.
+    // Every bubble is placed from the SAME edge, so the cluster mirrors
+    // as one piece; a stray `left` would strand that bubble behind.
     for (const el of container.querySelectorAll("a, button")) {
       expect((el as HTMLElement).getAttribute("style") ?? "", el.getAttribute("aria-label") ?? "")
-        .not.toMatch(/(^|;)\s*right:/);
+        .not.toMatch(/(^|;)\s*left:/);
     }
   });
 
@@ -104,22 +108,28 @@ describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
     );
   });
 
+  it("shows no scrollbar on the route sheet, and still scrolls", () => {
+    const container = clusterAt("/");
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    const sheet = container.querySelector("[data-sheet]") as HTMLElement;
+    expect(sheet, "the sheet is the scrolling element").not.toBeNull();
+    expect(sheet.getAttribute("style") ?? "").toContain("overflow-y: auto");
+    const css = clusterCss();
+    expect(css, "Firefox").toMatch(/scrollbar-width:\s*none/);
+    expect(css, "WebKit/Blink").toMatch(/::-webkit-scrollbar/);
+  });
+
   it("kills the tap highlight without killing keyboard focus", () => {
     // The blue rectangle that flashed before navigation is the UA tap
     // highlight. Clearing it must not take the focus ring with it, or
     // keyboard users lose their place entirely.
-    const css = (() => {
-      for (const base of [process.cwd(), join(process.cwd(), "client")]) {
-        try {
-          return readFileSync(join(base, "src/components/bubble-cluster.css"), "utf8");
-        } catch {
-          // try the next base
-        }
-      }
-      throw new Error("cannot locate bubble-cluster.css");
-    })();
-    expect(css).toMatch(/-webkit-tap-highlight-color:\s*transparent/);
-    expect(css, "focus must come back for keyboard").toMatch(/:focus-visible/);
-    expect(css).toMatch(/outline:\s*2px solid var\(--accent-1\)/);
+    // App-wide now, not per component: the blue flash is a UA behaviour
+    // on everything tappable, so theme.css owns it.
+    const theme = readRepoFile("src/theme.css");
+    expect(theme).toMatch(/-webkit-tap-highlight-color:\s*transparent/);
+    expect(theme, "focus must come back for keyboard").toMatch(/:focus-visible\s*\{/);
+    expect(theme).toMatch(/outline:\s*2px solid var\(--accent-1\)/);
+    // A pointer click must leave no ring at all.
+    expect(theme).toMatch(/:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*none/);
   });
 });

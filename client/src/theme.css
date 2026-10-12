@@ -198,6 +198,39 @@
    scale as well as fine tooth. Amended ceiling: <= 8% per layer, still
    well under what interferes with body text (01 §2 L0). The texture
    dresses the black skin only — glass and paper layers opt out. */
+/* The UA tap-highlight: mobile WebKit/Blink paint a translucent blue
+   rectangle over anything tappable the instant it is touched, before the
+   action runs. It is the browser's own affordance and this property is
+   the only way off it. Killed app-wide — on round bubbles it flashed as a
+   blue SQUARE behind the circle, and it is no better on the sheets.
+
+   The ring that remains is :focus-visible, which fires for keyboard and
+   not for pointer. A pointer-focused element gets nothing; a keyboard one
+   keeps a teal ring, because taking that away too would leave anyone
+   navigating by keyboard with no idea where they are. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 3px;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;

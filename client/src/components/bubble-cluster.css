@@ -1,27 +1,26 @@
 /* The bubble cluster's non-inline rules.
 
-   Two things cannot be expressed as inline styles, and both are about what
-   happens when the thing is touched:
+   The tap highlight and the focus ring moved to theme.css: the blue flash
+   is a UA behaviour on every tappable thing, not a cluster problem, and
+   killing it in one place beats killing it per component. What is left
+   here is the one rule that genuinely belongs to this component. */
 
-   TAP HIGHLIGHT. Mobile WebKit/Blink paint a translucent blue rectangle
-   over a link the instant it is touched, before navigation runs. On round
-   glass bubbles it flashes as a blue SQUARE behind the circle, which is
-   what it looked like: a blue mark appearing before the action. It is the
-   UA's own affordance and the only way off it is this property.
+/* THE ROUTE SHEET'S SCROLLBAR. Seventeen routes do not fit on a short
+   screen, so the sheet scrolls — but a scrollbar gutter down the right
+   edge of a small floating glass panel is louder than the list itself.
+   The bar is hidden and the scrolling is kept.
 
-   FOCUS. Clearing the tap highlight must not clear keyboard focus with it.
-   `outline: none` alone would leave someone navigating by keyboard with no
-   idea where they are, so the ring is restored on :focus-visible — which
-   fires for keyboard and not for pointer, exactly the distinction wanted. */
-
-[data-nav="bubble-cluster"] a,
-[data-nav="bubble-cluster"] button {
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
+   The tradeoff is real and deliberate: hiding a scrollbar also hides the
+   signal that there is more below. The sheet is sized (min(68vh, 32rem))
+   so the full list usually fits with no scrolling at all, which is what
+   keeps this honest — scrolling is the exception here, not the norm. */
+[data-nav="bubble-cluster"] [data-sheet] {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* old Edge */
 }
 
-[data-nav="bubble-cluster"] a:focus-visible,
-[data-nav="bubble-cluster"] button:focus-visible {
-  outline: 2px solid var(--accent-1);
-  outline-offset: 3px;
+[data-nav="bubble-cluster"] [data-sheet]::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
