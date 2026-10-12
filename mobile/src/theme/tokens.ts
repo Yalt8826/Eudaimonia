@@ -263,6 +263,13 @@ export const geometry = {
      BubbleCluster.test.tsx now asserts `left` is auto. */
   navClusterInset: { top: null, right: 12, bottom: 12, left: null },
 
+  /* BubbleCluster.tsx: FAB = 4.4rem (capture's size), DOT = 3rem (every
+     other bubble), GAP = 0.4rem (between neighbours). The rest of the
+     cluster's geometry derives: a column rising from capture (settings,
+     then more) and a row running LEFT from it (plaza, week, inbox), both
+     aligned to capture's centre lines; the container is 14.6rem x 11.2rem. */
+  navBubbleSizes: { fab: 70.4, dot: 48, gap: 6.4 },
+
   /* .plaza-sheet + .plaza-sheet { margin-top: -4.5rem; }
      How far each sheet rides up into the one above it. The black between
      two sheets is one band of torn skin, not a gutter between cards, and

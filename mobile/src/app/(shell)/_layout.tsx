@@ -3,13 +3,13 @@
 // on every screen EXCEPT /habits/wake, which sits outside this group and
 // renders zero chrome (law 9).
 import { Slot } from "expo-router";
-import { ChromePlaceholder } from "../../navigation/ChromePlaceholder";
+import { BubbleCluster } from "../../navigation/BubbleCluster";
 
 export default function ShellLayout() {
   return (
     <>
       <Slot />
-      <ChromePlaceholder />
+      <BubbleCluster />
     </>
   );
 }

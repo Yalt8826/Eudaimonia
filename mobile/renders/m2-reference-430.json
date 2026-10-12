@@ -1,0 +1,229 @@
+{
+  "render": "../preserved/torn-paper-web/renders/plaza-430px.png",
+  "dpr": 1.0,
+  "reference": true,
+  "css_size": [
+    430,
+    1588
+  ],
+  "sheets": {
+    "plan": {
+      "tint": {
+        "median_rgb": [
+          169.0,
+          220.0,
+          199.0
+        ],
+        "token_rgb": [
+          169.0,
+          220.0,
+          199.0
+        ],
+        "delta_vs_token": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "max_abs_delta": 0.0,
+        "required": "<= 1/255 per channel",
+        "pass": true
+      },
+      "no_rim": {
+        "top_pct_above_35_band_mean": 44.7,
+        "top_pct_above_35_strict_max": 44.7,
+        "bottom": "fully occluded by the next sheet's skin \u2014 skipped",
+        "threshold_pct": 10,
+        "pass": false
+      },
+      "text_clearance": {
+        "min_css_px_ink_to_fringe": 23,
+        "required": "> 6",
+        "pass": true
+      },
+      "ink_contrast": {
+        "ratio": 9.68,
+        "floor": 4.5,
+        "pass": true
+      },
+      "geometry": {
+        "located_top_css": 123.8,
+        "located_box_bottom_css": 419.0
+      }
+    },
+    "waiting": {
+      "tint": {
+        "median_rgb": [
+          169.5,
+          203.0,
+          239.0
+        ],
+        "token_rgb": [
+          169.0,
+          203.0,
+          239.0
+        ],
+        "delta_vs_token": [
+          0.5,
+          0.0,
+          0.0
+        ],
+        "max_abs_delta": 0.5,
+        "required": "<= 1/255 per channel",
+        "pass": true
+      },
+      "no_rim": {
+        "top_pct_above_35_band_mean": 17.7,
+        "top_pct_above_35_strict_max": 17.7,
+        "bottom": "fully occluded by the next sheet's skin \u2014 skipped",
+        "threshold_pct": 10,
+        "pass": false
+      },
+      "text_clearance": {
+        "min_css_px_ink_to_fringe": 23,
+        "required": "> 6",
+        "pass": true
+      },
+      "ink_contrast": {
+        "ratio": 8.27,
+        "floor": 4.5,
+        "pass": true
+      },
+      "geometry": {
+        "located_top_css": 347.0,
+        "located_box_bottom_css": 636.2
+      }
+    },
+    "habits": {
+      "tint": {
+        "median_rgb": [
+          240.0,
+          169.0,
+          155.0
+        ],
+        "token_rgb": [
+          240.0,
+          169.0,
+          155.0
+        ],
+        "delta_vs_token": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "max_abs_delta": 0.0,
+        "required": "<= 1/255 per channel",
+        "pass": true
+      },
+      "no_rim": {
+        "top_pct_above_35_band_mean": 37.4,
+        "top_pct_above_35_strict_max": 37.4,
+        "bottom": "fully occluded by the next sheet's skin \u2014 skipped",
+        "threshold_pct": 10,
+        "pass": false
+      },
+      "text_clearance": {
+        "min_css_px_ink_to_fringe": 5,
+        "required": "> 6",
+        "pass": false
+      },
+      "ink_contrast": {
+        "ratio": 7.01,
+        "floor": 4.5,
+        "pass": true
+      },
+      "geometry": {
+        "located_top_css": 564.2,
+        "located_box_bottom_css": 1038.0
+      }
+    },
+    "yesterday": {
+      "tint": {
+        "median_rgb": [
+          242.0,
+          210.0,
+          142.0
+        ],
+        "token_rgb": [
+          242.0,
+          210.0,
+          141.0
+        ],
+        "delta_vs_token": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "max_abs_delta": 1.0,
+        "required": "<= 1/255 per channel",
+        "pass": true
+      },
+      "no_rim": {
+        "top_pct_above_35_band_mean": 22.3,
+        "top_pct_above_35_strict_max": 22.3,
+        "bottom_pct_above_35_band_mean": 2.8,
+        "bottom_exposed_columns": 36,
+        "threshold_pct": 10,
+        "pass": false
+      },
+      "text_clearance": {
+        "min_css_px_ink_to_fringe": 5,
+        "required": "> 6",
+        "pass": false
+      },
+      "ink_contrast": {
+        "ratio": 10.58,
+        "floor": 4.5,
+        "pass": true
+      },
+      "geometry": {
+        "located_top_css": 966.0,
+        "located_box_bottom_css": 1252.2
+      }
+    },
+    "agents": {
+      "tint": {
+        "median_rgb": [
+          195.0,
+          175.0,
+          243.0
+        ],
+        "token_rgb": [
+          195.0,
+          174.0,
+          243.0
+        ],
+        "delta_vs_token": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "max_abs_delta": 1.0,
+        "required": "<= 1/255 per channel",
+        "pass": true
+      },
+      "no_rim": {
+        "top_pct_above_35_band_mean": 38.1,
+        "top_pct_above_35_strict_max": 38.1,
+        "bottom_pct_above_35_band_mean": 100.0,
+        "bottom_exposed_columns": 430,
+        "threshold_pct": 10,
+        "pass": false
+      },
+      "text_clearance": {
+        "min_css_px_ink_to_fringe": 5,
+        "required": "> 6",
+        "pass": false
+      },
+      "ink_contrast": {
+        "ratio": 7.43,
+        "floor": 4.5,
+        "pass": true
+      },
+      "geometry": {
+        "located_top_css": 1180.2,
+        "located_box_bottom_css": 1434.0
+      }
+    }
+  },
+  "rows_passing": "12/20"
+}

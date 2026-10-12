@@ -1,6 +1,8 @@
-// M1 stub — the real Plaza (five sheets, header, nav cluster) lands in M2.
-import { Stub } from "../../screens/Stub";
+// The Plaza (04 `/`) — five torn sheets, the header, and the nav cluster
+// from the shell layout. The M1 stub's job is done: this screen now mounts
+// src/plaza/PlazaScreen.
+import PlazaScreen from "../../plaza/PlazaScreen";
 
-export default function PlazaScreen() {
-  return <Stub name="Today's Plan" />;
+export default function PlazaRoute() {
+  return <PlazaScreen />;
 }
