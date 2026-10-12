@@ -5,7 +5,8 @@
 #
 #   blur         backdrop-filter count <= 1 per screen route under client/src/routes/
 #                (law 9 hard-mode budgets; 01 v2 §2 L1: glass is for touching only)
-#   accent       accent/state hex literals only inside client/src/theme.css
+#   accent       accent/state hex literals only inside the token files —
+#                client/src/theme.css (web) and mobile/src/theme/tokens.ts
 #                (01 v2 §1 palette; a palette flip must remain a token edit)
 #   chokepoint   no subprocess/Popen/hermes outside app/app/agent_invoke.py
 #                (02 §2 law 12: one agent primitive; 02 §6 chokepoint invariant)
@@ -19,6 +20,8 @@ cd "$ROOT"
 ROUTES_DIR="client/src/routes"
 CLIENT_SRC="client/src"
 THEME_CSS="client/src/theme.css"
+MOBILE_SRC="mobile/src"
+MOBILE_TOKENS="mobile/src/theme/tokens.ts"
 APP_DIR="app"
 CHOKEPOINT="app/app/agent_invoke.py"
 
@@ -38,6 +41,9 @@ ACCENT_HEXES=(
   2DD4BF  # --accent-1 teal
   B872F2  # --accent-2 plum (glass)
   7E22CE  # --accent-2-ink plum (paper)
+  0F766E  # --accent-1-ink teal (paper) — added 2026-10-12 with the hue-law
+          # accents; the list had no entry for it, so the rule had a hole
+          # for exactly as long as the token existed
   A78BFA  # v1 Aurora violet (picker entry only)
   3FB950 27963C  # alive  glass/paper
   F85149 D64545  # dead   glass/paper
@@ -65,16 +71,27 @@ check_blur() {  # optional arg: a single target file (selfcheck)
 accent_hits() {  # prints matches for a target path (dir or file)
   local target="$1" patterns=() h
   for h in "${ACCENT_HEXES[@]}"; do patterns+=(-e "$h"); done
+  # Both token files are exempt — each client has exactly one place where
+  # the palette is spelled out, and everything else reads from it.
   grep -riF "${patterns[@]}" "$target" \
-        --exclude-dir='__fixtures__' --exclude-dir='node_modules' 2>/dev/null \
-      | grep -v "^${THEME_CSS}:" || true
+        --exclude-dir='__fixtures__' --exclude-dir='node_modules' \
+        --exclude-dir='.expo' --exclude-dir='renders' 2>/dev/null \
+      | grep -v "^${THEME_CSS}:" \
+      | grep -v "^${MOBILE_TOKENS}:" || true
 }
 
 check_accent() {  # optional arg: a single target path (selfcheck)
-  local out
-  out=$(accent_hits "${1:-$CLIENT_SRC}")
+  local out targets=()
+  if [ $# -gt 0 ]; then
+    targets=("$1")
+  else
+    targets=("$CLIENT_SRC")
+    # mobile/ only exists mid-migration; scan it when it is there.
+    [ -d "$MOBILE_SRC" ] && targets+=("$MOBILE_SRC")
+  fi
+  out=$(for tgt in "${targets[@]}"; do accent_hits "$tgt"; done)
   if [ -n "$out" ]; then
-    echo "ACCENT HEX OUTSIDE ${THEME_CSS}:" >&2
+    echo "ACCENT HEX OUTSIDE ${THEME_CSS} / ${MOBILE_TOKENS}:" >&2
     echo "$out" >&2
     return 1
   fi

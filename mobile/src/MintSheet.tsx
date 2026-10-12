@@ -31,18 +31,41 @@ import {
 } from "@shopify/react-native-skia";
 
 import { TEAR_A_TOP, TEAR_A_BOTTOM } from "./tearContours";
+import { colors, lipBands } from "./theme/tokens";
 
-// ---- exact values (brief §3) ------------------------------------------
+// ---- colour comes from tokens.ts, never from literals ------------------
+//
+// These were hex literals here until 2026-10-12, duplicating values that
+// tokens.ts already defines and tests. That is the specific trap this
+// project has been bitten by twice on the web side: a value defined in
+// two places, where the second silently diverges and nothing notices
+// (--skin-lip-* cost three tuning passes, --nav-cluster-inset cost a
+// whole round). A palette change must stay a token edit.
+//
+// scripts/lint_greps.sh now fails the build on a hex literal outside
+// tokens.ts, so this cannot come back by accident.
 
-const PAGE_BG = "#0B0B0C";
-const MINT = "#A9DCC7";
-const INK = "#142B25";
-const TEAL = "#0F766E";
+const PAGE_BG = colors["--bg"];
+const MINT = colors["--sheet-mint"];
+const INK = colors["--sheet-mint-ink"];
+const TEAL = colors["--accent-1-ink"];
 /** Skin lip bands, innermost (against the paper, the lit cut face) first. */
-const LIPS = ["#202024", "#1A1A1E", "#151518", "#111114", "#0D0D10"];
-const CAST = ["rgba(0, 0, 0, 0.42)", "rgba(0, 0, 0, 0.23)", "rgba(0, 0, 0, 0.09)"];
+const LIPS = lipBands.map((token) => colors[token]);
+const CAST = [
+  colors["--skin-cast-max"],
+  colors["--skin-cast-mid"],
+  colors["--skin-cast-far"],
+];
 const CAST_POSITIONS = [0, 0.14, 0.36, 1];
 const CAST_DEPTH = 28;
+
+/**
+ * The forbidden rim, for the metric-sanity render ONLY (rimStroke). This
+ * is the pre-2026-10-12 web lip value, kept deliberately as the thing the
+ * rim check must catch — it is not part of the palette and must never be
+ * drawn by the real sheet.
+ */
+const RIM_STROKE_COLOR = "#6E6E74";
 
 const TEAR_W = 800;
 const TEAR_H = 112;
@@ -300,7 +323,7 @@ export function MintSheet({
       {rimStroke ? (
         <Path
           path={paths.paper}
-          color="#6E6E74"
+          color={RIM_STROKE_COLOR}
           style="stroke"
           strokeWidth={1.5}
         />
