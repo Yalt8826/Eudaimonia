@@ -127,15 +127,35 @@ Eyeballing is how every one of §6 shipped.
 |---|---|
 | tint | median paper pixel is `#A9DCC7` ± 1 per channel |
 | ink contrast | heading/body vs paper ≥ 4.5:1 (WCAG, sRGB-linearised) |
-| texture present | luminance std-dev over the sheet interior ≥ 5 (flat paint ≈ 0) |
+| texture present | luminance std-dev ≥ 3.0 over a window that is **100% paper** (flat paint = 0.00) |
 | **no rim** | sampling 1–2 CSS px above the contour: fewer than **10%** of columns exceed luminance 35. The web version measures ~3–5%. Above ~50% you have rebuilt the halo. |
-| relief present | within 8 CSS px below the contour, 8–15% of columns exceed luminance 60, in roughly 12–18 separate patches — broken, not continuous |
+| relief present | within 8 CSS px below the contour, 8–15% of columns exceed luminance 60, in **≥ 10 separate patches** — broken, not continuous |
 | text clearance | no glyph pixel within 6 CSS px of any fringe pixel |
 | tiling | the contour at x=0 and x=800 match; no visible seam |
 
 A metric that reads the same before and after a change is a broken
 metric, not a passing one — see the preserved README for two that fooled
 us. Sanity-check any new measurement against a deliberately wrong render.
+
+**Two thresholds in this table were wrong when first written (corrected
+2026-10-12 after M0), and the way they were wrong is instructive:**
+
+- *texture* said ≥5 over "the sheet interior". That number came from a
+  sample that was not purely paper — a few fringe pixels in the window
+  inflate std-dev enormously. Measured over a genuinely 100%-paper
+  window the approved web surface reads **3.58**, so the old threshold
+  was above what the reference itself achieves. **Select the window for
+  purity before you measure, or you are measuring the tear.**
+- *relief patches* said 12–18. That band was counted on the 800px ASSET;
+  a render counts differently (resolution, and only part of the tile is
+  on screen). The web reference reads ~30 plain / ~23 gap-merged. The
+  row's substance is that relief is BROKEN, not continuous, so the
+  threshold is now a floor rather than a band.
+
+Both were caught because the implementer measured the reference
+alongside their own render and reported the mismatch instead of
+loosening the number. **Do that.** If your render and the approved
+reference fail a row identically, the threshold is the suspect.
 
 ## 8. Deliverable
 
