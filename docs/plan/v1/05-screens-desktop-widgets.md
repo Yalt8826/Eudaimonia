@@ -3,6 +3,7 @@ project: Eudaimonia
 doc: Screens v1 — PC + Widgets
 owner: praxis
 status: spec'd for build (2026-10-08); wake lifecycle + split-plane
+  widget section SUPERSEDED 2026-10-12 by [[10-stack-migration]] M6 (widgets become interactive; KWGT plan withdrawn)
 amendment 2026-10-09 RATIFIED (Noesis two-pass, 2026-10-09)
 ---
 

@@ -83,3 +83,13 @@ Verified: every pair ≥ 4.5 CR on both glass (6%) and paper (13%) tiers.
   content dates · two-tap · app-owned writes · computed tenancy ·
   alive/dead/paused · coverage honesty · recall-first email · estimates
   law · hard-mode surfaces · one agent primitive.
+
+## Stack migration (2026-10-12)
+
+[[10-stack-migration]] — the client moves from the React/Vite PWA to
+Expo, for interactive widgets and gesture-driven motion. It supersedes
+the client half of [[02-architecture]] §2 and the widget half of
+[[05-screens-desktop-widgets]], carries the motion amendment to
+[[01-design-system]] §6, and names a notifications spec gap that no v1
+doc covers. The server is unchanged. Execution:
+`docs/implementation/PHASE-M-STACK-MIGRATION.md`.

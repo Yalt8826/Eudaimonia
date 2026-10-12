@@ -1,3 +1,5 @@
+> **TWA work SUPERSEDED 2026-10-12 by PHASE-M-STACK-MIGRATION.md M5 (native APK via EAS, not Bubblewrap)**
+
 # Phase P6 — TWA, KWGT widget, desktop panel, tunnel, hardening
 
 **Size L · ~10–14 nights · Entry: P5 exit AND domain purchased · Rollback: T1**

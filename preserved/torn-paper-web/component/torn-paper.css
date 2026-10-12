@@ -1,0 +1,265 @@
+/* TornPaperSection — a sheet of coloured paper exposed where the black
+   skin has been torn away (implementation spec §3, §4, §5).
+
+   THE LAYER ORDER IS THE WHOLE POINT. The skin is on TOP and the paper is
+   beneath it, so:
+     - the ragged dark edge belongs to the skin, not to the sheet. It is
+       the skin's own torn cross-section, which is why it is cut by the
+       same contour as the paper and sits a few px proud of it, rather
+       than being an outline stroked around a coloured card.
+     - the shadow at the boundary runs INWARD, cast by the skin onto the
+       paper below. A sheet dropping a shadow outward onto the skin would
+       render the stack upside down.
+
+   THREE REPLACEABLE ASSETS, one custom property each (spec §2.3, §6):
+   the mask gives the shape, the texture gives the material, the fringe
+   gives the depth. Swap any of them here; the component never changes.
+
+   No blur anywhere in this file. Paper is matte and static (spec §8);
+   blur is reserved for the floating glass controls. */
+
+.torn-section {
+  /* ---- the three assets -------------------------------------------- */
+  --tear-top: url("../../assets/paper/tear-a-top.svg");
+  --tear-bottom: url("../../assets/paper/tear-a-bottom.svg");
+  /* Real paper fibre, supplied 2026-10-11. The file is the source artwork
+     re-centred on mid-grey by scripts/prepare_paper_texture.py: soft-light
+     is neutral only at #808080, and the source means 156, so blending it
+     raw would lighten every sheet and shift the measured palette. */
+  --paper-fiber: url("../../assets/paper/paper-fibers.prepared.webp");
+  /* The fringe, generated from the SAME contour as the mask above
+     (scripts/author_tears.py), which is the only way the two stay
+     aligned. Transparent everywhere but the cut, so it never paints over
+     the continuous black skin. */
+  --fringe-top: url("../../assets/paper/fringe-a-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-a-bottom.png");
+
+  /* ---- geometry ----------------------------------------------------- */
+  /* 1:1 with the authored SVG — no downscaling. The contour is drawn at
+     display size precisely so it stays crisp; rendering it at a fraction
+     halves its detail and the four stacked bands then antialias that into
+     stair-steps and a grey haze. Tiled horizontally, so a tall section
+     never stretches the contour (spec §8). */
+  --tear-w: 800px;
+  --tear-h: 112px;
+  /* tear-a: material reaches 94.0 top, 84.5 bottom */
+  --pad-top: 100px;
+  --pad-bottom: 91px;
+  --tear-x: 0px; /* phase into the tiled strip; varies the tear per sheet */
+
+  --paper-color: var(--sheet-mint);
+  --paper-text: var(--sheet-mint-ink);
+
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  color: var(--paper-text);
+  /* Only a slight seat: the sheet sits IN the skin, it does not float on
+     top of it (spec §4.3 — a large soft shadow makes it a card). */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+/* Every layer that is cut by the tear shares this contour. Each band's box
+   is wider than the paper's by its own inset, and mask-position is measured
+   from that box's origin — so each adds its inset back to --tear-x, or the
+   bands tile out of phase and the cut face smears into a grey haze. */
+.torn-section__skin,
+.torn-section__paper {
+  -webkit-mask-image: var(--tear-top), linear-gradient(#000, #000), var(--tear-bottom);
+  mask-image: var(--tear-top), linear-gradient(#000, #000), var(--tear-bottom);
+  -webkit-mask-repeat: repeat-x, no-repeat, repeat-x;
+  mask-repeat: repeat-x, no-repeat, repeat-x;
+  -webkit-mask-size: var(--tear-w) var(--tear-h), 100% calc(100% - var(--tear-h) * 2),
+    var(--tear-w) var(--tear-h);
+  mask-size: var(--tear-w) var(--tear-h), 100% calc(100% - var(--tear-h) * 2),
+    var(--tear-w) var(--tear-h);
+  -webkit-mask-position: var(--band-x) top, left var(--tear-h), var(--band-x) bottom;
+  mask-position: var(--band-x) top, left var(--tear-h), var(--band-x) bottom;
+}
+
+/* ---- the skin's torn cross-section ---------------------------------- */
+/* Graded bands, lightest against the paper: the lit cut face of thick
+   stock, falling into the dark body. Fibre rides the bands, so the edge
+   detail follows every serration instead of being stroked around it. */
+.torn-section__skin {
+  position: absolute;
+  inset: calc(var(--band) * -1px);
+  --band-x: calc(var(--tear-x) + var(--band) * 1px);
+  background-color: var(--band-color);
+  pointer-events: none;
+}
+
+/* ---- the fringe ------------------------------------------------------
+   Fibre and relief along the cut. NOT masked and NOT given a background
+   colour: the asset carries its own alpha, drawn from the same contour,
+   so it lands on the tear without painting anything over the skin.
+
+   It sits above the paper so its dark strands overhang the exposed
+   sheet, and above the skin bands so its lit catches read against the
+   black. Which marks are visible is decided by which side of the tear
+   they fall on — see the generator. */
+.torn-section__fringe {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--fringe-top), var(--fringe-bottom);
+  background-repeat: repeat-x, repeat-x;
+  background-size: var(--tear-w) var(--tear-h), var(--tear-w) var(--tear-h);
+  background-position: var(--tear-x) top, var(--tear-x) bottom;
+}
+
+/* No band paints the base colour. An outermost --bg band covered the
+   page's own crinkled background with flat paint, which is exactly what
+   made the black between sheets read as a solid strip — the texture was
+   there the whole time, underneath. Outside the mask the sheet is
+   transparent, so the skin IS the page background, granular and all. */
+.torn-section__skin--1 { --band: 5; --band-color: var(--skin-lip-5); }
+.torn-section__skin--2 { --band: 4; --band-color: var(--skin-lip-4); }
+.torn-section__skin--3 { --band: 3; --band-color: var(--skin-lip-3); }
+.torn-section__skin--4 { --band: 2; --band-color: var(--skin-lip-2); }
+.torn-section__skin--5 { --band: 1; --band-color: var(--skin-lip-1); }
+
+/* ---- the paper ------------------------------------------------------ */
+.torn-section__paper {
+  --band-x: var(--tear-x);
+  position: relative;
+  /* The texture carries the material, the token carries the colour.
+     blend-mode MUST be neutral at mid-grey. The fibre asset is greyscale
+     centred on #808080, so `multiply` halves the paper's lightness: mint
+     rendered #526B61 instead of #A9DCC7 and its ink contrast fell 9.81 ->
+     2.58, under the 4.5 floor. `soft-light` leaves mid-grey untouched and
+     only the fibre's deviation shows, so the measured palette survives
+     being textured. Asserted in torn-paper.test.tsx. */
+  background-color: var(--paper-color);
+  background-image: var(--paper-fiber);
+  background-repeat: repeat;
+  background-size: 320px 320px;
+  background-blend-mode: soft-light;
+  /* The tear bites a full strip height into the sheet, so content clears
+     it vertically as well as clearing the sides. */
+  /* Text clears the tear's MATERIAL, not merely its contour: the fringe's
+     clumps hang up to 14px past the contour, and text tucked under a
+     hanging fragment is the one way this surface actually breaks. The
+     reach is measured off the emitted PNGs by scripts/author_tears.py and
+     written to assets/paper/tear-metrics.json; these two numbers are that
+     measurement plus 6px of breathing room, and torn-paper.test.ts fails
+     the build if they ever fall under it.
+
+     The old value was `tear-h + 0.4rem` = 118.4px on every edge, which
+     padded for a worst case no authored contour reaches. */
+  padding: var(--pad-top) 1.6rem var(--pad-bottom);
+}
+
+/* The skin's edge falling onto the paper. Stops trace the measured
+   falloff — steep for a few px, then a long thin tail. A single linear
+   ramp reads as a gradient laid over the sheet, not as a shadow. */
+.torn-section__cast {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--skin-cast-depth);
+  pointer-events: none;
+}
+
+.torn-section__cast--top {
+  top: 0;
+  background: linear-gradient(
+    180deg,
+    var(--skin-cast-max) 0%,
+    var(--skin-cast-mid) 14%,
+    var(--skin-cast-far) 36%,
+    transparent 100%
+  );
+}
+
+.torn-section__cast--bottom {
+  bottom: 0;
+  background: linear-gradient(
+    0deg,
+    var(--skin-cast-max) 0%,
+    var(--skin-cast-mid) 14%,
+    var(--skin-cast-far) 36%,
+    transparent 100%
+  );
+}
+
+/* ---- content -------------------------------------------------------- */
+/* Warm dark ink directly on the paper. No card, no glass, no panel —
+   the sheet IS the surface. */
+.torn-section__content {
+  position: relative;
+  z-index: 1;
+}
+
+.torn-section__heading {
+  margin: 0 0 0.55rem;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-text);
+}
+
+/* ---- the section accent ----------------------------------------------
+   The hue law (01 §4): teal where YOU act, plum where AGENTS act. Two of
+   the five sheets carry it; the rest are unaccented, which is what makes
+   it mean anything.
+
+   It is a short mark under the heading, INSIDE the content box. The
+   earlier form was a 3px rule at the paper's left edge running its full
+   height — that is a border, it sits on the torn perimeter, and it
+   fights the tear for the eye. A sheet of torn paper has no edge
+   treatment; the accent belongs with the content it labels.
+
+   Painted from the -ink pair, never the raw accent: --accent-1 measures
+   1.22 on mint and --accent-2 1.59 on lavender, both invisible. */
+.torn-section__accent {
+  display: block;
+  width: 2.25rem;
+  height: 2px;
+  margin: -0.2rem 0 0.7rem;
+  border-radius: 1px;
+  background: var(--section-accent);
+}
+
+.torn-section--accent-1 { --section-accent: var(--accent-1-ink); }
+.torn-section--accent-2 { --section-accent: var(--accent-2-ink); }
+
+/* ---- variants -------------------------------------------------------- */
+.torn-section--mint { --paper-color: var(--sheet-mint); --paper-text: var(--sheet-mint-ink); }
+.torn-section--sky { --paper-color: var(--sheet-sky); --paper-text: var(--sheet-sky-ink); }
+.torn-section--blush { --paper-color: var(--sheet-blush); --paper-text: var(--sheet-blush-ink); }
+.torn-section--butter { --paper-color: var(--sheet-butter); --paper-text: var(--sheet-butter-ink); }
+.torn-section--lavender {
+  --paper-color: var(--sheet-lavender);
+  --paper-text: var(--sheet-lavender-ink);
+}
+
+/* Tear variants: three authored contours, so no two sheets share a
+   silhouette (spec §2.2 — do not repeat one shape down the page). */
+/* The fringe MUST be swapped with the mask. They are generated from one
+   contour array in scripts/author_tears.py and only align as a pair: a
+   tear-b sheet wearing tear-a's fringe shows the material of one edge on
+   the silhouette of another, which reads as a misprint. */
+.torn-section--tear-b {
+  --tear-top: url("../../assets/paper/tear-b-top.svg");
+  --tear-bottom: url("../../assets/paper/tear-b-bottom.svg");
+  --fringe-top: url("../../assets/paper/fringe-b-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-b-bottom.png");
+  /* tear-b: material reaches 85.5 top, 93.0 bottom */
+  --pad-top: 92px;
+  --pad-bottom: 99px;
+}
+
+.torn-section--tear-c {
+  --tear-top: url("../../assets/paper/tear-c-top.svg");
+  --tear-bottom: url("../../assets/paper/tear-c-bottom.svg");
+  --fringe-top: url("../../assets/paper/fringe-c-top.png");
+  --fringe-bottom: url("../../assets/paper/fringe-c-bottom.png");
+  /* tear-c: material reaches 91.0 top, 89.5 bottom */
+  --pad-top: 97px;
+  --pad-bottom: 96px;
+}

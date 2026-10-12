@@ -8,6 +8,8 @@ how each task proves itself, and how each is undone.**
 |---|---|
 | `EXECUTION.md` | Master schedule: ground rules, rollback tiers, phase table, dependency graph |
 | `PHASE-P0-FOUNDATION.md` … `PHASE-P6-TWA-HARDENING.md` | One doc per phase: task graph + per-task spec (P4.5 = `PHASE-P4.5-LIFE-CONSOLE.md`) |
+| `PHASE-M-STACK-MIGRATION.md` | **Client moves to Expo (2026-10-12).** Runs beside the P-phases; the server is untouched. Supersedes P6's TWA work and the KWGT widget plan. |
+| `mint-sheet-skia-brief.md` | Standalone brief for M0, the go/no-go spike: rebuild one torn-paper sheet in Skia and measure it |
 | `docs/plan/v1/*` | The ratified sources every task cites (never re-argued here) |
 
 ## How to execute a task
