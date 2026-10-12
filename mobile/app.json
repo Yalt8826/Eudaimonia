@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0C",
+    "scheme": "web+eudaimonia",
     "ios": {
       "supportsTablet": true
     },
@@ -22,7 +24,9 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-router",
+      "expo-asset"
     ]
   }
 }
