@@ -3,8 +3,10 @@ project: Eudaimonia
 doc: Screens v1 — PC + Widgets
 owner: praxis
 status: spec'd for build (2026-10-08); wake lifecycle + split-plane
-  widget section SUPERSEDED 2026-10-12 by [[10-stack-migration]] M6 (widgets become interactive; KWGT plan withdrawn)
-amendment 2026-10-09 RATIFIED (Noesis two-pass, 2026-10-09)
+  amendment 2026-10-09 RATIFIED (Noesis two-pass, 2026-10-09);
+  WIDGET SECTION SUPERSEDED 2026-10-12 by [[10-stack-migration]] M6 —
+  widgets become interactive, so the read-only KWGT plan is withdrawn.
+  The PC sections and the wake lifecycle stand.
 ---
 
 # Screens — PC & Widgets
@@ -67,6 +69,14 @@ CSV copy-out (provenance columns included).
 ---
 
 # Widgets
+
+> **Superseded 2026-10-12.** Widgets become interactive — see
+> [[10-stack-migration]] §1 and M6. The *law* below survives the change
+> and is the reason M6 exists in the form it does: an interactive widget
+> still does not write locally. It POSTs to the server spine through the
+> same idempotency guard the app uses. The widget knocks; the server
+> writes. What is withdrawn is KWGT and the read-only restriction, not
+> single-writer.
 
 Laws first: **widgets are doors, never paths.** They render
 server-supplied data + `age_minutes` (coverage honesty at a glance) and

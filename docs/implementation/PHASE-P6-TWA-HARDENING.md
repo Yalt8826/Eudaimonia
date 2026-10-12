@@ -1,4 +1,11 @@
-> **TWA work SUPERSEDED 2026-10-12 by PHASE-M-STACK-MIGRATION.md M5 (native APK via EAS, not Bubblewrap)**
+> **Partly superseded 2026-10-12** by `PHASE-M-STACK-MIGRATION.md`.
+> The client is moving to Expo, so the APK comes from an EAS build (M5),
+> not Bubblewrap, and the widget is interactive (M6), not KWGT. **What
+> still stands and must still be done:** the public origin and tunnel,
+> Digital Asset Links / deep-link verification, the invariant that the
+> wake surface never degrades to browser chrome, hardening, and the
+> backup/restore drill. Read this doc for those; take the APK and widget
+> tasks from the migration phase.
 
 # Phase P6 — TWA, KWGT widget, desktop panel, tunnel, hardening
 
