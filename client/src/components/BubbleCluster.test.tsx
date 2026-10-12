@@ -64,6 +64,29 @@ describe("BubbleCluster v2 (01 §3, mockup-ratified)", () => {
     }
   });
 
+  it("is actually anchored to the right by its token, not just by intent", () => {
+    // The token said bottom-LEFT for a full round after a commit claimed
+    // otherwise: the edit silently did not apply and a screenshot of the
+    // wrong corner looked empty. The component places every bubble from
+    // the right, so the token must agree.
+    const theme = (() => {
+      for (const base of [process.cwd(), join(process.cwd(), "client")]) {
+        try {
+          return readFileSync(join(base, "src/theme.css"), "utf8");
+        } catch {
+          // try the next base
+        }
+      }
+      throw new Error("cannot locate theme.css");
+    })();
+    const inset = /--nav-cluster-inset:\s*([^;]+);/.exec(theme)?.[1].trim();
+    const [top, right, bottom, left] = (inset ?? "").split(/\s+/);
+    expect(top, "not pinned to the top").toBe("auto");
+    expect(left, "left must be auto or the cluster hangs off the wrong edge").toBe("auto");
+    expect(right, "a real offset from the right edge").not.toBe("auto");
+    expect(bottom, "a real offset from the bottom edge").not.toBe("auto");
+  });
+
   it("the ＋ capture FAB carries the teal accent, not a state hue", () => {
     const container = clusterAt("/");
     const fab = container.querySelector('a[aria-label="＋ capture"]') as HTMLElement;

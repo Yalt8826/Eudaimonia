@@ -84,10 +84,14 @@
 
   /* navigation — the bubble cluster (01 §3). Its position is ONE variable;
      the position setting flips this token only (inset shorthand: top right
-     bottom left). Bottom-LEFT since 2026-10-12, anchored by the capture
-     FAB in the corner. 0.75rem hugs the screen edge while keeping the
-     bubbles off it. */
-  --nav-cluster-inset: auto auto 0.75rem 0.75rem;
+     bottom left). Bottom-RIGHT, anchored by the ＋ capture FAB in the
+     corner. 0.75rem hugs the screen edge while keeping the bubbles off it.
+
+     This token said bottom-LEFT for a full round AFTER a commit claimed it
+     had been flipped right: the edit silently did not apply and nothing
+     checked, so the cluster sat in the wrong corner unnoticed.
+     BubbleCluster.test.tsx now asserts `left` is auto. */
+  --nav-cluster-inset: auto 0.75rem 0.75rem auto;
   /* The bubbles float over BOTH the black skin and the coloured sheets, so
      --glass-fill alone is not enough to sit an icon on: white-on-glass
      measures 14.88 over the skin but 1.22 over butter, because the fill is
