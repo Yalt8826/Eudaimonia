@@ -10,7 +10,7 @@ SDK 57, `react-native-reanimated` 4.5.1, `react-native-gesture-handler`
 |---|---|
 | gesture works on a physical device | **PASS** — all five paths below |
 | reduce-motion drops travel, keeps the state change | **PASS** — measured both ways |
-| no entrance animation on the wake screen | **PASS** — pinned by motion.test.ts; see caveat |
+| no entrance animation on the wake screen | pinned by motion.test.ts; **not observed** — see caveat |
 | motion conveys no data | **PASS** — motion.test.ts scans every source line |
 
 ## The gesture, on device
@@ -58,29 +58,41 @@ The previous layout alternated 8.2/5.4rem, buying room by staggering
 neighbours rather than spacing them; it read as a zigzag with the outer
 spokes thrown out of the arc.
 
-## The screen transition — honest result
+## The screen transition — measured, then removed
 
-`ScreenFade` is driven by `withTiming(1, { duration: 160 })` on opacity,
-keyed by pathname, and its duration is pinned by two tests.
+There is no screen transition. M4 built one and the device took it away.
 
-**It is not visible on the Plaza, and the recording says why.** At 60fps
-the navigation shows mean luminance 11 → 108 in ONE frame, then 108 → 122
-some frames later: two discrete levels, no ramp. The fade is running — it
-simply finishes before the Plaza's first paint, which in Expo Go takes
-longer than the 160ms window. What the recording captures is the content
-arriving, already opaque.
+`ScreenFade` faded the incoming screen over 160ms. Recorded at 60fps:
 
-It was `entering={FadeIn}` first. That version was worse and the same
-recording caught it: Reanimated's LAYOUT animations are not honoured in
-this configuration at all, so the fade never ran while a mock-based test
-recorded `FadeIn.duration=160` and passed. A mock proves a value reaches
-an API; it cannot prove the API does anything. `withTiming` is the
-mechanism the rest of this client's motion already uses and measures.
+| navigation | what the frames show |
+|---|---|
+| Plaza → Settings | luma **122.6 → 11.0 in ONE frame** — the outgoing screen has no exit animation, it simply vanishes |
+| Settings → Plaza | luma **11.0 → 108 in ONE frame**, then 108 → 122 some frames later — the fade finished before first paint; the later step is content settling |
 
-**Re-verify in M5.** A dev build renders far faster than Expo Go, so the
-160ms window may land before first paint rather than after. If it still
-does not show, the transition is not earning its place and should be cut
-rather than kept as decoration nobody sees.
+Both halves are structural. `<Slot/>` unmounts the old screen immediately,
+so there is nothing to fade FROM; and the incoming screen's content — Skia
+sheets especially — paints well after the 160ms window closes, so the fade
+animated an empty view. Making it visible would mean holding the outgoing
+screen until the incoming one paints: a 160ms polish bought with real
+latency on a dashboard.
+
+It was `entering={FadeIn}` first, which was worse and the same recording
+caught it: Reanimated's LAYOUT animations are not honoured in this
+configuration at all. That version was green every run, because its test
+recorded `FadeIn.duration=160` from a mock. **A mock proves a value
+reaches an API; it cannot prove the API does anything.** Rewriting it onto
+`withTiming` — the mechanism the rest of this client's motion uses and
+which measures working — made the fade real and still invisible, which is
+what settled it.
+
+So it is gone, and `motion.test.ts` now guards the removal instead: the
+shell must declare no transition at all. 01 §8 permits motion on
+interaction; it does not require screen transitions, and the radial nav is
+where this client's motion lives.
+
+**If it returns**, it needs the half that was always missing — an exit
+animation on the outgoing screen — and a device measurement behind it,
+not a passing mock.
 
 ## Caveat on the wake screen
 
