@@ -43,35 +43,43 @@ describe("the ring geometry (PHASE-M §M4, theme/motion.ts)", () => {
     expect(RING_SPOKES.map((s) => s.angleDeg)).toEqual([90, 112.5, 135, 157.5, 180]);
   });
 
-  it("radii ALTERNATE outer 8.2 / inner 5.4 — and the collision arithmetic says they must", () => {
+  it("every spoke sits on ONE radius — it is a circle, and the radius is the one that fits", () => {
     const radii = RING_SPOKES.map((s) => s.radiusRem);
-    expect(radii).toEqual([8.2, 5.4, 8.2, 5.4, 8.2]);
-    for (let i = 1; i < radii.length; i++) {
-      expect(radii[i]).not.toBe(radii[i - 1]);
-    }
-    // Why alternation is a law, not a look: five spokes at a 22.5° step on
-    // two radii — any non-alternating split puts two ADJACENT spokes on the
-    // inner radius, where the step is 2.1rem centre-to-centre and two 3rem
-    // bubbles overlap by 0.9rem.
-    const chordInner = 2 * 5.4 * Math.sin((11.25 * Math.PI) / 180);
-    expect(chordInner).toBeCloseTo(2.105, 2);
-    expect(chordInner).toBeLessThan(RING_BUBBLE_REM);
+    expect(new Set(radii).size).toBe(1);
+
+    // Why this radius and not a smaller one. Adjacent centres are a chord
+    // apart, 2·R·sin(11.25°) at the 22.5° step. The bubbles are 3rem, so
+    // the chord must exceed 3rem or neighbours overlap.
+    const chord = (rem: number) => 2 * rem * Math.sin((11.25 * Math.PI) / 180);
+    const R = radii[0];
+    // a real gap, not a hairline: 0.4rem (6.4dp) clear between neighbours
+    expect(chord(R) - RING_BUBBLE_REM).toBeGreaterThanOrEqual(0.4);
+
+    // The previous layout alternated 8.2/5.4 to fake the room. It fitted,
+    // but a staggered arc is not a ring — the outer spokes read as thrown
+    // out of it. On ONE radius 8.2rem is what the alternation was hiding:
+    // the bubbles clear each other by 0.2rem, about 3dp, which reads as
+    // touching.
+    expect(chord(8.2) - RING_BUBBLE_REM).toBeLessThan(0.25);
   });
 
   it("spoke centres sit at their radius and angle, anchor-relative", () => {
-    // dy negative = upward on screen; values are 8.2/5.4 rem in px through
-    // sin/cos of the half-steps — the same numbers the parked render showed
+    // dy negative = upward on screen. ONE radius, 8.8rem = 140.8px, so
+    // every magnitude below is the same — that IS the circle, and the
+    // numbers say so: hypot is 140.8 for all five.
     const expected: Record<string, [number, number]> = {
-      more: [0, -131.2],
-      settings: [-33.064, -79.823], // 86.4·cos112.5°, −86.4·sin112.5°
-      plaza: [-92.773, -92.773], // 131.2·cos135°, −131.2·sin135°
-      week: [-79.823, -33.064],
-      inbox: [-131.2, 0],
+      more: [0, -140.8],
+      settings: [-53.882, -130.082], // 140.8·cos112.5°, −140.8·sin112.5°
+      plaza: [-99.561, -99.561],
+      week: [-130.082, -53.882],
+      inbox: [-140.8, 0],
     };
     for (const s of RING_SPOKES) {
       const { dx, dy } = spokeOffsetPx(s);
       expect(close(dx, expected[s.key][0])).toBe(true);
       expect(close(dy, expected[s.key][1])).toBe(true);
+      // the circle, asserted as a circle: equidistant from the anchor
+      expect(close(Math.hypot(dx, dy), 140.8)).toBe(true);
     }
   });
 
@@ -87,11 +95,11 @@ describe("the ring geometry (PHASE-M §M4, theme/motion.ts)", () => {
       inbox: { left: 174.4, up: 0 },
     };
     const expectedTravel: Record<string, [number, number]> = {
-      more: [0, -11.2], // rises 0.7rem to its ring slot
-      settings: [-33.064, -14.223], // swings out onto the inner ring
-      plaza: [-27.173, -92.773], // the long diagonal: row → arc crown
-      week: [40.177, -33.064], // inward and up
-      inbox: [43.2, 0], // the row's end slides to the 180° slot
+      more: [0, -20.8], // rises to the 90° slot
+      settings: [-53.882, -64.482], // swings off the column onto the arc
+      plaza: [-33.961, -99.561], // the long diagonal: row → arc crown
+      week: [-10.082, -53.882],
+      inbox: [33.6, 0], // the row's end slides out to the 180° slot
     };
     for (const s of RING_SPOKES) {
       const f = folded[s.key];

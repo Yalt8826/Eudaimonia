@@ -83,21 +83,27 @@ export interface SpokeSpec {
 }
 
 /**
- * Five spokes on TWO ALTERNATING radii — outer 8.2rem, inner 5.4rem — at
- * 90 / 112.5 / 135 / 157.5 / 180, ordered from the top around to the left.
- * Alternating is not decorative: five spokes at a 22.5° step on two radii
- * must alternate, because any three-on-one-arc/two-on-the-other split puts
- * two ADJACENT spokes on one radius, and on the inner radius that step is
- * 2 · 5.4rem · sin(11.25°) = 2.1rem centre-to-centre — two 3rem bubbles
- * overlap by 0.9rem. radialModel.test.ts holds both the alternation and
- * that collision arithmetic, so nobody "simplifies" this table later.
+ * Five spokes on ONE radius, 22.5° apart, from straight up (90°) to
+ * straight left (180°) — the quarter the corner leaves free.
+ *
+ * It was two alternating radii (outer 8.2rem, inner 5.4rem) to keep the
+ * cluster compact: five 3rem bubbles on one arc need room, and alternating
+ * buys it by staggering neighbours instead of spacing them. It reads as
+ * what it is — a zigzag, with the outer spokes thrown out of the ring —
+ * so it is one radius now, and the radius is whatever actually fits.
+ *
+ * Adjacent centres sit a chord apart: 2·R·sin(11.25°). At 8.8rem that is
+ * 54.9dp between 3rem (48dp) bubbles — a 6.9dp gap, the tightest true
+ * circle that does not collide. 8.2rem leaves 3.2dp and they touch.
  */
+const RING_RADIUS_REM = 8.8;
+
 export const RING_SPOKES: readonly SpokeSpec[] = [
-  { key: "more", angleDeg: 90, radiusRem: 8.2 },
-  { key: "settings", angleDeg: 112.5, radiusRem: 5.4 },
-  { key: "plaza", angleDeg: 135, radiusRem: 8.2 },
-  { key: "week", angleDeg: 157.5, radiusRem: 5.4 },
-  { key: "inbox", angleDeg: 180, radiusRem: 8.2 },
+  { key: "more", angleDeg: 90, radiusRem: RING_RADIUS_REM },
+  { key: "settings", angleDeg: 112.5, radiusRem: RING_RADIUS_REM },
+  { key: "plaza", angleDeg: 135, radiusRem: RING_RADIUS_REM },
+  { key: "week", angleDeg: 157.5, radiusRem: RING_RADIUS_REM },
+  { key: "inbox", angleDeg: 180, radiusRem: RING_RADIUS_REM },
 ];
 
 /**

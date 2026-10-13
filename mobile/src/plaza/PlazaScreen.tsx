@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+// RNGH's ScrollView, not RN's. The radial nav's Pan and a native scroll
+// both want a vertical drag, and RN's ScrollView wins it at the native
+// level: dragging straight up toward the More spoke opened the ring and
+// then had it CANCELLED mid-gesture (phase was open) while the page
+// scrolled instead. RNGH's ScrollView registers as a handler the gesture
+// system can arbitrate, so the already-active Pan keeps the touch.
+// Horizontal drags never showed this — only the spokes nearest vertical.
+import { ScrollView } from "react-native-gesture-handler";
 import { Link, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {

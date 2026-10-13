@@ -52,8 +52,17 @@ export const SHEET_ENTRY_COUNT = ROUTE_SHEET.length;
 /** web: width 11rem, maxHeight min(68vh, 32rem) */
 const SHEET_WIDTH = 176;
 export const SHEET_MAX_HEIGHT = Math.min(Dimensions.get("window").height * 0.68, 512);
-/** web: bottom = FAB + GAP + 2·(DOT + GAP) — the sheet sits above the row */
-export const SHEET_BOTTOM = 185.6;
+/**
+ * The sheet sits directly ON TOP OF the capture button: FAB + GAP above
+ * the cluster's own bottom edge.
+ *
+ * It was 185.6 — the web's `FAB + GAP + 2·(DOT + GAP)`, which cleared the
+ * two rows of bubbles the web cluster kept on screen at rest. This client
+ * has no such rows: at rest the corner holds one button, so clearing two
+ * absent rows just floated the panel into the middle of the screen with
+ * nothing beneath it.
+ */
+export const SHEET_BOTTOM = 70.4 + 9.6;
 
 export function RouteSheet({
   open,
