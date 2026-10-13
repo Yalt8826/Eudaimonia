@@ -26,8 +26,8 @@ animation off the JS thread; CSS cannot match it for interruptible,
 gesture-driven motion. **This contradicts [[01-design-system]]**, whose L0
 is "still static, always" and whose gate 4 is a literal string match that
 trips on naming an animation construct in a comment. §6 below carries the
-amendment. Do not start the port until it is ratified: otherwise every PR
-fails a gate the project still claims to hold.
+amendment, which was **ratified 2026-10-13 and now lives as
+[[01-design-system]] §8**.
 
 **Background execution — NOT a reason, and Expo would not supply it.**
 Agents and crons run on olympus (`agent_invoke → hermes --profile`, cron
@@ -73,7 +73,7 @@ test passes. **M0 is a go/no-go gate, not a formality.**
 | **M1** | shell: expo-router with all 22 routes as stubs, tokens as TS, `contrast.test.ts` ported | every route renders and is reachable; contrast suite green; no route lost against `routes.test.tsx` |
 | **M2** | the Plaza: five sheets, the three contours, header, nav cluster | renders at 320/430 match the preserved references; text clears every tear per `tear-metrics.json`; all five tints within 1/255 |
 | **M3** | data layer: API client, offline write queue on expo-sqlite, wake round-trip | airplane-mode tap → force-stop → reopen → exactly one event with the correct `ts` (same test as P2) |
-| **M4** | motion: the nav as a real radial gesture, screen transitions | gesture works on device; `prefers-reduced-motion` honoured; no animation on the wake screen (01 §6 survives the amendment) |
+| **M4** | motion: the nav as a real radial gesture, screen transitions | gesture works on device; `prefers-reduced-motion` honoured; no animation on the wake screen (01 §8 keeps this) |
 | **M5** | APK: EAS build, dev client, install on device | signed APK installs; cold start ≤2s to the Plaza; deep link `web+eudaimonia://wake` lands on the wake route |
 | **M6** | interactive widget (replaces the KWGT plan) | widget renders live data **with `age_minutes`**; its action writes through the server spine, not locally; stale data renders stale |
 | **M7** | push notifications (new; see §7) | a server-side agent event reaches the device; notification actions deep-link, never write directly |
@@ -94,7 +94,8 @@ and none of them are about CSS:
 
 ## 6. Amendment to [[01-design-system]] — motion
 
-Required before M4, and ratifying it is a decision, not paperwork.
+**RATIFIED 2026-10-13 and landed as [[01-design-system]] §8.** That
+section is now the authority; what follows is the draft it came from.
 
 - **L0 stays static.** The matte skin and the paper grain carry no
   animation frames. Gate 4 keeps its string match on the *grain assets*.

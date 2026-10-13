@@ -9,7 +9,7 @@ session.** After each, verify the evidence before handing over the next.
 | M1 shell + tokens | ✅ done — `11e964a` |
 | M2 the Plaza | ready |
 | M3 data + offline | ready |
-| M4 motion | **blocked** until the 01 §6 motion amendment is ratified |
+| M4 motion | ready — 01 §8 motion amendment ratified 2026-10-13 |
 | M5 the APK | ready |
 | M6 interactive widget | ready |
 | M7 push | **blocked** until the notifications policy is written (plan §7) |
@@ -273,12 +273,12 @@ next phase uninstructed is a failed task regardless of the code.
 You are implementing phase M4 of the Eudaimonia stack migration.
 Repo: /mnt/storage/Study/Eudaimonia   Branch: git checkout -b M4-motion from main
 
-STOP IF NOT RATIFIED: this phase requires the motion amendment to
-docs/plan/v1/01-design-system.md §6 to be ratified first (it is drafted
-in docs/plan/v1/10-stack-migration.md §6). Until then 01 says L0 is
-"still static, always" and its gate 4 is a literal string match that
-trips on merely NAMING an animation construct. Check the amendment has
-landed in 01 itself. If it has not, stop and report — do not proceed.
+Motion is legal: docs/plan/v1/01-design-system.md §8 was ratified on
+2026-10-13. Read it before writing any animation — it permits motion on
+INTERACTION and nothing else. The grain never animates, the wake screen
+gets no entrance animation, state changes stay in 150-200ms,
+prefers-reduced-motion drops travel but never the state change, and
+motion NEVER conveys data (liveness and staleness stay colour and text).
 
 Read first: docs/implementation/PHASE-M-STACK-MIGRATION.md (M4 + ground
 rules) · docs/plan/v1/01-design-system.md §6 as amended ·
@@ -311,7 +311,7 @@ anything that smells like it, you are fighting the wrong layer.
 - the gesture works on a PHYSICAL device, not only an emulator
 - reduce-motion drops the travel but keeps the state change — the ring
   must still visibly arrive
-- NO entrance animation on the wake screen; 01 §6 survives the amendment
+- NO entrance animation on the wake screen (01 §8 keeps this)
 - motion conveys no data: liveness, staleness and state stay colour and
   text, never speed, bounce or direction
 - state changes stay in the 150-200ms band

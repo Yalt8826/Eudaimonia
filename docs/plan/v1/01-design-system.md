@@ -6,6 +6,11 @@ status: measured + ratified (2026-10-09); amended 2026-10-10 — section
   tints resampled from the ratified mockup (§1), self-glass law generalised
   from widgets to tinted sheets (§5), L0 texture ceiling raised to 8% (§2),
   TornSheet cuts its tear with a raster mask rather than a clip path (§2 L2);
+  AMENDED 2026-10-13 — MOTION (new §8; §2 L0 and §7 gate 4 clarified,
+  not loosened): motion on interaction
+  becomes legal for the Expo client, the grain stays static, and motion
+  never conveys data. Requested and ratified by @user 2026-10-13; the
+  reasoning is [[10-stack-migration]] §1 and §6;
   supersedes v1 Aurora
 supersedes: v1 Aurora (kept verbatim as [[archive-v1-aurora]] — provenance law)
 ---
@@ -108,8 +113,16 @@ below lives here. **Amended 2026-10-10:** the ceiling was ≤2% when the skin
 was a flat field with noise over it; the ratified mockup reads as crumpled
 black stock, which needs a coarse fold scale (lit for relief) as well as
 fine tooth. Ceiling is **≤8% per layer**, and the asset carries exactly
-two scales. Still static, always — gate 4 is a plain string match, so even
-naming an animation construct in a comment trips it.
+two scales. **The grain is still static, always** — gate 4 is a plain
+string match, so even naming an animation construct in a comment trips it.
+
+**Amended 2026-10-13.** That sentence used to be read as "nothing in this
+app moves", which is what the web client built. It is narrower than that
+and always was: it is about the SKIN ASSET. A texture that animates is a
+screensaver, and a grain with animation frames is a file nobody can reason
+about. Neither has anything to say about whether a button may spring under
+a thumb. Interaction motion is governed by §6; the asset is governed here,
+and here nothing changed.
 
 **Both layers are zero-mean, which is what keeps the skin black.**
 `feDiffuseLighting` returns `sin(elevation)` on flat ground — 0.848, not
@@ -263,8 +276,7 @@ fails on these grounds, and that the well clears the floor.
 ## 6. What did not change
 
 Type (Plex Sans/Serif/Mono, 13/15/17/22/28, 60–70ch measure, lh ≥1.6),
-motion rules (150–200ms, no entrance animation on wake,
-`prefers-reduced-motion`), 4px grid + radius scale, component roles
+motion rules (see §8), 4px grid + radius scale, component roles
 (strip cards, coverage lines, habit chips, fold drawer, waiting-on badge),
 Obsidian dialect, hard-mode wake spec, offline SW queue, and every
 behavioral law: no streaks · dormancy muted · coverage honesty · `~`
@@ -279,10 +291,43 @@ verification · hue-never-carries-data.
    {glass, paper}.
 3. `TornSheet` primitive exposes `--fringe-w`, grain opacity, tint props;
    fringe-exclusion asserted in the review-mock render.
-4. Grain assets static (no animation frames); blur-budget grep: ≤1
-   `backdrop-filter` per screen bundle.
+4. Grain assets static (no animation frames) — unchanged by the 2026-10-13
+   motion amendment, which legalises interaction motion and nothing about
+   the asset; blur-budget grep: ≤1 `backdrop-filter` per screen bundle
+   (knowingly exceeded on the Expo nav cluster, declared in BubbleCluster).
 5. Palette picker ships v2 default; v1 Aurora remains a picker entry
    (tokens preserved in [[archive-v1-aurora]]).
+
+## 8. Motion — amended 2026-10-13
+
+The v2 design was specified for a web client that did not move, and the
+laws below were written to keep it that way. The Expo client exists to do
+things a PWA cannot — an interactive home-screen widget, and gesture-driven
+navigation — so motion on INTERACTION is now legal. The reasoning is in
+[[10-stack-migration]] §1.
+
+**What is now permitted.** Gesture-driven transforms, radial menus, screen
+transitions, spring physics — motion that a touch causes and a touch can
+interrupt.
+
+**What did not change, and is not negotiable:**
+
+- **The grain never animates** (§2 L0, gate 4). The surface is matte stock,
+  not a screensaver.
+- **150–200ms** for state changes. A state change that takes longer is not
+  motion, it is latency with a curve on it.
+- **No entrance animation on the wake screen.** At 6am a five-second tap
+  target appears, it does not arrive.
+- **`prefers-reduced-motion` is honoured everywhere.** Reduced motion drops
+  the travel, never the state change: the thing must still visibly happen.
+
+**New ceiling — motion never conveys data.** Liveness, staleness and state
+stay colour and text; never speed, bounce, direction or delay. A slower
+spring must not mean a staler number, and a bouncier one must not mean a
+healthier agent. This is hue-never-carries-data extended to the time axis,
+and it exists for the same reason: a channel that encodes meaning for one
+person encodes nothing for the person who cannot perceive it, and nothing
+at all in a screenshot.
 
 ## See also
 

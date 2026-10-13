@@ -107,7 +107,7 @@ single writer through the server.
 
 ## M4 — motion
 
-**Entry:** the design-system amendment is ratified. Not before.
+**Entry:** ratified 2026-10-13 — [[01-design-system]] §8. Read it first.
 
 **Build:** the nav as a real radial gesture (press-and-hold to fan,
 drag to select by angle, release to act — the geometry and angle maths
@@ -116,7 +116,7 @@ it was parked). Screen transitions.
 
 **Tests:** gesture works on a physical device; `prefers-reduced-motion`
 drops travel but keeps state changes; **no entrance animation on the wake
-screen** (01 §6 survives the amendment); motion conveys no data.
+screen** (01 §8 keeps this); motion conveys no data.
 
 ## M5 — the APK
 
