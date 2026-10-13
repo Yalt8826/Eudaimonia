@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   useFonts,
   IBMPlexSans_400Regular,
@@ -56,13 +57,25 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <Stack
-        key={fontsKey}
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors["--bg"] },
-        }}
-      />
+      {/* M4: the radial gesture's GestureDetector needs a root view. expo-router
+          provides one on device, but owning it here keeps the app correct
+          under any host (and under the jest route tree). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack
+          key={fontsKey}
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors["--bg"] },
+            // M4 (01 §8): the root Stack presents instantly. Every ANIMATED
+            // transition in this client is the shell's ScreenFade — one
+            // measured 160ms — because the native stack's duration is the
+            // platform's, not ours. Presenting instantly here also keeps the
+            // wake route free of any entrance (law 9): it appears, it does
+            // not arrive. motion.test.ts pins this config.
+            animation: "none",
+          }}
+        />
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }

@@ -88,7 +88,12 @@ describe("route map (04-screens-pwa)", () => {
       // and what matters is that the string reaches the user either way.
       expect(await findPresented(route.expected)).toBeOnTheScreen();
       expect(router.getPathnameWithParams()).toBe(route.path);
-      // chrome rides the Shell on every route except wake
+      // chrome rides the Shell on every route except wake. This per-route
+      // assertion IS the full sweep — M4 removed a second stacked-render
+      // loop over the same map: the M4 cluster (gesture detector + animated
+      // bubbles) is heavy enough that nineteen STACKED routers exhausted
+      // the test host's heap, and the harness cannot unmount between
+      // in-test renders (the next render then comes up empty).
       if (route.chrome) {
         expect(screen.queryByTestId("data-nav")).not.toBeNull();
       } else {
@@ -96,13 +101,6 @@ describe("route map (04-screens-pwa)", () => {
       }
     });
   }
-
-  it("every non-wake route carries the bubble cluster", async () => {
-    for (const route of ROUTE_MAP.filter((r) => r.chrome)) {
-      await renderAt(route.path);
-      expect(screen.queryByTestId("data-nav")).not.toBeNull();
-    }
-  });
 
   it("/habits/wake renders with zero chrome — the cluster is structurally absent", async () => {
     await renderAt("/habits/wake");

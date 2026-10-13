@@ -1,6 +1,9 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "@jest/globals";
+
+import { geometry } from "./tokens";
+import { MOTION, REM_PX, RING_BUBBLE_REM } from "./motion";
 
 // 01-design-system §8, ratified 2026-10-13. The amendment legalises motion
 // on INTERACTION. These are the three things it explicitly did NOT loosen,
@@ -63,5 +66,79 @@ describe("01 §8 — what the motion amendment did NOT permit", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("01 §8 — the numbers the amendment runs on (MOTION)", () => {
+  /** The §8 band metric. Deliberately a function: the next test proves it
+      REJECTS wrong values, per the verification rule that a metric proven
+      only on good input is not trusted. */
+  function inStateChangeBand(ms: number): boolean {
+    return ms >= 150 && ms <= 200;
+  }
+
+  it("the band metric itself fails on deliberately wrong durations", () => {
+    expect(inStateChangeBand(149)).toBe(false); // 1ms short must fail
+    expect(inStateChangeBand(201)).toBe(false); // 1ms long must fail
+    expect(inStateChangeBand(100)).toBe(false);
+    expect(inStateChangeBand(300)).toBe(false);
+    expect(inStateChangeBand(150)).toBe(true);
+    expect(inStateChangeBand(200)).toBe(true);
+  });
+
+  it("the one state-change duration sits in the §8 band", () => {
+    expect(inStateChangeBand(MOTION.stateChangeMs)).toBe(true);
+    console.log(`motion: stateChangeMs=${MOTION.stateChangeMs} (band 150-200)`);
+  });
+
+  it("gesture thresholds match PHASE-M §M4 exactly", () => {
+    expect(MOTION.holdMs).toBe(150); // press-and-HOLD ~150ms
+    expect(MOTION.dragOpenPx).toBe(10); // a drag past ~10px
+    expect(MOTION.tapSlopPx).toBe(MOTION.dragOpenPx); // one slop, two consequences
+    console.log(
+      `motion: holdMs=${MOTION.holdMs} dragOpenPx=${MOTION.dragOpenPx} tapSlopPx=${MOTION.tapSlopPx}`,
+    );
+  });
+
+  it("the selection dead zone brackets the open anchor's footprint", () => {
+    // the open anchor is 3rem, half = 24: the zone must clear it ...
+    const openAnchorHalf = (RING_BUBBLE_REM * REM_PX) / 2;
+    // ... and stay well short of the inner spokes' near edge (inner radius
+    // 5.4rem minus half a 3rem bubble)
+    const innerSpokeNearEdge = 5.4 * REM_PX - openAnchorHalf;
+    expect(MOTION.selectDeadZonePx).toBeGreaterThanOrEqual(openAnchorHalf);
+    expect(MOTION.selectDeadZonePx).toBeLessThan(innerSpokeNearEdge);
+    console.log(
+      `motion: selectDeadZonePx=${MOTION.selectDeadZonePx} ` +
+        `(open anchor half ${openAnchorHalf}, inner spoke near edge ${innerSpokeNearEdge})`,
+    );
+  });
+
+  it("the ring bubble is the dot bubble — six bubbles, all 3rem", () => {
+    expect(RING_BUBBLE_REM * REM_PX).toBe(geometry.navBubbleSizes.dot);
+  });
+
+  it("the root Stack presents every route with NO animation (law 9 via §8)", () => {
+    // The root Stack declares animation "none" as its DEFAULT — the one
+    // switch that keeps the wake route entrance-free (a named
+    // <Stack.Screen> override for wake was tried and REVERTED: declaring
+    // the child regressed cold-start routing on device — "/" landed on
+    // /habits/wake instead of the Plaza. The default covers wake; the
+    // wake screen itself carries no animation constructs, asserted above.)
+    const layout = readFileSync(join(SRC, "app", "_layout.tsx"), "utf8");
+    expect(layout).toMatch(/animation:\s*"none"/);
+    expect(layout).not.toMatch(/<Stack\.Screen/);
+  });
+
+  it("the shell transition is ScreenFade at the §8 duration, and wake is outside it", () => {
+    const shell = readFileSync(join(SRC, "app", "(shell)", "_layout.tsx"), "utf8");
+    expect(shell).toMatch(/ScreenFade/);
+    const fade = readFileSync(join(SRC, "navigation", "ScreenFade.tsx"), "utf8");
+    expect(fade).toMatch(/FadeIn\.duration\(MOTION\.stateChangeMs\)/);
+    // the wake route must never pass through the shell's fade: structurally,
+    // it lives OUTSIDE the (shell) group — the file-tree fact the chrome
+    // law (routes.test) also asserts at runtime
+    expect(existsSync(join(SRC, "app", "habits", "wake.tsx"))).toBe(true);
+    expect(existsSync(join(SRC, "app", "(shell)", "habits", "wake.tsx"))).toBe(false);
   });
 });

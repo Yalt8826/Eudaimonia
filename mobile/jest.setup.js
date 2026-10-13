@@ -17,6 +17,28 @@
  */
 
 /* eslint-disable */
+// M4: react-native-gesture-handler's jestSetup replaces the native module
+// and the host gesture detector with inert stand-ins (GestureDetector
+// renders children; gesture callbacks fire only through fireGestureHandler).
+//
+// The Reanimated stub (jest.reanimated-mock.js — self-contained; see its
+// header for why the official mock cannot be used) is registered HERE, for
+// the bare specifier AND the /mock subpath. The subpath mock is the
+// load-bearing one: expo-router's testing-library jest.mocks bare
+// 'react-native-reanimated' when it loads (AFTER this file, so it wins the
+// bare slot) with a factory that requires 'react-native-reanimated/mock' —
+// which does not resolve under this preset's custom resolver, so its catch
+// returned {} and RNGH's import-time Reanimated.default.
+// createAnimatedComponent detonated every route-tree render. With the
+// subpath mocked, that factory receives the real stub instead.
+require("react-native-gesture-handler/jestSetup");
+jest.mock("react-native-reanimated/mock", () =>
+  require("./jest.reanimated-mock.js"),
+);
+jest.mock("react-native-reanimated", () =>
+  require("./jest.reanimated-mock.js"),
+);
+
 jest.mock("@shopify/react-native-skia", () => {
   const chainable = {};
   for (const m of ["moveTo", "lineTo", "close"]) chainable[m] = () => chainable;
