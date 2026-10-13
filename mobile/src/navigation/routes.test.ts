@@ -49,6 +49,14 @@ beforeAll(() => {
   WEB = parseWebRouteCases(readFileSync(WEB_ROUTES_TEST, "utf8"));
 });
 
+async function findPresented(text: string) {
+  try {
+    return await screen.findByText(text);
+  } catch {
+    return await screen.findByLabelText(text);
+  }
+}
+
 function renderAt(path: string) {
   // RNTL v14's render is ASYNC, so renderRouter returns a PROMISE with the
   // router inspection methods attached to the promise itself. Await the
@@ -75,7 +83,10 @@ describe("route map (04-screens-pwa)", () => {
     it(`renders ${route.path}`, async () => {
       const router = renderAt(route.path);
       await router;
-      expect(await screen.findByText(route.expected)).toBeOnTheScreen();
+      // Text or accessible name: a screen may present a string through a
+      // Skia canvas (the wake label does, because Fabric mis-measured it),
+      // and what matters is that the string reaches the user either way.
+      expect(await findPresented(route.expected)).toBeOnTheScreen();
       expect(router.getPathnameWithParams()).toBe(route.path);
       // chrome rides the Shell on every route except wake
       if (route.chrome) {
@@ -96,6 +107,6 @@ describe("route map (04-screens-pwa)", () => {
   it("/habits/wake renders with zero chrome — the cluster is structurally absent", async () => {
     await renderAt("/habits/wake");
     expect(screen.queryByTestId("data-nav")).toBeNull();
-    expect(screen.getByText("I'M AWAKE")).toBeOnTheScreen();
+    expect(await findPresented("I'M AWAKE")).toBeOnTheScreen();
   });
 });

@@ -141,6 +141,26 @@ export class Outbox {
    * Queue an app event. ts is captured from the clock HERE, at tap time.
    * Enqueuing the same (device, kind, tap time) twice is a no-op — the
    * skip guard keeps idempotency at the key level.
+   *
+   * READ THIS BEFORE WRITING THE INGEST ENDPOINT (P2).
+   *
+   * `idempotency_key` is the DEVICE UUID. It is identical on every event
+   * this install will ever send — it is one COMPONENT of the dedupe key,
+   * not the key. The spine's uniqueness is
+   *
+   *     UNIQUE (source_id, kind, external_ref)
+   *
+   * where migration 001 defines external_ref for app writes as
+   * `device-uuid:ts`. So the endpoint must build external_ref from
+   * idempotency_key AND the event's ts. Dedupe on `idempotency_key`
+   * alone — the obvious reading of the name — and the first wake tap this
+   * device ever sends is the last one that is ever stored, silently,
+   * forever. The symptom looks exactly like a lost tap.
+   *
+   * The name is inherited from the web client (client/src/sw/queue.ts),
+   * where it means the same thing. It is not renamed here because the
+   * field is already on the wire in both clients; this comment is the
+   * guard instead.
    */
   async enqueue(kind: string, payload: Record<string, unknown>): Promise<OutboxRecord> {
     const ts = this.clock.now();

@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { appOutbox } from "../../data/appOutbox";
+import { SkiaLabel } from "../../plaza/ui";
 import { colors, fontFamily } from "../../theme/tokens";
 
 type TapMethod = "tap" | "recall";
@@ -43,10 +44,16 @@ export default function WakeScreen() {
       <Text style={styles.tapTime}>{formatTapTime(openedAt)} tap time</Text>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="I'M AWAKE"
         style={styles.awake}
         onPress={() => logTap("tap")}
       >
-        <Text style={styles.awakeLabel}>I&apos;M AWAKE</Text>
+        {/* Skia, not <Text>: on a cold direct-link start Fabric measured
+            this label with fallback metrics and painted "I'M" alone. Same
+            fault as the M2 coverage lines; same fix. */}
+        <SkiaLabel accessible={false} color={colors["--accent-1"]} fontSize={28}>
+          I&apos;M AWAKE
+        </SkiaLabel>
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -98,11 +105,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors["--bg"],
     alignItems: "center",
     justifyContent: "center",
-  },
-  awakeLabel: {
-    color: colors["--accent-1"],
-    fontFamily: fontFamily.bold, // web weight 600; 700 is the loaded nearest
-    fontSize: 28,
   },
   recall: {
     minHeight: 40,

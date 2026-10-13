@@ -22,7 +22,7 @@ it("both taps queue through the outbox and claim only 'will sync'", async () => 
   expect(router.getPathnameWithParams()).toBe("/habits/wake");
   expect(screen.queryByText("will sync")).toBeNull(); // no claim before any tap
 
-  fireEvent.press(screen.getByText("I'M AWAKE"));
+  fireEvent.press(screen.getByLabelText("I'M AWAKE"));
   expect(await screen.findByText("will sync")).toBeOnTheScreen();
 
   fireEvent.press(screen.getByText("~recall instead")); // the recall path queues too

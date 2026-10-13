@@ -83,6 +83,20 @@ event (EXECUTION §2)
 
 **Build**
 
+**[impl] `idempotency_key` is NOT unique per event — it is the device
+UUID.** Every event an install ever sends carries the same value; it is one
+COMPONENT of the dedupe key, not the key. The spine's uniqueness is
+`UNIQUE (source_id, kind, external_ref)`, and migration 001 defines
+external_ref for app writes as `device-uuid:ts` — so this endpoint must
+build external_ref from `idempotency_key` **and** the event's `ts`.
+
+Dedupe on `idempotency_key` alone, which is what the name invites, and the
+first wake tap a device ever sends is the last one ever stored — silently,
+forever, with a symptom indistinguishable from a lost tap. Confirmed on
+device during the M3 review: five taps over an hour, five identical
+idempotency keys, distinct `ts` on each. The clients will not change (the
+field is on the wire in both); this endpoint carries the burden.
+
 **[impl] The queue is a generic app-write queue, not wake-specific.**
 The SW queues `{idempotency_key, kind, payload, ts}` entries; the wake tap
 is its first resident. P3's `routine_done` ticks ride the identical armor

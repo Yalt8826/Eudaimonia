@@ -1,0 +1,8 @@
+1791902498847 STUB UP on 0.0.0.0:8099
+1791902499811 GET /api/health
+1791903526942 GET /api/health
+1791903596419 POST /api/events/habit_tap {"idempotency_key":"b6d8e3af-5e6a-4cb6-83e5-8778a81cbf81","kind":"habit_tap","ts":1791903060612,"ingested_at":1791903594658,"payload":{"method":"tap"}}
+1791904150681 POST /api/events/habit_tap {"idempotency_key":"b6d8e3af-5e6a-4cb6-83e5-8778a81cbf81","kind":"habit_tap","ts":1791904148781,"ingested_at":1791904148795,"payload":{"method":"tap"}}
+1791904507959 POST /api/events/habit_tap {"idempotency_key":"b6d8e3af-5e6a-4cb6-83e5-8778a81cbf81","kind":"habit_tap","ts":1791904506029,"ingested_at":1791904506071,"payload":{"method":"recall"}}
+1791904776562 POST /api/events/habit_tap {"idempotency_key":"b6d8e3af-5e6a-4cb6-83e5-8778a81cbf81","kind":"habit_tap","ts":1791904695656,"ingested_at":1791904774797,"payload":{"method":"recall"}}
+1791904936773 POST /api/events/habit_tap {"idempotency_key":"b6d8e3af-5e6a-4cb6-83e5-8778a81cbf81","kind":"habit_tap","ts":1791904912033,"ingested_at":1791904935012,"payload":{"method":"recall"}}

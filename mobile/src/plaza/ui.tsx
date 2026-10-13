@@ -188,6 +188,60 @@ export function PaperText({
   );
 }
 
+const LABEL_FONT = require("@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf");
+
+/**
+ * A single-line label drawn through Skia, sized to its own glyphs.
+ *
+ * Same reason as PaperText: React Native measures text with one typeface
+ * and paints it with another on Fabric, so a label can be laid out narrower
+ * than it draws. On the wake screen that showed as "I'M" on a cold start —
+ * the button's whole label clipped to its first word (M3 review). Drawing
+ * through the font OBJECT makes the measurement and the paint the same
+ * operation, so there is nothing left to disagree.
+ *
+ * The string rides an accessible wrapper, so assistive tech still reads it
+ * exactly as it would an RN <Text>.
+ */
+export function SkiaLabel({
+  children,
+  color,
+  fontSize,
+  accessible = true,
+}: {
+  children: string;
+  color: string;
+  fontSize: number;
+  /** Pass false when an interactive parent already carries the name, or
+      assistive tech announces the same string twice. */
+  accessible?: boolean;
+}) {
+  const font = useFont(LABEL_FONT, fontSize);
+  const metrics = font?.getMetrics();
+  const height = fontSize * 1.3;
+  const width = font ? Math.ceil(font.measureText(children).width) + 2 : 0;
+  return (
+    <View
+      accessible={accessible}
+      accessibilityLabel={accessible ? children : undefined}
+      importantForAccessibility={accessible ? "yes" : "no-hide-descendants"}
+      style={{ width, height }}
+    >
+      {font && metrics ? (
+        <Canvas pointerEvents="none" style={{ flex: 1 }}>
+          <SkiaText
+            x={0}
+            y={-metrics.ascent + (height - (-metrics.ascent + metrics.descent)) / 2}
+            text={children}
+            font={font}
+            color={color}
+          />
+        </Canvas>
+      ) : null}
+    </View>
+  );
+}
+
 /**
  * The wake chip's coverage line — one preset of PaperText.
  *
