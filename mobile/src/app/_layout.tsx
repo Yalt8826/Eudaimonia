@@ -3,6 +3,7 @@
 // Plaza header, headings and pills ride). Font loading is
 // fire-and-forget — stubs must not block on assets, and RN falls back to
 // the system face until the fonts land.
+import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@expo-google-fonts/ibm-plex-mono";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { installSyncTriggers } from "../data/appOutbox";
 import { colors } from "../theme/tokens";
 
 export default function RootLayout() {
@@ -35,6 +37,21 @@ export default function RootLayout() {
   // once, ~1s in, and every face after that resolves correctly. The first
   // paint is the fallback — the same FOUT the web client ships with.
   const fontsKey = sansLoaded && monoLoaded ? "plex" : "fallback";
+
+  // The offline queue's replay triggers (foreground + network return + the
+  // immediate drain at open) — the native port of the web client's
+  // main.tsx wiring. Install failure must never block the shell, exactly
+  // like the web's SW registration.
+  useEffect(() => {
+    let uninstall: (() => void) | undefined;
+    try {
+      uninstall = installSyncTriggers();
+    } catch {
+      // the queue is allowed to be invisible, never ambiguous (law 9):
+      // taps enqueue per-screen and never wedge the shell either way.
+    }
+    return () => uninstall?.();
+  }, []);
 
   return (
     <SafeAreaProvider>

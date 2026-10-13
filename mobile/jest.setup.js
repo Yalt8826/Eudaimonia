@@ -56,3 +56,25 @@ jest.mock("react-native-svg", () => {
   const Null = () => null;
   return new Proxy({ __esModule: true, default: Null }, { get: (t, p) => (p in t ? t[p] : Null) });
 });
+
+// Same rule for the three native data modules M3 added (jest cannot load
+// their native code): inert stand-ins so route rendering never touches a
+// real database. The data layer itself is NOT tested through these mocks —
+// src/data tests bind the real SQL to node:sqlite and inject fake
+// transports/clocks, so queue semantics are measured against a real
+// SQLite engine, never against stand-ins.
+jest.mock("expo-sqlite", () => ({
+  openDatabaseSync: () => ({
+    execSync: () => {},
+    runSync: () => ({ changes: 0, lastInsertRowId: 0 }),
+    getAllSync: () => [],
+    getFirstSync: () => null,
+  }),
+}));
+jest.mock("expo-crypto", () => ({
+  randomUUID: () => "00000000-0000-4000-8000-000000000000",
+}));
+jest.mock("expo-network", () => ({
+  addNetworkStateListener: () => ({ remove: () => {} }),
+  getNetworkStateAsync: async () => ({ isConnected: null, isInternetReachable: null }),
+}));
