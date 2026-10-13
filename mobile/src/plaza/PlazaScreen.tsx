@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, headerScrim } from "../theme/tokens";
 import { PLAZA_STRIPS, PAPER_OF, type PlazaStrip } from "./model";
 import { TornSheet } from "./TornSheet";
-import { Chevron, CoverageLine, Dot, Pill, Row } from "./ui";
+import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
 
@@ -160,23 +160,30 @@ export function Header({ windowWidth, paddingTop }: { windowWidth: number; paddi
  * snap; the numbers: pill 66 + gap 9.6 + line 250 = 325.6, content width
  * 268.8 at 320 / 378.8 at 430).
  */
-function WakeChipRow({ wide }: { wide: boolean }) {
-  // The coverage line gets an EXPLICIT width: its string is fixed and the
-  // face is the mono token (13px × 0.6em advance = 7.8/char), so the width
-  // is derived, not measured — RN's text measurement returned fallback-font
-  // metrics for this node and truncated the line after "wake · not yet"
-  // (caught on the 430 snap). 32 chars × 13px × 0.6em mono advance = 249.6.
-  const coverageWidth = Math.ceil("wake · not yet instrumented (P2)".length * 13 * 0.6);
+function WakeChipRow({ wide, contentWidth }: { wide: boolean; contentWidth: number }) {
+  // The coverage line's width is MEASURED (StripContent's onLayout), not
+  // derived. It was `32 chars x 13px x 0.6em = 249.6`, and on a 360dp phone
+  // that ran the closing ")" off the screen edge. PaperText wraps against
+  // the same font object it paints with, so it fits whatever box it is
+  // given and cannot disagree with itself about where the line breaks.
+  //
+  // Wide: the pill and the line share a row, so the line gets what is left
+  // after the pill and the gap. Narrow: it owns the full content width.
+  const PILL_W = 66;
+  const GAP = 9.6;
+  const coverageWidth = wide ? Math.max(0, contentWidth - PILL_W - GAP) : contentWidth;
   const coverage = (
-    <View style={{ width: coverageWidth, alignItems: wide ? "flex-end" : "flex-start" }}>
-      <CoverageLine width={coverageWidth}>wake · not yet instrumented (P2)</CoverageLine>
+    <View style={{ alignItems: wide ? "flex-end" : "flex-start" }}>
+      <CoverageLine width={coverageWidth} align={wide ? "right" : "left"}>
+        wake · not yet instrumented (P2)
+      </CoverageLine>
     </View>
   );
   if (wide) {
-    // pill + coverage share the first line (66 + 9.6 + 250 = 325.6 ≤ 378.8),
-    // the outline pill wraps below — the web row's wrap point at 430.
+    // pill + coverage share the first line, the outline pill wraps below —
+    // the web row's wrap point at 430.
     return (
-      <View style={{ gap: 9.6, paddingVertical: 5.6 }}>
+      <View style={{ gap: GAP, paddingVertical: 5.6 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Pill to="/habits/wake" tone="solid">
             Wake
@@ -229,11 +236,21 @@ function OpenLink({ to, label, ink }: { to: string; label: string; ink: string }
 }
 
 function StripContent({ strip, ink, windowWidth }: { strip: PlazaStrip; ink: string; windowWidth: number }) {
+  // The content width is measured, not computed from windowWidth minus the
+  // paddings: this View is where the text actually lives, so its own box is
+  // the only width that cannot drift from the layout.
+  const [contentWidth, setContentWidth] = useState(0);
   return (
-    <View style={{ gap: 8.8 }}>
+    <View
+      style={{ gap: 8.8 }}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w !== contentWidth) setContentWidth(w);
+      }}
+    >
       {strip.wakeChip ? (
         <>
-          <WakeChipRow wide={windowWidth >= 380} />
+          <WakeChipRow wide={windowWidth >= 380} contentWidth={contentWidth} />
           <View>
             <Row to="/meals" dot={<Dot tone="muted" />} title="Nutrition" subtitle="not yet instrumented" />
             <Row to="/reading" dot={<Dot tone="amber" />} title="Reading" subtitle="not yet instrumented" />
@@ -241,14 +258,17 @@ function StripContent({ strip, ink, windowWidth }: { strip: PlazaStrip; ink: str
         </>
       ) : null}
 
+      {/* Body lines go through PaperText, which wraps against the font it
+          paints with. As RN <Text> these measured one line and painted two
+          lines' worth of glyphs, so three of the four sheets dropped the
+          end of their coverage line (M2 review, measured on device: the
+          butter line laid out 55px tall in a 946px box for a string that
+          needs 110). A coverage line that loses its tail is this surface
+          lying about coverage, which is the one thing it exists not to do. */}
       {strip.lines.map((line) => (
-        <Text
-          key={line}
-          allowFontScaling={false}
-          style={[mono, { fontSize: 13, lineHeight: 13 * 1.6, opacity: 0.78, color: ink }]}
-        >
+        <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
           {line}
-        </Text>
+        </PaperText>
       ))}
 
       {/* the OPEN link, bottom-right of its sheet (PlazaScreen.tsx) */}
@@ -256,6 +276,7 @@ function StripContent({ strip, ink, windowWidth }: { strip: PlazaStrip; ink: str
     </View>
   );
 }
+
 
 /**
  * The column: skin, header, five sheets. `band`, when given, translates

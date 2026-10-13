@@ -88,23 +88,127 @@ export function Dot({ tone = "muted" }: { tone?: DotTone }) {
  * the Plaza that Fabric's text pipeline broke — it line-broke after
  * "wake · not yet" and dropped the rest no matter the constraint width
  * (caught on the 430 snap; see the git history for three attempted RN-side
- * fixes). Skia's Text with the same TTF renders the string correctly, and
- * the line is static, so the canvas costs nothing. `width` comes from the
- * caller: the caller derives it from the string (chars × 13 × 0.6em).
+ * fixes). Skia's Text with the same TTF renders the string correctly.
+ *
+ * M2 review found the deeper version of the same fault: RN MEASURES body
+ * text with a different face than it PAINTS. On the device, "not yet
+ * instrumented · day-report adapter lands in P1" was laid out 55px tall —
+ * one line — in a 946px box, then painted in Plex Mono, which is wider;
+ * the tail ran past the padding and was never drawn. Three of the four
+ * coverage lines lost their last words that way, which on this surface is
+ * a coverage line lying about coverage.
+ *
+ * So paper body text wraps HERE, against the same font object that draws
+ * it. Measurement and paint cannot disagree because there is only one
+ * font. The string stays on an accessible wrapper, so the full text is
+ * still exposed to assistive tech exactly as an RN Text would be.
  */
 const COVERAGE_FONT = require("@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf");
 
-export function CoverageLine({ children, width }: { children: string; width: number }) {
-  const font = useFont(COVERAGE_FONT, 13);
+/** Greedy word wrap against the font that will actually draw the glyphs. */
+export function wrapToWidth(
+  text: string,
+  maxWidth: number,
+  measure: (s: string) => number,
+): string[] {
+  if (maxWidth <= 0) return [text];
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const candidate = line === "" ? word : `${line} ${word}`;
+    if (line !== "" && measure(candidate) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line !== "") lines.push(line);
+  return lines;
+}
+
+/**
+ * A paper body line: mono, wrapped to `maxWidth`, drawn through Skia.
+ *
+ * `maxWidth` must be the MEASURED content width (onLayout), never derived
+ * arithmetically from the window — the wake line previously sized its own
+ * canvas as `chars x 13 x 0.6em` and ran off the screen edge, because a
+ * character estimate is not a measurement.
+ */
+export function PaperText({
+  children,
+  maxWidth,
+  color = PAPER_INK,
+  fontSize = 13,
+  opacity = 0.78,
+  align = "left",
+}: {
+  children: string;
+  maxWidth: number;
+  color?: string;
+  fontSize?: number;
+  opacity?: number;
+  align?: "left" | "right";
+}) {
+  const font = useFont(COVERAGE_FONT, fontSize);
   const metrics = font?.getMetrics();
-  if (!font || !metrics) return null;
+  const lineHeight = fontSize * 1.6;
+  const lines =
+    font && metrics && maxWidth > 0
+      ? wrapToWidth(children, maxWidth, (s) => font.measureText(s).width)
+      : null;
+  // The accessible wrapper renders unconditionally — before the font
+  // resolves there is nothing to paint, but the string must still be
+  // exposed, and the box must already reserve its height so the sheet does
+  // not jump when the glyphs arrive.
   return (
-    <Canvas
-      pointerEvents="none"
-      style={{ width, height: -metrics.ascent + metrics.descent, opacity: 0.72 }}
+    <View
+      accessible
+      accessibilityLabel={children}
+      style={{
+        width: maxWidth > 0 ? maxWidth : undefined,
+        height: (lines?.length ?? 1) * lineHeight,
+      }}
     >
-      <SkiaText x={0} y={-metrics.ascent} text={children} font={font} color={PAPER_INK} />
-    </Canvas>
+      {lines && metrics && font ? (
+        <Canvas pointerEvents="none" style={{ flex: 1, opacity }}>
+          {lines.map((line, i) => (
+            <SkiaText
+              key={i}
+              x={align === "right" ? maxWidth - font.measureText(line).width : 0}
+              y={i * lineHeight + -metrics.ascent + (lineHeight - (-metrics.ascent + metrics.descent)) / 2}
+              text={line}
+              font={font}
+              color={color}
+            />
+          ))}
+        </Canvas>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The wake chip's coverage line — one preset of PaperText.
+ *
+ * `align` matters: when the pill and the line share a row the web right-
+ * aligns the line, and the canvas now spans the whole remaining width, so
+ * without this the text sits hard against the pill instead of hugging the
+ * far edge.
+ */
+export function CoverageLine({
+  children,
+  width,
+  align = "left",
+}: {
+  children: string;
+  width: number;
+  align?: "left" | "right";
+}) {
+  return (
+    <PaperText maxWidth={width} opacity={0.72} align={align}>
+      {children}
+    </PaperText>
   );
 }
 
