@@ -7,8 +7,15 @@ import { ScreenFade } from "./ScreenFade";
 
 // The shell's screen transition (01 §8): one fade, at the ONE §8 duration,
 // and reduce-motion drops the travel without dropping the swap. The
-// recording mock proves the duration actually asked of FadeIn — the value
-// that reaches the animator — not just the constant in a file. The global
+// recording mock proves the duration actually asked of withTiming — the
+// value that reaches the animator — not just the constant in a file.
+//
+// It recorded FadeIn.duration until 2026-10-14. That test passed while
+// the fade did nothing on device: Reanimated's layout animations are not
+// honoured here, and a screen recording showed the swap as a one-frame
+// hard cut. A mock proves a value reaches an API; it cannot prove the API
+// does anything. The device recording is the other half, and it lives in
+// M4-MEASUREMENTS.md. The global
 // stub (jest.reanimated-mock.js) has useReducedMotion return false; this
 // file overrides it so BOTH branches are real. (jest.mock calls are
 // hoisted above the imports by babel, so this ordering is equivalent.)
@@ -28,11 +35,9 @@ jest.mock("react-native-reanimated", () => {
   return {
     ...stub,
     useReducedMotion: () => mockReduce,
-    FadeIn: {
-      duration: (ms: number) => {
-        mockCalls.push(ms);
-        return { __fadeInMs: ms };
-      },
+    withTiming: (toValue: number, config?: { duration?: number }) => {
+      if (config?.duration !== undefined) mockCalls.push(config.duration);
+      return toValue;
     },
   };
 });
@@ -52,7 +57,7 @@ describe("ScreenFade (01 §8 shell transition)", () => {
       </ScreenFade>,
     );
     expect(mockCalls.slice(before)).toEqual([MOTION.stateChangeMs]);
-    console.log(`screenfade: FadeIn.duration=${mockCalls[mockCalls.length - 1]}ms`);
+    console.log(`screenfade: withTiming duration=${mockCalls[mockCalls.length - 1]}ms`);
   });
 
   it("reduce-motion drops the travel but still swaps the screen", async () => {

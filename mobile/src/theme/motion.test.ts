@@ -134,7 +134,17 @@ describe("01 §8 — the numbers the amendment runs on (MOTION)", () => {
     const shell = readFileSync(join(SRC, "app", "(shell)", "_layout.tsx"), "utf8");
     expect(shell).toMatch(/ScreenFade/);
     const fade = readFileSync(join(SRC, "navigation", "ScreenFade.tsx"), "utf8");
-    expect(fade).toMatch(/FadeIn\.duration\(MOTION\.stateChangeMs\)/);
+    // withTiming, not a layout animation: the layout-animation version
+    // compiled and tested green while doing nothing on device (a one-frame
+    // hard cut, measured at 60fps). The duration is still the one §8
+    // number.
+    //
+    // Matched against the CODE, comments stripped: this file explains why
+    // the layout animation is gone, and a plain string match would trip on
+    // the explanation — the same trap 01's gate 4 documents.
+    const code = fade.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).toMatch(/withTiming\(1,\s*\{\s*duration:\s*MOTION\.stateChangeMs\s*\}\)/);
+    expect(code).not.toMatch(/entering=/);
     // the wake route must never pass through the shell's fade: structurally,
     // it lives OUTSIDE the (shell) group — the file-tree fact the chrome
     // law (routes.test) also asserts at runtime
