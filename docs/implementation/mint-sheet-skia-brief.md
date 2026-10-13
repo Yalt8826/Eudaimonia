@@ -137,6 +137,16 @@ A metric that reads the same before and after a change is a broken
 metric, not a passing one — see the preserved README for two that fooled
 us. Sanity-check any new measurement against a deliberately wrong render.
 
+**The "text is complete" row was added after M2 (2026-10-13), because its
+absence let five broken lines through a seven-row table.** Every other row
+measures colour, rim, clearance or contrast; none asked whether the words
+on screen were the words in the model. Three of four sheets were dropping
+the end of their coverage line — React Native measured the text with one
+typeface and painted it in another, so the tail was drawn past the padding
+where nothing clips and nothing shows. The strings were in the
+accessibility tree the whole time, so only looking at PIXELS or comparing
+the laid-out height against the expected line count finds it.
+
 **Two thresholds in this table were wrong when first written (corrected
 2026-10-12 after M0), and the way they were wrong is instructive:**
 
