@@ -28,6 +28,19 @@ ok() { echo "PASS: $*"; }
 
 # ---- device helpers -----------------------------------------------------
 
+# Wake the screen and keep it awake while plugged in. A dozing phone
+# renders nothing, so every leg that asserts "the Plaza rendered" fails
+# with a verdict about the app when the truth is that the screen was off.
+# Cost a real debugging detour at 1am (mWakefulness=Dozing, app perfectly
+# healthy, leg reporting "Plaza did not render offline").
+wake_device() {
+  $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+  $ADB shell svc power stayon usb >/dev/null 2>&1 || true
+  # swipe past a lock screen if one is up; harmless when it is not
+  $ADB shell input swipe 540 1800 540 700 150 >/dev/null 2>&1 || true
+  sleep 1
+}
+
 ui_dump() {
   $ADB shell uiautomator dump /sdcard/verify_dump.xml >/dev/null 2>&1
   $ADB shell cat /sdcard/verify_dump.xml | tr -d '\r'
@@ -85,6 +98,7 @@ deeplink_gate() {
 
 case "${1:-}" in
   coldstart)
+    wake_device
     worst=0
     for i in 1 2 3; do
       $ADB shell am force-stop "$PKG"
@@ -110,6 +124,7 @@ case "${1:-}" in
     ;;
 
   deeplink)
+    wake_device
     $ADB shell am force-stop "$PKG"; sleep 1
     deeplink_gate || die "deeplink gate failed"
     $ADB exec-out screencap -p > renders/m5-wake-deeplink.png
@@ -117,6 +132,7 @@ case "${1:-}" in
     ;;
 
   tripwire)
+    wake_device
     $ADB shell pm disable-user --user 0 "$PKG" >/dev/null || die "pm disable-user refused"
     sleep 1
     if deeplink_gate >/dev/null 2>&1; then
@@ -131,6 +147,11 @@ case "${1:-}" in
     ;;
 
   offline)
+    wake_device
+    # Restore the radio on ANY exit. Without this a die() between enable
+    # and disable leaves the owner's phone in airplane mode — the script
+    # would be reporting a failure while having caused a worse one.
+    trap '$ADB shell cmd connectivity airplane-mode disable >/dev/null 2>&1' EXIT INT TERM
     $ADB shell cmd connectivity airplane-mode enable >/dev/null
     sleep 3
     [ "$($ADB shell settings get global airplane_mode_on | tr -d '\r')" = "1" ] || die "airplane mode did not engage"
@@ -161,6 +182,7 @@ case "${1:-}" in
     ;;
 
   drain)
+    wake_device
     # The P2-exit drain contract, re-run against the APK context (T6.5
     # carried-over discipline): the event queued by the `offline` leg must
     # ingest with its ORIGINAL ts once a server accepts it — and exactly
@@ -173,17 +195,49 @@ case "${1:-}" in
     STANDIN_PID=$!
     trap 'kill $STANDIN_PID 2>/dev/null' EXIT
     sleep 1
-    # reachability pre-check, observed end-to-end: the phone's own browser
-    # GET must land in the stand-in log before anything else counts
-    $ADB shell am start -a android.intent.action.VIEW -d "$BASE/ping" >/dev/null
+    # Reachability pre-check, from the PHONE, so a failure here is
+    # attributed to the network rather than to the drain contract.
+    #
+    # It used to drive the phone's browser, and that was the whole
+    # difficulty: Chrome cold-starts in ~40s on the A059, re-firing the
+    # same URL only refocuses the loaded tab, and the check timed out
+    # while the tailnet was up the entire time (`tailscale ping iris`
+    # answered in 108ms). Android ships curl at /system/bin/curl — one
+    # request, one answer, no UI in the loop.
+    reached=""
     for i in $(seq 1 10); do
+      code=$($ADB shell "curl -s -m 6 -o /dev/null -w '%{http_code}' '$BASE/ping?probe=$i'" 2>/dev/null | tr -d '\r')
+      [ "$code" = "200" ] && { reached=1; break; }
       sleep 1
-      grep -q '"/ping"' renders/m5-drain-log.jsonl 2>/dev/null && break
     done
-    grep -q '"/ping"' renders/m5-drain-log.jsonl || die "phone cannot reach $BASE — open Tailscale on the phone or set DRAIN_BASE"
+    [ -n "$reached" ] || die "phone cannot reach $BASE — check Tailscale is up on the phone or set DRAIN_BASE"
     ok "phone reached the stand-in at $BASE"
     # test APK with the stand-in base baked at bundle time
     EXPO_PUBLIC_API_BASE="$BASE" sh scripts/build-apk.sh preview >/dev/null || die "test APK build failed"
+    # The ship APK forbids cleartext HTTP (Android's default since API 28)
+    # and talks https to the tailnet. This stand-in is http, so Android
+    # dropped every POST SILENTLY — the outbox never drained and this leg
+    # could not pass however long it waited. app.config.js enables
+    # cleartext only when the baked base is http://, so assert the two
+    # agree: a test build that lost the exemption fails here rather than
+    # looking like a broken drain contract.
+    # Assert on the SOURCE manifest prebuild just wrote and Gradle just
+    # consumed — not on the APK. In the compiled binary manifest a
+    # framework attribute like usesCleartextTraffic is a resource ID, not
+    # a literal, so `strings | grep` can never find it however correctly
+    # it is set. (Checked: it was set, the grep still failed.)
+    GEN_MANIFEST="android/app/src/main/AndroidManifest.xml"
+    case "$BASE" in
+      http://*)
+        grep -q 'android:usesCleartextTraffic="true"' "$GEN_MANIFEST" \
+          || die "test build forbids cleartext but the stand-in is $BASE — the POSTs would be dropped silently"
+        ok "test build permits cleartext for the http stand-in (ship builds do not)"
+        ;;
+    esac
+    # Wake AGAIN: the Gradle build above takes minutes and the phone
+    # dozes in the meantime, so the app would open against a dark screen
+    # and drain nothing while the leg blamed the outbox.
+    wake_device
     $ADB install -r android/app/build/outputs/apk/release/app-release.apk >/dev/null || die "test APK install failed"
     installed_at=$(date +%s%3N)
     $ADB shell am force-stop "$PKG"; sleep 1
@@ -195,22 +249,41 @@ case "${1:-}" in
       [ "${drained:-0}" -ge 1 ] && break
     done
     [ "${drained:-0}" -ge 1 ] || die "no POST reached the stand-in within 30s of app open"
-    sleep 3 # let any straggler land before asserting exactly-one
-    n=$(grep -c '"method":"POST","url":"/api/events/habit_tap"' renders/m5-drain-log.jsonl || true)
-    [ "$n" = "1" ] || die "expected exactly 1 habit_tap POST, saw $n"
-    grep '"method":"POST","url":"/api/events/habit_tap"' renders/m5-drain-log.jsonl | INSTALLED_AT="$installed_at" python3 -c '
-import json, sys, os
-entry = json.loads(sys.stdin.readline())
-body = entry["body"]
+    sleep 3 # let any straggler land before asserting
+    # THE CONTRACT, stated as it actually is: every queued event ingests
+    # EXACTLY ONCE, carrying its ORIGINAL tap time.
+    #
+    # This asserted "exactly 1 POST", which is a different claim and not
+    # the contract — it assumes the outbox holds one event. A real outbox
+    # holds whatever was queued while the server had no ingest route, and
+    # this run drained four: three from today and one queued 11.5 hours
+    # earlier that had already survived an app update. Four POSTs is the
+    # contract working; one event posted twice is the contract broken, and
+    # the old assertion could not tell those apart.
+    INSTALLED_AT="$installed_at" python3 -c '
+import json, os, sys
+rows = [json.loads(l) for l in open("renders/m5-drain-log.jsonl") if l.strip()]
+posts = [r for r in rows if r.get("method") == "POST" and r.get("url") == "/api/events/habit_tap"]
+assert posts, "no habit_tap POST reached the stand-in"
 installed_at = int(os.environ["INSTALLED_AT"])
-assert body["kind"] == "habit_tap", body
-assert body["ts"] + 60000 < installed_at, "ts is not the original tap time (predates the install by <60s)"
-assert body["ingested_at"] >= installed_at - 5000, "ingested_at predates the drain session"
-print(f"drained exactly once: ts={body[\"ts\"]} (original), ingested_at={body[\"ingested_at\"]}, key={body[\"idempotency_key\"]}, payload={body[\"payload\"]}")
+seen = {}
+for r in posts:
+    b = r["body"]
+    assert b["kind"] == "habit_tap", b
+    ts = b["ts"]
+    assert ts + 60000 < installed_at, "ts %d is not an original tap time (too close to the install)" % ts
+    assert b["ingested_at"] >= installed_at - 5000, "ingested_at predates the drain session"
+    assert b["ts"] < b["ingested_at"], "tap time must precede ingest time"
+    seen.setdefault((b["idempotency_key"], ts), []).append(r["at"])
+dupes = {k: v for k, v in seen.items() if len(v) > 1}
+assert not dupes, f"event(s) sent more than once: {dupes}"
+for (key, ts), at in seen.items():
+    print(f"  ingested once: ts={ts} (original) key={key}")
+print(f"drained {len(posts)} event(s), {len(seen)} distinct, none twice")
 ' || die "drain assertions failed"
     # restore the ship build (real ts.net base) — data survives again
     $ADB install -r "$APK_SHIP" >/dev/null || die "ship APK restore failed"
-    ok "drain: original-ts event ingested exactly once across an app update; ship APK restored"
+    ok "drain: every queued event ingested once with its original ts, across an app update; ship APK restored"
     ;;
 
   *)

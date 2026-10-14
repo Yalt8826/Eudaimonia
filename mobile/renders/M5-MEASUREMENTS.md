@@ -42,7 +42,7 @@ Build-environment findings, measured not assumed:
 | `web+eudaimonia://wake` lands on the wake route | **PASS** — cold `am start -W -a VIEW -d web+eudaimonia://wake`: TotalTime **250 ms**, `topResumedActivity` = our package, a11y tree contains "I'M AWAKE" + "tap time" (frame: `renders/m5-wake-deeplink.png`) |
 | THE WAKE SURFACE NEVER SHOWS BROWSER CHROME | **PASS, tripwire proven** — the gate asserts our activity is foreground (no chrome/chromium/webapk) and the wake markers are present; with the app `pm disable-user`d the gate **FAILS** (proof it can fire), after `pm enable` it passes again. 02 §6 carried from T6.6 |
 | off-tailnet: the app opens and the wake tap QUEUES rather than failing | **PASS** — airplane mode on (verified `airplane_mode_on=1`): cold open TotalTime **221 ms**, Plaza renders, wake route opens offline, tap → "will sync" painted; airplane off → the event STAYS queued (the ingest route is still P2 T2.1 — the queue does not lie about a sync that never happened) |
-| drain contract across an app update (T6.5 carried over) | scripted as `verify_apk.sh drain` (stand-in fixture `scripts/test_ingest_server.js`, test APK built with `EXPO_PUBLIC_API_BASE` override, `install -r` keeps the outbox) — **run pending: the phone left USB before this session's drain run; the offline-tap event is still in the outbox waiting for it** |
+| drain contract across an app update (T6.5 carried over) | **PASS, run on the phone 2026-10-15** — `verify_apk.sh drain` (stand-in fixture `scripts/test_ingest_server.js`, test APK built with `EXPO_PUBLIC_API_BASE` override, `install -r` keeps the outbox). Tap queued offline at **01:00:06.379**, ingested at **01:08:56.994** — 8m50s and one `install -r` later, carrying its **original** ts; 1 POST, 1 distinct `(idempotency_key, ts)`, none twice. An earlier run in the same session drained **4** events the same way, one of them queued **11.5 hours** before and already through an app update |
 | dev client | built via `development` profile: `app-debug.apk` 339,806,915 bytes, same package `com.yalt8826.eudaimonia`, scheme filter present, signed by the template debug cert (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`) — **launcher launch-check pending phone** (different signature than the release APK: an uninstall dance is required, so it was left for a supervised step rather than risking the install state) |
 
 ## The scheme registration (why a mapping exists)
@@ -92,3 +92,74 @@ whoever owns the M1/M4 test-infra.
   editing `client/` (the file lives in `client/public/.well-known/`) plus
   a deploy — out of M5 scope by hard rule 2; it only becomes load-bearing
   for https app-links (M8), not for the custom scheme.
+
+## Re-verification on the phone, 2026-10-15
+
+All five legs re-run on the same A059 (`mWakefulness=Awake` asserted by the
+harness this time — see below). Numbers from this session, unedited:
+
+| leg | result |
+|---|---|
+| coldstart | **PASS** — worst of the run **325 ms** (budget 2000 ms) |
+| deeplink | **PASS** — `web+eudaimonia://wake` cold, TotalTime **224 ms** |
+| tripwire | **PASS** — gate fails with the app `pm disable-user`d, passes after `pm enable` |
+| offline | **PASS** — offline cold open **209 ms**, Plaza renders, tap paints "will sync", event survives reconnect |
+| drain | **PASS** — see the exit-test table above |
+
+### Four harness defects found and fixed getting there
+
+None of these were app defects; all four made the harness lie about the app.
+
+1. **The release APK forbids cleartext, and the drain stand-in is http.**
+   Android has blocked cleartext by default since API 28, so every drain
+   POST was dropped **silently** — the leg could not pass however long it
+   waited, and it read as a broken drain contract. `android.usesCleartextTraffic`
+   in app config is accepted by Expo and then **never written to the
+   manifest**, so the fix is a config plugin (`mobile/app.config.js`) that
+   sets the attribute only when the baked `EXPO_PUBLIC_API_BASE` is
+   `http://`. Verified both ways: ship build → attribute absent; drain
+   build → `android:usesCleartextTraffic="true"`. Ship builds talk https
+   to the tailnet and are unaffected.
+
+2. **The cleartext assertion could never pass.** It grepped the compiled
+   APK. In a binary manifest a framework attribute name is a resource ID,
+   not a literal string, so `strings | grep usesCleartextTraffic` finds
+   nothing however correctly it is set (checked: it was set, the grep still
+   failed). Now asserted against the source manifest prebuild writes and
+   Gradle consumes.
+
+3. **The drain assertion stated the wrong contract.** It demanded
+   "exactly 1 POST" and failed with *"expected exactly 1 habit_tap POST,
+   saw 4"* — but all four were **distinct** events, each sent **once**.
+   The contract is *every queued event ingests exactly once with its
+   original ts*; the old assertion assumed the outbox holds one event and
+   could not tell four events from one event sent four times. Rewritten to
+   the real contract.
+
+4. **The phone dozed during the build.** `wake_device` ran at the *start*
+   of the drain leg, then the leg spent ~9 minutes in Gradle; by install
+   time the device was `mWakefulness=Dozing`, the app opened against a dark
+   screen and drained nothing. A second `wake_device` immediately before
+   the install fixed it — same leg, same sequence, PASS. (The Chrome
+   reachability pre-check was replaced in the same pass: Chrome cold-starts
+   in ~40s on this device and re-firing the URL only refocuses the loaded
+   tab, so the probe timed out while the tailnet was up the whole time.
+   Android ships `curl` at `/system/bin/curl` — one request, one answer.)
+
+### One weak assertion, noted not fixed
+
+The offline leg's closing check — "event still queued after reconnect" —
+greps the UI for "will sync". That string is driven by
+`useState(false)` in `src/app/habits/wake.tsx` and is **never read back
+from the outbox**, so it proves a tap was accepted, not that anything is
+still queued; it would also pass if the outbox had silently cleared.
+It is only sound because the app is not restarted between the tap and the
+check. The claim that survives restart is the drain leg's, which reads the
+server side. Left as-is for M5 (the honest claim is the one drain makes);
+whoever builds the real ingest route in P2 T2.1 should make the wake
+screen's status reflect outbox depth so this check means what it reads.
+
+Corollary, carried forward from M4 and now observed rather than pinned:
+the wake screen shows no entrance animation on a cold direct-link start —
+confirmed in the deeplink leg (ScreenFade was removed in M4 after
+measuring that the fade completed before first paint).

@@ -1,0 +1,2 @@
+{"at":"2026-10-14T19:30:30.520Z","method":"GET","url":"/ping?probe=1","body":null}
+{"at":"2026-10-14T19:38:57.958Z","method":"POST","url":"/api/events/habit_tap","body":{"idempotency_key":"897fbff9-92e5-4ef5-a1ce-d4dc8960a2b3","kind":"habit_tap","ts":1792006206379,"ingested_at":1792006736994,"payload":{"method":"tap"}}}
