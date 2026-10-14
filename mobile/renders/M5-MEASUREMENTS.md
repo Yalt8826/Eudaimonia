@@ -30,7 +30,8 @@ Build-environment findings, measured not assumed:
 - One full-release build failed (10m36s, 803 tasks) with no error section
   captured, then passed unmodified on the next run — noted as a flaky
   first-pass, not diagnosed further; the shipped APK is from a clean
-  successful run.
+  successful run. The dev-client build (`assembleDebug`) ran clean end to
+  end (18m58s, 546 tasks).
 
 ## Exit tests (PHASE-M §M5 + carried-over T6.6/02 §6)
 
@@ -41,8 +42,8 @@ Build-environment findings, measured not assumed:
 | `web+eudaimonia://wake` lands on the wake route | **PASS** — cold `am start -W -a VIEW -d web+eudaimonia://wake`: TotalTime **250 ms**, `topResumedActivity` = our package, a11y tree contains "I'M AWAKE" + "tap time" (frame: `renders/m5-wake-deeplink.png`) |
 | THE WAKE SURFACE NEVER SHOWS BROWSER CHROME | **PASS, tripwire proven** — the gate asserts our activity is foreground (no chrome/chromium/webapk) and the wake markers are present; with the app `pm disable-user`d the gate **FAILS** (proof it can fire), after `pm enable` it passes again. 02 §6 carried from T6.6 |
 | off-tailnet: the app opens and the wake tap QUEUES rather than failing | **PASS** — airplane mode on (verified `airplane_mode_on=1`): cold open TotalTime **221 ms**, Plaza renders, wake route opens offline, tap → "will sync" painted; airplane off → the event STAYS queued (the ingest route is still P2 T2.1 — the queue does not lie about a sync that never happened) |
-| drain contract across an app update (T6.5 carried over) | scripted as `verify_apk.sh drain` (stand-in fixture `scripts/test_ingest_server.js`, test APK built with `EXPO_PUBLIC_API_BASE` override, `install -r` keeps the outbox) — **run pending: the phone left USB before this session's drain run** |
-| dev client | built via `development` profile (dev launcher embedded) — **install check pending phone** |
+| drain contract across an app update (T6.5 carried over) | scripted as `verify_apk.sh drain` (stand-in fixture `scripts/test_ingest_server.js`, test APK built with `EXPO_PUBLIC_API_BASE` override, `install -r` keeps the outbox) — **run pending: the phone left USB before this session's drain run; the offline-tap event is still in the outbox waiting for it** |
+| dev client | built via `development` profile: `app-debug.apk` 339,806,915 bytes, same package `com.yalt8826.eudaimonia`, scheme filter present, signed by the template debug cert (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`) — **launcher launch-check pending phone** (different signature than the release APK: an uninstall dance is required, so it was left for a supervised step rather than risking the install state) |
 
 ## The scheme registration (why a mapping exists)
 
