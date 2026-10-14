@@ -90,8 +90,10 @@ case "${1:-}" in
       $ADB shell am force-stop "$PKG"
       sleep 1
       out=$($ADB shell am start -W -n "$ACT" | tr -d '\r')
+      echo "$out" | grep -q "Status: ok" || die "activity did not launch (am start status not ok)"
       total=$(echo "$out" | awk -F'TotalTime: ' '/TotalTime/{print $2+0}')
       [ -n "$total" ] || die "no TotalTime in am start -W output"
+      [ "$total" -gt 0 ] || die "TotalTime=0 — the launch did not really happen"
       echo "cold run $i: TotalTime=${total}ms"
       [ "$total" -gt "$worst" ] && worst=$total
     done
