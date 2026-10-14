@@ -54,3 +54,29 @@ echo "--- artifacts ---"
 find app/build/outputs -name '*.apk' -o -name '*.aab' | while read -r f; do
   ls -l "$f" | awk '{print $5, $9}'
 done
+
+# Preserve the artifact OUTSIDE android/, which the `--clean` prebuild above
+# deletes wholesale. The M5 dev-client APK was built, measured, and then
+# destroyed by the next profile's build because only the ship APK had ever
+# been copied out by hand — 19 minutes of build gone with nothing to show a
+# reviewer. dist/ is the artifact of record for every profile now.
+cd ..
+mkdir -p dist
+case "$PROFILE" in
+  development) SRC=android/app/build/outputs/apk/debug/app-debug.apk; DEST=dist/eudaimonia-devclient.apk ;;
+  preview) SRC=android/app/build/outputs/apk/release/app-release.apk; DEST=dist/eudaimonia-ship.apk ;;
+  production) SRC=android/app/build/outputs/bundle/release/app-release.aab; DEST=dist/eudaimonia-store.aab ;;
+esac
+# A point-build at a stand-in server is NOT the ship artifact and must never
+# take its name: verify_apk.sh's drain leg restores dist/eudaimonia-ship.apk
+# afterwards, so clobbering it there would leave the owner's phone running a
+# cleartext build aimed at a laptop that is no longer listening.
+if [ -n "${EXPO_PUBLIC_API_BASE:-}" ]; then
+  DEST="${DEST%.*}-pointbuild.${DEST##*.}"
+fi
+if [ -f "$SRC" ]; then
+  cp "$SRC" "$DEST"
+  echo "preserved: $DEST ($(stat -c %s "$DEST") bytes)"
+else
+  echo "WARNING: expected $SRC, not preserving" >&2
+fi

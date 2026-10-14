@@ -43,7 +43,33 @@ Build-environment findings, measured not assumed:
 | THE WAKE SURFACE NEVER SHOWS BROWSER CHROME | **PASS, tripwire proven** — the gate asserts our activity is foreground (no chrome/chromium/webapk) and the wake markers are present; with the app `pm disable-user`d the gate **FAILS** (proof it can fire), after `pm enable` it passes again. 02 §6 carried from T6.6 |
 | off-tailnet: the app opens and the wake tap QUEUES rather than failing | **PASS** — airplane mode on (verified `airplane_mode_on=1`): cold open TotalTime **221 ms**, Plaza renders, wake route opens offline, tap → "will sync" painted; airplane off → the event STAYS queued (the ingest route is still P2 T2.1 — the queue does not lie about a sync that never happened) |
 | drain contract across an app update (T6.5 carried over) | **PASS, run on the phone 2026-10-15** — `verify_apk.sh drain` (stand-in fixture `scripts/test_ingest_server.js`, test APK built with `EXPO_PUBLIC_API_BASE` override, `install -r` keeps the outbox). Tap queued offline at **01:00:06.379**, ingested at **01:08:56.994** — 8m50s and one `install -r` later, carrying its **original** ts; 1 POST, 1 distinct `(idempotency_key, ts)`, none twice. An earlier run in the same session drained **4** events the same way, one of them queued **11.5 hours** before and already through an app update |
-| dev client | built via `development` profile: `app-debug.apk` 339,806,915 bytes, same package `com.yalt8826.eudaimonia`, scheme filter present, signed by the template debug cert (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`) — **launcher launch-check pending phone** (different signature than the release APK: an uninstall dance is required, so it was left for a supervised step rather than risking the install state) |
+| dev client | built via `development` profile: `app-debug.apk` 339,806,915 bytes, same package `com.yalt8826.eudaimonia`, scheme filter present, signed by the template debug cert (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`) — **launcher launch-check still pending — now scripted, awaiting approval to run** |
+
+Dev-client follow-up, 2026-10-15: the measured APK was **destroyed** between
+sessions. `expo prebuild --clean` (run by the drain leg) deletes `android/`
+wholesale, and only the ship APK had ever been copied out of it by hand — 19
+minutes of build gone with nothing left for a reviewer to check. Fixed at the
+source: `scripts/build-apk.sh` now preserves every profile's artifact to
+`dist/` (`eudaimonia-devclient.apk` / `-ship.apk` / `-store.aab`), with a
+guard that renames a stand-in point-build to `*-pointbuild.*` so it can never
+take the ship artifact's filename — the drain leg restores the phone from that
+exact path, and clobbering it would have left the owner's phone running a
+cleartext build aimed at a laptop that is no longer listening.
+
+Rebuilt 2026-10-15 in 7m11s (546 tasks; the 18m58s figure above was a cold
+cache): `app-debug.apk` **339,806,915 bytes — byte-identical in size to the
+original**, preserved at `dist/eudaimonia-devclient.apk`.
+
+The launch-check itself is now `verify_apk.sh devclient`: install the dev
+client, resolve the MAIN/LAUNCHER intent and require it to land on our
+activity, fire it with `monkey -c android.intent.category.LAUNCHER` (the
+intent an icon tap fires — unlike `am start -n`, which can start an activity
+no launcher exposes), assert foreground, then restore the ship APK, with a
+trap that restores it on any exit including a `die()` midway. It is marked
+DESTRUCTIVE in the script header and not run automatically: the two APKs have
+different signing certs (release keystore vs template debug), so Android
+refuses `install -r` across them and the required uninstall takes the outbox
+with it. Safe only after `drain` has passed, which it now has.
 
 ## The scheme registration (why a mapping exists)
 

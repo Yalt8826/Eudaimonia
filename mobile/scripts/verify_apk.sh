@@ -15,6 +15,15 @@
 #                                      # its ORIGINAL ts, exactly once, via
 #                                      # the stand-in fixture, then restores
 #                                      # the ship APK
+#   scripts/verify_apk.sh devclient    # the dev-client APK installs and
+#                                      # launches FROM THE LAUNCHER, then
+#                                      # restores the ship APK
+#
+# DESTRUCTIVE leg: `devclient` uninstalls the app. The dev client is signed
+# with the template debug cert and the ship APK with the release keystore, so
+# Android refuses `install -r` across them (INSTALL_FAILED_UPDATE_INCOMPATIBLE)
+# and the uninstall takes the outbox with it. Run it only when the outbox is
+# empty — i.e. after `drain` has passed, not before.
 set -u
 
 PKG="com.yalt8826.eudaimonia"
@@ -286,8 +295,70 @@ print(f"drained {len(posts)} event(s), {len(seen)} distinct, none twice")
     ok "drain: every queued event ingested once with its original ts, across an app update; ship APK restored"
     ;;
 
+  devclient)
+    wake_device
+    # The dev client is the development-profile artifact (Metro-backed, debug
+    # cert). M5 measured its size and signature but left the launch-check
+    # "pending phone" because proving it launches costs the release install:
+    # different signing certs cannot replace each other in place.
+    #
+    # It is also why dist/ exists. The first dev-client APK was built,
+    # measured, and then deleted by the next leg's `expo prebuild --clean`,
+    # because only the ship APK had ever been copied out of android/ by hand.
+    APK_DEV="dist/eudaimonia-devclient.apk"
+    APK_SHIP="dist/eudaimonia-ship.apk"
+    [ -f "$APK_DEV" ] || die "dev-client APK missing ($APK_DEV) — scripts/build-apk.sh development"
+    [ -f "$APK_SHIP" ] || die "preserved ship APK missing ($APK_SHIP) — nothing to restore afterwards, refusing to uninstall"
+    # Restore the ship build on ANY exit, including a die() midway. Leaving
+    # the owner's phone with no app, or carrying a debug build aimed at a
+    # Metro host that is not running, is a worse outcome than the failure
+    # being reported. The leg clears the flag once it has restored the ship
+    # itself, so the trap is a net rather than a duplicate.
+    DEVCLIENT_RESTORED=""
+    restore_ship_on_exit() {
+      [ -n "$DEVCLIENT_RESTORED" ] && return 0
+      echo "restoring the ship APK (leg did not finish cleanly)" >&2
+      $ADB uninstall "$PKG" >/dev/null 2>&1 || true
+      $ADB install -r "$APK_SHIP" >/dev/null 2>&1 \
+        || echo "PHONE HAS NO APP: reinstall $APK_SHIP by hand" >&2
+    }
+    trap restore_ship_on_exit EXIT INT TERM
+    $ADB uninstall "$PKG" >/dev/null 2>&1 || true
+    $ADB install -r "$APK_DEV" >/dev/null || die "dev-client APK install failed"
+    ok "dev-client APK installs ($(stat -c %s "$APK_DEV") bytes)"
+    # A launcher icon has to EXIST before "launches from the launcher" can
+    # mean anything: resolve the MAIN/LAUNCHER intent the way the launcher
+    # does, and require it to land on our activity.
+    resolved=$($ADB shell "cmd package resolve-activity -c android.intent.category.LAUNCHER -a android.intent.action.MAIN $PKG" | tr -d '\r')
+    echo "$resolved" | grep -q "$PKG" || die "no launcher activity resolves for $PKG: $resolved"
+    launch_act=$(echo "$resolved" | awk -F'name=' '/name=/{print $2; exit}')
+    ok "launcher entry resolves to $launch_act"
+    # `monkey -c LAUNCHER` fires exactly the intent an icon tap fires —
+    # not `am start -n`, which can start an activity no launcher exposes.
+    $ADB shell am force-stop "$PKG"; sleep 1
+    wake_device
+    $ADB shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 \
+      || die "launcher intent did not start $PKG"
+    sleep 6
+    assert_app_foreground
+    ok "dev client launches from the launcher and holds the foreground"
+    # With no Metro host reachable the dev client shows its own development
+    # screen rather than the Plaza; either is a pass for THIS leg, whose
+    # claim is "it launches", not "it loaded a bundle". Print which, so the
+    # record says what was actually on screen.
+    if ui_has_text "October" || ui_has_text "Yashas"; then
+      ok "dev client rendered the Plaza (a bundle was reachable)"
+    else
+      echo "note: dev client is on its development screen (no Metro host) — expected without \`npx expo start\`"
+    fi
+    $ADB uninstall "$PKG" >/dev/null 2>&1 || true
+    $ADB install -r "$APK_SHIP" >/dev/null || die "ship APK restore failed — PHONE HAS NO APP, reinstall $APK_SHIP by hand"
+    DEVCLIENT_RESTORED=1
+    ok "devclient: launch-check done; ship APK restored (outbox reset by the uninstall, as documented)"
+    ;;
+
   *)
-    echo "usage: $0 coldstart|deeplink|tripwire|offline|drain" >&2
+    echo "usage: $0 coldstart|deeplink|tripwire|offline|drain|devclient" >&2
     exit 2
     ;;
 esac
