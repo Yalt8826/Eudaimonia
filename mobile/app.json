@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Eudaimonia",
+    "slug": "eudaimonia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.yalt8826.eudaimonia",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,7 +28,8 @@
       "expo-font",
       "expo-router",
       "expo-asset",
-      "expo-sqlite"
+      "expo-sqlite",
+      "./plugins/withReleaseSigning"
     ]
   }
 }
