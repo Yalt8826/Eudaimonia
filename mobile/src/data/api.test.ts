@@ -19,7 +19,11 @@ const BODY: ReplayBody = {
 describe("apiUrl", () => {
   it("joins the explicit base with /api paths — native has no same-origin", () => {
     expect(apiUrl("/api/events/habit_tap")).toBe(`${API_BASE}/api/events/habit_tap`);
-    expect(API_BASE).toMatch(/^http:\/\/100\.99\.246\.26:8000$/); // 02 §1 tailnet default
+    // 02 §1 tailnet data plane: the ts.net serve origin (uvicorn on olympus
+    // is 127.0.0.1-bound — the tailnet IP:8000 default was connection-refused
+    // for devices, measured 2026-10-14).
+    expect(API_BASE).toMatch(/^https:\/\/[a-z0-9.]+\.ts\.net$/);
+    expect(API_BASE.endsWith("/")).toBe(false);
     expect(HABIT_TAP_ENDPOINT).toBe("/api/events/habit_tap"); // web queue.ts:177, verbatim
   });
 });
