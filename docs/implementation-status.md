@@ -12,9 +12,9 @@ Eudaimonia is a personal life-OS: one FastAPI + SQLite server on olympus, with t
 | --- | --- | --- |
 | Plan and design docs (v1, docs 01–10) | Ratified | `docs/plan/v1/` |
 | Phase and task docs | Written for P0–P6 and M | `docs/implementation/` |
-| Server (`app/`) | Skeleton: health route, schema, agent chokepoint | pytest suite, CI |
-| Web client (`client/`) | Built, frozen as the reference render | vitest suite, kept green until M8 |
-| Mobile client (`mobile/`) | M0–M5 done | 151 jest tests, device runs on the owner's phone |
+| Server (`app/`) | P0 foundation + the T2.1 ingest door | pytest suite (56+1), CI; T2.1 device leg green |
+| Web client (`client/`) | Built, frozen as the reference render | vitest suite (128), kept green until M8 |
+| Mobile client (`mobile/`) | M0–M5 done; taps now reach the server | 151 jest tests; T2.1 round-trip measured on the phone |
 | Interactive widget, push, cutover (M6–M8) | Not started | none |
 
 The laws that shape every component, from `02-architecture.md` §2 and §6:
@@ -28,7 +28,7 @@ The laws that shape every component, from `02-architecture.md` §2 and §6:
 
 ## Server (`app/`)
 
-The server implements the foundation of P0 only: one route, the frozen schema, and the agent chokepoint. It has 539 lines across four modules plus the 224-line `001_initial.sql`, and 38 pytest tests — 37 run in CI, one hardware-gated behind `--real-hermes`. There are no adapters and no ingest route yet.
+The server implements the foundation of P0 plus the first P2 task: the health route, the frozen schema, the agent chokepoint, and — since 2026-10-24 — the app-write ingest door. It has about 780 lines across five modules plus the 224-line `001_initial.sql`, and 57 pytest tests (56 run in CI, one hardware-gated behind `--real-hermes`). The P1 adapters and the Plaza read model are still unbuilt.
 
 | Piece | What it does |
 | --- | --- |
@@ -43,6 +43,8 @@ The server implements the foundation of P0 only: one route, the frozen schema, a
 **The `coverage` view.** It counts distinct content-dated days in the trailing 7 where a source-read event carries `ok = 1`. It also reports the all-time artifact count and whether a human-authored `job_paused` event exists. It returns counts, never per-day rows, so a missing day is data and not a zero.
 
 **`agent_invoke`.** It runs `hermes --profile <name> -z <prompt>`, with a `$HERMES_HOME/bin/hermes` fallback for shells that lack the PATH. The chokepoint enforces the timeout itself and takes a per-profile lock. Every call writes an `agent_invoke_started` event and exactly one terminal `agent_invoke_result` event with outcome `ok`, `timeout`, `error` or `predicate_failed`, so silence cannot pass for success. A real call to the `clio` profile was recorded on olympus on 2026-10-10 and took about 27 seconds.
+
+**The ingest door (`app/app/ingest.py`, T2.1).** `POST /api/events/{kind}` is the one server door clients write through; the wire shape is the phone outbox's `ReplayBody`. The laws it enforces: idempotency is the spine's `UNIQUE(source_id, kind, external_ref)` with `external_ref` built from the device UUID **and** `ts` (the key alone is constant per install — deduping on it would make a device's first tap its last stored event); `source_id` is never NULL (SQLite treats NULLs as distinct — the constraint cannot dedupe them), every client write attaches the one behavioral `app` source row; `event.ts` is the client's tap time to the millisecond while `ingested_at` is stamped by the server at receipt and rides the payload; contract violations are 4xx (the outbox's poison path), a replay is 200 `duplicate:true` — never a second row. Kinds are registered one task at a time (`habit_tap` today, routine ticks at T2.7); an unregistered kind is a loud 422, never a silent spine row. Verified end-to-end on the phone — airplane tap → force-stop → relaunch → exactly one event, `ts` the tap moment, receipt 17 s later: `mobile/renders/T2.1-MEASUREMENTS.md`.
 
 ## Web client (`client/`)
 
@@ -79,7 +81,7 @@ The Expo client renders the full Plaza, a gesture-driven nav, and a wake screen 
 - `ingested_at` is the retry time, set only at replay.
 - `idempotency_key` is a device UUID that rides every event.
 
-Replay runs in enqueue order and stops at the first failed POST. Storage is a SQLite file that also holds the device UUID. Replay triggers are reconnect, next foreground, and an immediate sync after each enqueue and at install, all funnelled through one serialized scheduler so triggers cannot double-POST. The API base defaults to `https://olympus.tail7270c7.ts.net`, because uvicorn binds only to localhost on olympus. The ingest endpoint `/api/events/habit_tap` still returns 404 until P2.
+Replay runs in enqueue order and stops at the first failed POST. Storage is a SQLite file that also holds the device UUID. Replay triggers are reconnect, next foreground, and an immediate sync after each enqueue and at install, all funnelled through one serialized scheduler so triggers cannot double-POST. The API base defaults to `https://olympus.tail7270c7.ts.net`, because uvicorn binds only to localhost on olympus. The ingest endpoint went live on 2026-10-24 (T2.1) — a wake tap now completes the round-trip: `mobile/renders/T2.1-MEASUREMENTS.md`.
 
 **Wake screen.** A full-bleed teal screen with one "I'M AWAKE" target and a "~recall instead" option. Offline, taps queue silently and the screen never blocks. The label is drawn in Skia because Fabric measured it with fallback metrics on a cold direct-link start.
 
@@ -133,24 +135,27 @@ Other conventions: tasks use a commit pair (a baseline commit, then the closing 
 
 ## Known gaps and what is next
 
-The biggest gap is that no tap reaches a server: the ingest route does not exist, so queued events wait on the phone until P2 T2.1 ships.
+The ingest door exists and is live; the next server gap is the P1 adapters and the Plaza read model — the phone posts real events, but nothing reads them yet.
 
 | Gap | Detail |
 | --- | --- |
-| Server ingest and adapters | `POST /api/events/habit_tap` returns 404. P1 adapters, the Plaza read model and the `coverage` consumers are unbuilt. Phase M forbids editing `app/`, so this is P-phase work. |
+| P1 adapters and read model | The Plaza still renders static strips; nothing consumes `coverage` or the ingested events. Phase P1 work. |
+| Wake status vs outbox depth | The offline leg's "will sync" line is still `useState`, never read from the outbox (M5 note). With the route live, the wake screen should render real outbox depth. Small mobile task, T2.1 companion. |
+| Poison-entry UX | A 4xx marks nothing on the phone yet — the outbox keeps the event queued and silent. T2.1's queue spec wants `failed` + a visible plaza line. |
+| Flaky mobile tests | 3 of 151 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. Pre-existing (failed on pre-merge `main` too); the merged tree ran 151/151 on 2026-10-24. |
 | Dev-client launch check | Scripted as `verify_apk.sh devclient`, not yet run. It uninstalls the ship APK and the outbox with it, so it needs approval. |
-| Weak offline assertion | The "still queued" check greps for "will sync", which is never read back from the outbox. Only the drain leg proves persistence. The wake screen's status should reflect outbox depth when P2 T2.1 lands. |
-| Flaky tests | 3 of 151 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. The same 3 failed on pre-merge `main` (not an M5 regression); the merged tree ran 151/151 green on 2026-10-24. |
-| Keystore off-box backup | The release signing key has no off-box copy — the P6 T6.2 custody step (vault + one off-box copy, rehearsed restore) was superseded and never done. Losing the key means the installed base can never be updated in place. See `mobile/keystore/README.md`. |
+| Weak offline assertion | The offline leg greps for "will sync"; only the drain leg (and now the T2.1 leg) proves persistence. Subsumed by the outbox-depth item above. |
 | `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
 | Mobile CI | No CI job runs the mobile tests, lint or typecheck. |
 | Notification policy | Push (M7) is blocked until the spec gap in `10-stack-migration.md` §7 is written. |
+| Keystore off-box backup | The release signing key has no off-box copy (P6 T6.2 custody step superseded, never done) — the one irrecoverable loss on this list. |
 
 **Next steps.**
 
-1. ~~Merge `M5-apk` into `main`~~ — done 2026-10-24, pushed, CI running on the merged tree.
-2. Start P2 T2.1, the ingest route. It is the critical path: M6's widget writes through the server spine, the phone has held queued taps since M3, and the weak offline assertion stays weak until the wake screen can read outbox depth. The M7 notification spec (`10-stack-migration.md` §7) is dependency-free writing that can slot into any gap.
-3. Run the dev-client launch check (`verify_apk.sh devclient`) to close M5. It uninstalls the ship APK and the outbox with it, so it needs the owner and the phone — safe to run now that `drain` has passed, and it gates nothing downstream.
-4. Off-box backup of the release keystore — cheap, and the one irrecoverable loss on this list.
+1. ~~T2.1 ingest route~~ — done 2026-10-24: shipped, deployed to olympus, and proven on the phone end to end.
+2. Pick the next P-phase slice: T2.2 (waiting-on inbox + resolutions) or T2.7 (routine ticks — proves the queue is consumer-agnostic) ride the door that just opened; P1 adapters unblock the Plaza reading real data and are M6's other half.
+3. M6 (interactive widget) is now unblocked — its write path exists.
+4. Cheap, real-world: the owner's next real wake tap becomes event id 1 in the prod spine. M7's notification spec (`10-stack-migration.md` §7) is dependency-free writing for any gap.
+5. The keystore off-box backup is ten minutes and removes the worst tail risk.
 
 M8 then retires or demotes the web client. Descope order, if time runs short, is M7, then M6, then M4. M0 and M3 are never cut.

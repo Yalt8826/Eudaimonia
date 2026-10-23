@@ -11,6 +11,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import db, ingest
+from app.ingest import ReplayBody
+
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
 CLIENT_DIST = Path(__file__).resolve().parents[2] / "client" / "dist"
 
@@ -20,6 +23,31 @@ app = FastAPI(title="Eudaimonia", docs_url="/api/docs", openapi_url="/api/openap
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/events/{kind}")
+async def ingest_event(kind: str, body: ReplayBody) -> dict[str, object]:
+    """The app-write ingest door (P2 T2.1) — the queue's ReplayBody lands here.
+
+    Contract violations are 422 (the outbox's poison path — failure must be
+    visible, 02 §6); a replay of a stored event is 200 duplicate:true —
+    never a second row (02 §1). Connection per request: SQLite file opens
+    are cheap and the one-process prod shape has no pool to share.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return ingest.ingest_event(conn, kind, body)
+    except ingest.IngestError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.post("/api/{rest:path}")
+async def api_post_fallback(rest: str) -> JSONResponse:
+    """Unknown /api paths under POST answer JSON 404, same contract as GET —
+    never the SPA shell, never a bare 405 from the catch-all GET route."""
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 if CLIENT_DIST.is_dir():
