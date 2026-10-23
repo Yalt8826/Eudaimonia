@@ -4,7 +4,7 @@ As of 2026-10-24
 
 ## Overview
 
-The Expo mobile client is built through milestone M5 and verified on a physical phone, while the server is still a skeleton. The `main` branch holds M0–M4; branch `M5-apk` is 8 commits ahead with the APK pipeline and device verification.
+The Expo mobile client is built through milestone M5 and verified on a physical phone, while the server is still a skeleton. M5 is merged: `main` holds M0–M5, pushed to origin on 2026-10-24.
 
 Eudaimonia is a personal life-OS: one FastAPI + SQLite server on olympus, with thin clients. The data plane (`/api/*`) is tailnet-only with no auth. Agents run on the server through `hermes --profile`; the phone never schedules anything.
 
@@ -28,7 +28,7 @@ The laws that shape every component, from `02-architecture.md` §2 and §6:
 
 ## Server (`app/`)
 
-The server implements the foundation of P0 only: one route, the frozen schema, and the agent chokepoint. It has about 760 lines across four modules and 38 pytest tests. There are no adapters and no ingest route yet.
+The server implements the foundation of P0 only: one route, the frozen schema, and the agent chokepoint. It has 539 lines across four modules plus the 224-line `001_initial.sql`, and 38 pytest tests — 37 run in CI, one hardware-gated behind `--real-hermes`. There are no adapters and no ingest route yet.
 
 | Piece | What it does |
 | --- | --- |
@@ -46,7 +46,7 @@ The server implements the foundation of P0 only: one route, the frozen schema, a
 
 ## Web client (`client/`)
 
-The React/Vite PWA is feature-frozen and kept deployable as the reference render for the Expo port. Per the migration plan, it had 5 screens with real content and 17 stubs when the decision to move was made on 2026-10-12. It stays green until M8, so rollback during the migration is "deploy `client/` as before".
+The React/Vite PWA is feature-frozen and kept deployable as the reference render for the Expo port. It has 3 screens with real content (the Plaza, wake, settings) and 17 stubs — 20 routes in all; the migration plan's "5 screens with real content" overcounted, and the route table is authoritative (corrected here 2026-10-24). It stays green until M8, so rollback during the migration is "deploy `client/` as before".
 
 - **Stack.** React 19, react-router 7, Vite, vitest, pnpm. Node is pinned by `.nvmrc`.
 - **Screens with content.** The Plaza (five torn-paper sheets, greeting header, nav cluster), the wake screen and settings.
@@ -140,15 +140,17 @@ The biggest gap is that no tap reaches a server: the ingest route does not exist
 | Server ingest and adapters | `POST /api/events/habit_tap` returns 404. P1 adapters, the Plaza read model and the `coverage` consumers are unbuilt. Phase M forbids editing `app/`, so this is P-phase work. |
 | Dev-client launch check | Scripted as `verify_apk.sh devclient`, not yet run. It uninstalls the ship APK and the outbox with it, so it needs approval. |
 | Weak offline assertion | The "still queued" check greps for "will sync", which is never read back from the outbox. Only the drain leg proves persistence. The wake screen's status should reflect outbox depth when P2 T2.1 lands. |
-| Flaky tests | 3 of 151 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. The same 3 fail on clean `main`. |
+| Flaky tests | 3 of 151 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. The same 3 failed on pre-merge `main` (not an M5 regression); the merged tree ran 151/151 green on 2026-10-24. |
+| Keystore off-box backup | The release signing key has no off-box copy — the P6 T6.2 custody step (vault + one off-box copy, rehearsed restore) was superseded and never done. Losing the key means the installed base can never be updated in place. See `mobile/keystore/README.md`. |
 | `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
 | Mobile CI | No CI job runs the mobile tests, lint or typecheck. |
 | Notification policy | Push (M7) is blocked until the spec gap in `10-stack-migration.md` §7 is written. |
 
 **Next steps.**
 
-1. Run the dev-client launch check and close M5.
-2. Merge `M5-apk` into `main`.
-3. Choose between M6 (interactive widget, which needs the ingest route), the P1/P2 server work, or the M7 notification spec.
+1. ~~Merge `M5-apk` into `main`~~ — done 2026-10-24, pushed, CI running on the merged tree.
+2. Start P2 T2.1, the ingest route. It is the critical path: M6's widget writes through the server spine, the phone has held queued taps since M3, and the weak offline assertion stays weak until the wake screen can read outbox depth. The M7 notification spec (`10-stack-migration.md` §7) is dependency-free writing that can slot into any gap.
+3. Run the dev-client launch check (`verify_apk.sh devclient`) to close M5. It uninstalls the ship APK and the outbox with it, so it needs the owner and the phone — safe to run now that `drain` has passed, and it gates nothing downstream.
+4. Off-box backup of the release keystore — cheap, and the one irrecoverable loss on this list.
 
 M8 then retires or demotes the web client. Descope order, if time runs short, is M7, then M6, then M4. M0 and M3 are never cut.
