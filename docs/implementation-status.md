@@ -14,7 +14,7 @@ Eudaimonia is a personal life-OS: one FastAPI + SQLite server on olympus, with t
 | Phase and task docs | Written for P0–P6 and M | `docs/implementation/` |
 | Server (`app/`) | P0 foundation + the T2.1 ingest door | pytest suite (56+1), CI; T2.1 device leg green |
 | Web client (`client/`) | Built, frozen as the reference render | vitest suite (128), kept green until M8 |
-| Mobile client (`mobile/`) | M0–M5 done; taps now reach the server | 151 jest tests; T2.1 round-trip measured on the phone |
+| Mobile client (`mobile/`) | M0–M5 done; taps now reach the server | 155 jest tests; T2.1 round-trip measured on the phone |
 | Interactive widget, push, cutover (M6–M8) | Not started | none |
 
 The laws that shape every component, from `02-architecture.md` §2 and §6:
@@ -58,7 +58,7 @@ The React/Vite PWA is feature-frozen and kept deployable as the reference render
 
 ## Mobile app (`mobile/`)
 
-The Expo client renders the full Plaza, a gesture-driven nav, and a wake screen whose taps survive airplane mode, force-stop and an app update. It runs Expo SDK 57, React Native 0.86, React 19.2, Skia 2.6, Reanimated 4.5 and expo-router 57, with 151 jest tests. The server is untouched, per the phase rule.
+The Expo client renders the full Plaza, a gesture-driven nav, and a wake screen whose taps survive airplane mode, force-stop and an app update. It runs Expo SDK 57, React Native 0.86, React 19.2, Skia 2.6, Reanimated 4.5 and expo-router 57, with 155 jest tests. The server is untouched, per the phase rule.
 
 | Milestone | What was built | Exit evidence |
 | --- | --- | --- |
@@ -140,11 +140,11 @@ The ingest door exists and is live; the next server gap is the P1 adapters and t
 | Gap | Detail |
 | --- | --- |
 | P1 adapters and read model | The Plaza still renders static strips; nothing consumes `coverage` or the ingested events. Phase P1 work. |
-| Wake status vs outbox depth | The offline leg's "will sync" line is still `useState`, never read from the outbox (M5 note). With the route live, the wake screen should render real outbox depth. Small mobile task, T2.1 companion. |
+| ~~Wake status vs outbox depth~~ ~~Weak offline assertion~~ | **Closed 2026-10-24**: the wake surface reads real outbox depth (`registered` at 0, `queued · will sync` above it) and is one-shot — a double-tap can no longer mint a second event (the 4-event morning). Ships in the next APK; the device legs' grep for "will sync" stays valid until then. |
 | Poison-entry UX | A 4xx marks nothing on the phone yet — the outbox keeps the event queued and silent. T2.1's queue spec wants `failed` + a visible plaza line. |
-| Flaky mobile tests | 3 of 151 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. Pre-existing (failed on pre-merge `main` too); the merged tree ran 151/151 on 2026-10-24. |
+| Flaky mobile tests | 3 of 155 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. Pre-existing (failed on pre-merge `main` too); the tree ran 155/155 on 2026-10-24. |
 | Dev-client launch check | Scripted as `verify_apk.sh devclient`, not yet run. It uninstalls the ship APK and the outbox with it, so it needs approval. |
-| Weak offline assertion | The offline leg greps for "will sync"; only the drain leg (and now the T2.1 leg) proves persistence. Subsumed by the outbox-depth item above. |
+| ~~Weak offline assertion~~ | Closed with the wake-status row above (the claim now reads outbox depth). |
 | `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
 | Mobile CI | No CI job runs the mobile tests, lint or typecheck. |
 | Notification policy | Push (M7) is blocked until the spec gap in `10-stack-migration.md` §7 is written. |
