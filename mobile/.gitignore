@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# release signing (M5) — never commit the key material
+keystore/*.keystore
+keystore/keystore.properties

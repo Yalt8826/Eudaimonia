@@ -10,9 +10,13 @@
 
 import type { ReplayBody, Transport } from "./queue";
 
-/** Server tailnet address (02 §1); override with EXPO_PUBLIC_API_BASE. */
+/** The phone-reachable data plane (02 §1): uvicorn binds 127.0.0.1 on
+ * olympus, so the tailnet IP:8000 is connection-refused for any device
+ * (measured 2026-10-14, curl exit 7) — tailscale serve fronts it on the
+ * ts.net origin, measured 200 on /api/health the same day. Override with
+ * EXPO_PUBLIC_API_BASE (baked at build time by metro). */
 export const API_BASE: string =
-  process.env.EXPO_PUBLIC_API_BASE ?? "http://100.99.246.26:8000";
+  process.env.EXPO_PUBLIC_API_BASE ?? "https://olympus.tail7270c7.ts.net";
 
 /** Stub-level endpoint; 404s until P2 wires the ingest route. */
 export const HABIT_TAP_ENDPOINT = "/api/events/habit_tap";
