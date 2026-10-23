@@ -195,4 +195,15 @@ export class Outbox {
     }
     return { replayed, stoppedAt: null };
   }
+
+  /**
+   * How many events are queued right now — the number the wake surface's
+   * status claim is honest about (T2.1): "registered" at depth 0, "will
+   * sync" above it. A claim read from state instead of the store is the
+   * M5 weak assertion again — it would pass even if the outbox had
+   * silently cleared.
+   */
+  async depth(): Promise<number> {
+    return (await this.store.getAll()).length;
+  }
 }

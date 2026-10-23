@@ -65,6 +65,19 @@ export const MOTION = {
    * infinity (PHASE-M §M4).
    */
   selectDeadZonePx: 32,
+
+  /**
+   * How long the wake surface holds its confirmation before it exits
+   * itself to the Plaza (T2.1, owner-measured 2026-10-24: a surface that
+   * never confirms reads as a dead tap — one morning produced four events
+   * from one wake). This is a HOLD, not a state-change duration: it is how
+   * long the done state is guaranteed readable, not how long a transition
+   * runs, so it sits outside the §8 band on purpose. Long enough to
+   * register groggy; short enough to feel like the surface, not the user,
+   * ended the interaction. Law 9 kept: the exit is the surface doing the
+   * navigating, so the user never has to.
+   */
+  wakeExitHoldMs: 1200,
 } as const;
 
 /* ---- the ring (PHASE-M §M4; measured off the parked web attempt's render,

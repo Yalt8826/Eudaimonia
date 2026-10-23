@@ -133,6 +133,24 @@ describe("offline event queue (law 9)", () => {
   });
 });
 
+describe("depth (the wake status's honest source, T2.1)", () => {
+  it("counts the queue: zero when drained, one per held event", async () => {
+    const { outbox } = setup();
+    expect(await outbox.depth()).toBe(0);
+    await outbox.enqueue("habit_tap", { method: "tap" });
+    // the queueKey is {device}:{kind}:{now} — two enqueues in the SAME ms
+    // are one event by the skip guard, so advance the fake clock one ms to
+    // make the second enqueue a second event
+    jest.setSystemTime(TAP_TS + 1);
+    await outbox.enqueue("habit_tap", { method: "recall" });
+    expect(await outbox.depth()).toBe(2);
+    await outbox.replay({
+      post: async (): Promise<boolean> => true, // everything the server takes
+    });
+    expect(await outbox.depth()).toBe(0);
+  });
+});
+
 describe("deviceUUID", () => {
   it("generates once and reuses the stored value", () => {
     const backing = new Map<string, string>();

@@ -2,16 +2,34 @@
 // spec; 02 §2 law 9): bare, full-bleed teal, one giant target — no nav, no
 // header, no animation, zero live blur of any kind. The tap time shown is
 // pre-filled from the client clock; the event's ts is captured at tap time
-// by the outbox. Offline it queues silently — never blocks — and the
-// immediate sync is the port of the browser firing `online` at page load.
-import { useState } from "react";
+// by the outbox. Offline it queues silently — never blocks.
+//
+// T2.1, owner-measured 2026-10-24 (event ids 1–4: one wake, four taps): a
+// surface that never confirms reads as a dead tap, and a groggy user taps
+// again. So the surface is now ONE-SHOT — the first tap (either path) makes
+// both targets inert, the status claims the OUTBOX DEPTH (registered at 0,
+// "will sync" above it — never a state variable's optimism, the M5 weak
+// assertion closed), and after a pinned hold (MOTION.wakeExitHoldMs) the
+// surface exits itself to the Plaza. Law 9 kept: the exit is the surface
+// doing the navigating, so the user never has to. router.replace, never
+// push: system back from the Plaza must not land on a spent wake screen.
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 
 import { appOutbox } from "../../data/appOutbox";
 import { SkiaLabel } from "../../plaza/ui";
 import { colors, fontFamily } from "../../theme/tokens";
+import { MOTION } from "../../theme/motion";
 
 type TapMethod = "tap" | "recall";
+
+/** The post-tap state: which path was logged, and the outbox depth read
+ * AFTER the immediate sync attempt — the only honest source for the claim. */
+interface Done {
+  method: TapMethod;
+  depth: number;
+}
 
 function formatTapTime(date: Date): string {
   const hh = String(date.getHours()).padStart(2, "0");
@@ -19,24 +37,65 @@ function formatTapTime(date: Date): string {
   return `${hh}:${mm}`;
 }
 
+function statusText(depth: number): string {
+  // "will sync" is the offline claim the M5 device leg asserts on — keep
+  // the literal. Depth 0 means the server took it: say so, plainly.
+  return depth === 0 ? "registered" : depth === 1 ? "queued · will sync" : `${depth} queued · will sync`;
+}
+
 export default function WakeScreen() {
   const [openedAt] = useState<Date>(() => new Date());
-  const [queued, setQueued] = useState(false);
+  const [done, setDone] = useState<Done | null>(null);
+  // Synchronous one-shot guard: done-as-state leaves the in-flight enqueue
+  // window (enqueue → depth read) open, and the 4-event morning happened in
+  // exactly that window. A ref closes it on the same tick as the press.
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      mounted.current = false;
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const logTap = (method: TapMethod): void => {
-    void appOutbox()
-      .outbox.enqueue("habit_tap", { method })
-      .then(() => {
-        setQueued(true);
-        // best-effort immediate round-trip; offline it resolves without
-        // posting and the event waits for the foreground/reconnect triggers
-        void appOutbox().sync();
+    if (busy.current) return;
+    busy.current = true;
+
+    const box = appOutbox();
+    const refresh = async (): Promise<void> => {
+      const depth = await box.outbox.depth();
+      if (mounted.current) setDone({ method, depth });
+    };
+
+    void box.outbox
+      .enqueue("habit_tap", { method })
+      .then(async () => {
+        // paint the done state from the store before the network answers…
+        await refresh();
+        // …then let the immediate sync refine it in place when it settles
+        void box
+          .sync()
+          .then(refresh)
+          .catch(() => {
+            /* sync funnels its own errors; a failed run is the queue's job */
+          });
+        timer.current = setTimeout(() => {
+          router.replace("/");
+        }, MOTION.wakeExitHoldMs);
       })
       .catch(() => {
         // never blocks (04 wake spec): a queue-write failure must not wedge
-        // the wake screen; it stays usable, "will sync" simply not claimed.
+        // the wake screen; it stays usable, no claim is made, and the guard
+        // releases so the tap can be retried.
+        busy.current = false;
       });
   };
+
+  const spent = done !== null;
 
   return (
     <View style={styles.screen}>
@@ -45,26 +104,31 @@ export default function WakeScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="I'M AWAKE"
+        accessibilityState={{ disabled: spent }}
         style={styles.awake}
+        disabled={spent}
         onPress={() => logTap("tap")}
       >
         {/* Skia, not <Text>: on a cold direct-link start Fabric measured
             this label with fallback metrics and painted "I'M" alone. Same
             fault as the M2 coverage lines; same fix. */}
         <SkiaLabel accessible={false} color={colors["--accent-1"]} fontSize={28}>
-          I&apos;M AWAKE
+          {done === null || done.method === "tap" ? "I'M AWAKE" : "LOGGED ~"}
         </SkiaLabel>
       </Pressable>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="recall instead"
+        accessibilityState={{ disabled: spent }}
         style={styles.recall}
+        disabled={spent}
         onPress={() => logTap("recall")}
       >
         <Text style={styles.recallLabel}>~recall instead</Text>
       </Pressable>
-      {queued ? (
+      {done !== null ? (
         <Text accessibilityLiveRegion="polite" style={styles.status}>
-          will sync
+          {statusText(done.depth)}
         </Text>
       ) : null}
     </View>

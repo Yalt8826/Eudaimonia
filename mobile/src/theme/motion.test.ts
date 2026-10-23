@@ -100,6 +100,16 @@ describe("01 §8 — the numbers the amendment runs on (MOTION)", () => {
     );
   });
 
+  it("the wake exit hold is pinned (T2.1, owner-measured)", () => {
+    // A HOLD, not a §8 state change — it must be long enough to read as a
+    // confirmation and short enough that the surface, not the user, ends
+    // the interaction. Both failure modes are pinned: too short reads as a
+    // flicker (the 4-event morning), too long traps a groggy user.
+    expect(MOTION.wakeExitHoldMs).toBeGreaterThanOrEqual(800);
+    expect(MOTION.wakeExitHoldMs).toBeLessThanOrEqual(2000);
+    expect(MOTION.wakeExitHoldMs).toBe(1200);
+  });
+
   it("the selection dead zone brackets the open anchor's footprint", () => {
     // the open anchor is 3rem, half = 24: the zone must clear it ...
     const openAnchorHalf = (RING_BUBBLE_REM * REM_PX) / 2;
