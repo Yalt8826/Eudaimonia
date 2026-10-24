@@ -142,7 +142,7 @@ The ingest door exists and is live; the next server gap is the P1 adapters and t
 | P1 adapters and read model | The WAKE row reads the spine since 2026-10-24 (`/api/habits/wake/stats` — days-of-7, last tap with age_minutes); every other strip is still static-uninstrumented, and nothing consumes the `coverage` view yet. Phase P1 work. |
 | ~~Wake status vs outbox depth~~ ~~Weak offline assertion~~ | **Closed 2026-10-24**: the wake surface reads real outbox depth (`registered` at 0, `queued · will sync` above it) and is one-shot — a double-tap can no longer mint a second event (the 4-event morning). Ships in the next APK; the device legs' grep for "will sync" stays valid until then. |
 | Poison-entry UX | A 4xx marks nothing on the phone yet — the outbox keeps the event queued and silent. T2.1's queue spec wants `failed` + a visible plaza line. |
-| Flaky mobile tests | 3 of 155 jest tests time out at the default 5 s on a loaded machine and pass at 30 s. Pre-existing (failed on pre-merge `main` too); the tree ran 155/155 on 2026-10-24. |
+| ~~Flaky mobile tests~~ | **Closed 2026-10-24**: jest `testTimeout` raised to 30 s (the 3 heavy-render suites measured 8-14 s locally; the 5 s default first bit on CI's loaded runner). 166/166 green locally and in CI. |
 | Dev-client launch check | Scripted as `verify_apk.sh devclient`, not yet run. It uninstalls the ship APK and the outbox with it, so it needs approval. |
 | ~~Weak offline assertion~~ | Closed with the wake-status row above (the claim now reads outbox depth). |
 | `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
