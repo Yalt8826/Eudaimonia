@@ -174,6 +174,12 @@ def _invoke_once(
         actor=profile,
         payload={"profile": profile, "timeout_s": timeout},
     )
+    # COMMIT before the spawn: the transport runs up to the full timeout,
+    # and an open transaction around it held the spine's write lock for
+    # the whole invocation — every concurrent writer hit "database is
+    # locked" (measured live, T2.3 exit test, 2026-10-24). Append-only
+    # rows are independent; each event commits when written.
+    conn.commit()
 
     cmd, env = _resolve_transport()
     if cmd is None:
@@ -181,6 +187,7 @@ def _invoke_once(
         # failure, never silence (02 §6).
         duration_ms = int((time.monotonic() - started) * 1000)
         _terminal_event(conn, external_ref, profile, "error", duration_ms, False, None)
+        conn.commit()
         return InvokeResult("error", None, "", duration_ms, False, external_ref)
 
     argv = [*cmd, "--profile", profile, "-z", prompt]
@@ -194,6 +201,7 @@ def _invoke_once(
         # Timeout and non-zero exit record failure — nothing on any path
         # can read as success (02 §6; law 1 applied to invocations).
         _terminal_event(conn, external_ref, profile, "timeout", duration_ms, False, None)
+        conn.commit()
         return InvokeResult("timeout", None, partial, duration_ms, False, external_ref)
 
     duration_ms = int((time.monotonic() - started) * 1000)
@@ -208,6 +216,7 @@ def _invoke_once(
     _terminal_event(
         conn, external_ref, profile, outcome, duration_ms, predicate_result, exit_code
     )
+    conn.commit()
     return InvokeResult(
         outcome, exit_code, proc.stdout, duration_ms, predicate_result, external_ref
     )

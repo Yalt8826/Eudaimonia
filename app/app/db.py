@@ -44,6 +44,15 @@ def connect(path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL: writers no longer block readers, and the write lock is held per
+    # transaction instead of per connection — the background triage's
+    # 180 s invocations were locking every concurrent writer out (T2.3
+    # exit test, 2026-10-24). Persistent per database; harmless for the
+    # single-file shape.
+    conn.execute("PRAGMA journal_mode = WAL")
+    # burst tolerance: N captures in one second schedule N sweeps and N
+    # writes; the default 5 s busy timeout lost that race (T2.3 measured)
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 

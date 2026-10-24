@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from typing import Any
 
 from app import agent_invoke as ai
@@ -309,13 +310,28 @@ def pending_captures(conn: sqlite3.Connection) -> list[str]:
     return [r["external_ref"] for r in rows]
 
 
+_triage_sweep_lock = threading.Lock()
+"""Serializes sweeps. Measured live (T2.3 exit test, 2026-10-24): a
+four-capture burst schedules FOUR concurrent sweeps, each racing the same
+pending list — duplicate invocations of the same capture (the profile
+lock serialized the agents, not the sweeps) and colliding writes. One
+sweep at a time; a later sweep re-reads pending inside the lock and finds
+only genuinely new work."""
+
+
 def triage_pending(conn: sqlite3.Connection | None = None) -> list[dict[str, object]]:
     """Triage everything pending, oldest first. Called after any capture
     lands (direct door or the offline queue's drain) as a background task:
     opens its own connection when called without one."""
-    if conn is None:
-        conn = db.connect(db.db_path())
-    results: list[dict[str, object]] = []
-    for ref in pending_captures(conn):
-        results.append(triage_capture(conn, ref))
-    return results
+    with _triage_sweep_lock:
+        owns_conn = conn is None
+        if conn is None:
+            conn = db.connect(db.db_path())
+        try:
+            results: list[dict[str, object]] = []
+            for ref in pending_captures(conn):
+                results.append(triage_capture(conn, ref))
+            return results
+        finally:
+            if owns_conn:
+                conn.close()
