@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import capture, db, ingest, wake
+from app import capture, db, ingest, loops, wake
 from app.ingest import CaptureBody, ReplayBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
@@ -47,6 +47,10 @@ async def ingest_event(
         # an offline capture just drained — it deserves its triage too
         # (T2.3: the sweep takes every untriaged capture, oldest first)
         background_tasks.add_task(capture.triage_pending)
+    if kind in loops.RESOLUTION_KINDS and not result["duplicate"]:
+        # an offline resolution just drained — apply the cache row update
+        # (the loop row is a denormalized cache of the spine, EXECUTION §1)
+        background_tasks.add_task(loops.apply_resolution_event, kind, dict(body.payload))
     return result
 
 
@@ -85,6 +89,18 @@ async def capture_route(
         conn.close()
     background_tasks.add_task(capture.triage_pending)
     return landed
+
+
+@app.get("/api/loops/open")
+async def open_loops() -> dict[str, object]:
+    """Open waiting-ons, oldest first, with the counts the Plaza badge and
+    the inbox tabs need. Read-only over the loop cache; empty is honest.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return loops.open_loops(conn)
+    finally:
+        conn.close()
 
 
 @app.post("/api/{rest:path}")

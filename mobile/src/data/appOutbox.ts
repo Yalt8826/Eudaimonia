@@ -32,6 +32,8 @@ import {
 
 export interface AppOutbox {
   outbox: Outbox;
+  /** Durable key-value flags (the drop-reason-once rule, T2.2). */
+  kv: KeyValueStore;
   /** The serialized sync funnel every trigger (and the wake screen) uses. */
   sync(): Promise<ReplayResult>;
 }
@@ -69,6 +71,7 @@ export function appOutbox(): AppOutbox {
     });
     instance = {
       outbox,
+      kv,
       sync: createSyncScheduler(outbox, fetchTransport()),
     };
   }

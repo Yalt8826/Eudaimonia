@@ -28,6 +28,7 @@ import { TornSheet } from "./TornSheet";
 import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
+import { fetchOpenLoops } from "../data/loops";
 import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
@@ -249,12 +250,15 @@ function StripContent({
   ink,
   windowWidth,
   wakeLine,
+  waitingLine,
 }: {
   strip: PlazaStrip;
   ink: string;
   windowWidth: number;
   /** The WAKE row's live coverage line (read from the spine by PlazaBody). */
   wakeLine: string;
+  /** The WAITING ON strip's live line (open-loop count from the spine). */
+  waitingLine: string;
 }) {
   // The content width is measured, not computed from windowWidth minus the
   // paddings: this View is where the text actually lives, so its own box is
@@ -285,7 +289,7 @@ function StripContent({
           butter line laid out 55px tall in a 946px box for a string that
           needs 110). A coverage line that loses its tail is this surface
           lying about coverage, which is the one thing it exists not to do. */}
-      {strip.lines.map((line) => (
+      {(strip.id === "waiting" ? [waitingLine] : strip.lines).map((line) => (
         <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
           {line}
         </PaperText>
@@ -323,11 +327,25 @@ export function PlazaBody({
   // "server unreachable": unreachable is a normal state, never zero
   // (02 §1; law 7 — no fabricated counts).
   const [wakeLine, setWakeLine] = useState("wake · not yet instrumented (P2)");
+  const [waitingLine, setWaitingLine] = useState(
+    "not yet instrumented · loops arrive with P2 writes",
+  );
   useFocusEffect(
     useCallback(() => {
       let live = true;
       void fetchWakeStats().then((stats) => {
         if (live) setWakeLine(wakeCoverageLine(stats));
+      });
+      void fetchOpenLoops().then((loops) => {
+        if (live) {
+          setWaitingLine(
+            loops === null
+              ? "waiting on · server unreachable"
+              : loops.count === 0
+                ? "nothing waiting · the inbox is clear"
+                : `waiting on · ${loops.count} open (${loops.owed_by_me} by me · ${loops.owed_to_me} to me)`,
+          );
+        }
       });
       return () => {
         live = false;
@@ -358,6 +376,7 @@ export function PlazaBody({
           ink={colors[PAPER_OF[strip.variant].ink]}
           windowWidth={windowWidth}
           wakeLine={wakeLine}
+          waitingLine={waitingLine}
         />
         </TornSheet>
       ))}
