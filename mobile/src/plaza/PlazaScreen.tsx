@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 // RNGH's ScrollView, not RN's. The radial nav's Pan and a native scroll
 // both want a vertical drag, and RN's ScrollView wins it at the native
@@ -8,7 +8,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-na
 // system can arbitrate, so the already-active Pan keeps the touch.
 // Horizontal drags never showed this — only the spokes nearest vertical.
 import { ScrollView } from "react-native-gesture-handler";
-import { Link, useLocalSearchParams } from "expo-router";
+import { Link, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   Canvas,
@@ -28,6 +28,7 @@ import { TornSheet } from "./TornSheet";
 import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
+import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
 // the read-only dashboard in the torn-paper language per the ratified
@@ -168,7 +169,7 @@ export function Header({ windowWidth, paddingTop }: { windowWidth: number; paddi
  * snap; the numbers: pill 66 + gap 9.6 + line 250 = 325.6, content width
  * 268.8 at 320 / 378.8 at 430).
  */
-function WakeChipRow({ wide, contentWidth }: { wide: boolean; contentWidth: number }) {
+function WakeChipRow({ wide, contentWidth, line }: { wide: boolean; contentWidth: number; line: string }) {
   // The coverage line's width is MEASURED (StripContent's onLayout), not
   // derived. It was `32 chars x 13px x 0.6em = 249.6`, and on a 360dp phone
   // that ran the closing ")" off the screen edge. PaperText wraps against
@@ -183,7 +184,7 @@ function WakeChipRow({ wide, contentWidth }: { wide: boolean; contentWidth: numb
   const coverage = (
     <View style={{ alignItems: wide ? "flex-end" : "flex-start" }}>
       <CoverageLine width={coverageWidth} align={wide ? "right" : "left"}>
-        wake · not yet instrumented (P2)
+        {line}
       </CoverageLine>
     </View>
   );
@@ -243,7 +244,18 @@ function OpenLink({ to, label, ink }: { to: string; label: string; ink: string }
   );
 }
 
-function StripContent({ strip, ink, windowWidth }: { strip: PlazaStrip; ink: string; windowWidth: number }) {
+function StripContent({
+  strip,
+  ink,
+  windowWidth,
+  wakeLine,
+}: {
+  strip: PlazaStrip;
+  ink: string;
+  windowWidth: number;
+  /** The WAKE row's live coverage line (read from the spine by PlazaBody). */
+  wakeLine: string;
+}) {
   // The content width is measured, not computed from windowWidth minus the
   // paddings: this View is where the text actually lives, so its own box is
   // the only width that cannot drift from the layout.
@@ -258,7 +270,7 @@ function StripContent({ strip, ink, windowWidth }: { strip: PlazaStrip; ink: str
     >
       {strip.wakeChip ? (
         <>
-          <WakeChipRow wide={windowWidth >= 380} contentWidth={contentWidth} />
+          <WakeChipRow wide={windowWidth >= 380} contentWidth={contentWidth} line={wakeLine} />
           <View>
             <Row to="/meals" dot={<Dot tone="muted" />} title="Nutrition" subtitle="not yet instrumented" />
             <Row to="/reading" dot={<Dot tone="amber" />} title="Reading" subtitle="not yet instrumented" />
@@ -305,6 +317,23 @@ export function PlazaBody({
   /** capture mode: sheets report their laid-out boxes for the harness */
   capture?: boolean;
 }) {
+  // The WAKE row reads the spine (P1-flavored read model): on mount and on
+  // every focus — returning from the wake screen refreshes the row without
+  // a pull-to-refresh. Failure resolves null and the line says
+  // "server unreachable": unreachable is a normal state, never zero
+  // (02 §1; law 7 — no fabricated counts).
+  const [wakeLine, setWakeLine] = useState("wake · not yet instrumented (P2)");
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      void fetchWakeStats().then((stats) => {
+        if (live) setWakeLine(wakeCoverageLine(stats));
+      });
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
   return (
     <View style={{ width: windowWidth }}>
       <SkinCanvas width={windowWidth} />
@@ -324,7 +353,12 @@ export function PlazaBody({
               : undefined
           }
         >
-          <StripContent strip={strip} ink={colors[PAPER_OF[strip.variant].ink]} windowWidth={windowWidth} />
+          <StripContent
+          strip={strip}
+          ink={colors[PAPER_OF[strip.variant].ink]}
+          windowWidth={windowWidth}
+          wakeLine={wakeLine}
+        />
         </TornSheet>
       ))}
       {/* the black below the last sheet: 4rem, so the floating cluster can

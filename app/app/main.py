@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import db, ingest
+from app import db, ingest, wake
 from app.ingest import ReplayBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
@@ -39,6 +39,20 @@ async def ingest_event(kind: str, body: ReplayBody) -> dict[str, object]:
         return ingest.ingest_event(conn, kind, body)
     except ingest.IngestError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.get("/api/habits/wake/stats")
+async def wake_stats() -> dict[str, object]:
+    """The WAKE row's numbers — the one definition (app/app/wake.py).
+
+    Read-only over the spine; empty is honest (zeros + null last_tap), the
+    client decides what zero means via total_taps.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return wake.wake_stats(conn)
     finally:
         conn.close()
 
