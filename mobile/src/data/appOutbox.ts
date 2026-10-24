@@ -10,7 +10,7 @@ import * as Network from "expo-network";
 import * as SQLite from "expo-sqlite";
 import { AppState } from "react-native";
 
-import { HABIT_TAP_ENDPOINT, apiUrl, fetchTransport } from "./api";
+import { fetchTransport } from "./api";
 import {
   Outbox,
   deviceUUID,
@@ -34,8 +34,6 @@ export interface AppOutbox {
   outbox: Outbox;
   /** The serialized sync funnel every trigger (and the wake screen) uses. */
   sync(): Promise<ReplayResult>;
-  /** Where events go — exported for the wake screen's wiring and logs. */
-  endpoint: string;
 }
 
 let instance: AppOutbox | null = null;
@@ -69,11 +67,9 @@ export function appOutbox(): AppOutbox {
       clock: systemClock,
       deviceKey,
     });
-    const endpoint = apiUrl(HABIT_TAP_ENDPOINT);
     instance = {
       outbox,
-      endpoint,
-      sync: createSyncScheduler(outbox, fetchTransport(endpoint)),
+      sync: createSyncScheduler(outbox, fetchTransport()),
     };
   }
   return instance;

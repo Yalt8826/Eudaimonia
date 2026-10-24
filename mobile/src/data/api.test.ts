@@ -51,19 +51,19 @@ describe("apiUrl", () => {
 
 describe("fetchTransport", () => {
   it("resolves true on 2xx and false on any non-2xx", async () => {
-    const ok = fetchTransport("http://x", (async () => new Response(null, { status: 200 })) as typeof fetch);
-    const created = fetchTransport("http://x", (async () => new Response(null, { status: 201 })) as typeof fetch);
-    const notFound = fetchTransport("http://x", (async () => new Response(null, { status: 404 })) as typeof fetch);
-    const serverError = fetchTransport("http://x", (async () => new Response(null, { status: 500 })) as typeof fetch);
+    const ok = fetchTransport((async () => new Response(null, { status: 200 })) as typeof fetch);
+    const created = fetchTransport((async () => new Response(null, { status: 201 })) as typeof fetch);
+    const notFound = fetchTransport((async () => new Response(null, { status: 404 })) as typeof fetch);
+    const serverError = fetchTransport((async () => new Response(null, { status: 500 })) as typeof fetch);
 
     expect(await ok.post(BODY)).toBe(true);
     expect(await created.post(BODY)).toBe(true);
-    expect(await notFound.post(BODY)).toBe(false); // e.g. the P2 route not wired yet
+    expect(await notFound.post(BODY)).toBe(false); // e.g. a contract violation
     expect(await serverError.post(BODY)).toBe(false);
   });
 
   it("resolves false on a network failure — the queue exists exactly for this", async () => {
-    const offline = fetchTransport("http://x", (async () => {
+    const offline = fetchTransport((async () => {
       throw new TypeError("Network request failed");
     }) as typeof fetch);
     expect(await offline.post(BODY)).toBe(false);
@@ -72,7 +72,7 @@ describe("fetchTransport", () => {
   it("POSTs the law-9 body as JSON with the JSON content type", async () => {
     let seenInput: RequestInfo | URL | undefined;
     let seenInit: RequestInit | undefined;
-    const transport = fetchTransport("http://x/api/events/habit_tap", (async (
+    const transport = fetchTransport((async (
       input: RequestInfo | URL,
       init?: RequestInit,
     ) => {
@@ -82,9 +82,24 @@ describe("fetchTransport", () => {
     }) as typeof fetch);
 
     await transport.post(BODY);
-    expect(seenInput).toBe("http://x/api/events/habit_tap");
+    expect(seenInput).toBe(`${API_BASE}/api/events/${BODY.kind}`);
     expect(seenInit?.method).toBe("POST");
     expect(seenInit?.headers).toEqual({ "content-type": "application/json" });
     expect(JSON.parse(seenInit?.body as string)).toEqual(BODY);
+  });
+
+  it("routes each kind to ITS endpoint — no consumer hardcodes habit_tap (T2.3)", async () => {
+    const seen: string[] = [];
+    const transport = fetchTransport((async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return new Response(null, { status: 200 });
+    }) as typeof fetch);
+
+    await transport.post({ ...BODY, kind: "habit_tap" });
+    await transport.post({ ...BODY, kind: "capture_raw" });
+    expect(seen).toEqual([
+      `${API_BASE}/api/events/habit_tap`,
+      `${API_BASE}/api/events/capture_raw`,
+    ]);
   });
 });

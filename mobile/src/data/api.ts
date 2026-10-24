@@ -25,7 +25,7 @@ import type { ReplayBody, Transport } from "./queue";
 export const API_BASE: string =
   process.env.EXPO_PUBLIC_API_BASE || "https://olympus.tail7270c7.ts.net";
 
-/** Stub-level endpoint; 404s until P2 wires the ingest route. */
+/** The wake tap's endpoint (02 §2 law 9) — the first queue resident. */
 export const HABIT_TAP_ENDPOINT = "/api/events/habit_tap";
 
 /** Join the explicit base with a /api path (both sides may carry slashes). */
@@ -33,15 +33,21 @@ export function apiUrl(path: string): string {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
-/** POSTs the law-9 body shape; network failures resolve false, never throw. */
+/** POSTs the law-9 body shape; network failures resolve false, never throw.
+ *
+ * The URL is PER-EVENT, derived from the body's kind (T2.3: "build the
+ * drain so no consumer hardcodes habit_tap"): every registered kind posts
+ * to /api/events/{kind} — the generic ingest door — so the wake tap and
+ * the offline capture sheet share ONE outbox and ONE replay path. The
+ * M3 transport baked ONE url at construction, which silently routed every
+ * capture into the habit door (422, queued forever — measured live). */
 export function fetchTransport(
-  url: string,
   fetchFn: typeof globalThis.fetch = globalThis.fetch,
 ): Transport {
   return {
     async post(body: ReplayBody) {
       try {
-        const response = await fetchFn(url, {
+        const response = await fetchFn(apiUrl(`/api/events/${body.kind}`), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
