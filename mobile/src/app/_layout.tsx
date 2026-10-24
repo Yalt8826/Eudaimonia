@@ -5,6 +5,7 @@
 // the system face until the fonts land.
 import { useEffect } from "react";
 import { Stack } from "expo-router";
+import { StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -24,20 +25,24 @@ import { installSyncTriggers } from "../data/appOutbox";
 import { colors } from "../theme/tokens";
 
 export default function RootLayout() {
-  const [sansLoaded] = useFonts({ IBMPlexSans_400Regular, IBMPlexSans_700Bold });
-  const [monoLoaded] = useMonoFonts({
+  // FONTS GATE THE FIRST MOUNT (perf, owner-measured 2026-10-24): the old
+  // fontsKey remount built the Plaza's Skia tree THREE times on cold start
+  // (18 surface creations in waves at +0.8s/+1.1s/+1.5s; sheets up to
+  // 1080x4178 re-rasterized per pass; real content past +3s). Mounting
+  // once, after the faces settle, makes the first paint the final paint.
+  // A font FAILURE degrades to system faces exactly like the old fallback
+  // key did. Ready means loaded or failed, never "stuck waiting".
+  const [sansLoaded, sansError] = useFonts({
+    IBMPlexSans_400Regular,
+    IBMPlexSans_700Bold,
+  });
+  const [monoLoaded, monoError] = useMonoFonts({
     IBMPlexMono_400Regular,
     IBMPlexMono_500Medium,
     IBMPlexMono_600SemiBold,
   });
-  // Text mounted BEFORE the fonts register keeps its fallback typeface on
-  // Fabric even after the hook re-renders (the native text attributes never
-  // change, so the face is never re-resolved — it took a second navigation
-  // to reveal this: every cold-start screenshot rendered Roboto until the
-  // screen remounted). Keying the Stack on font-readiness remounts the tree
-  // once, ~1s in, and every face after that resolves correctly. The first
-  // paint is the fallback — the same FOUT the web client ships with.
-  const fontsKey = sansLoaded && monoLoaded ? "plex" : "fallback";
+  const fontsReady =
+    (sansLoaded || sansError != null) && (monoLoaded || monoError != null);
 
   // The offline queue's replay triggers (foreground + network return + the
   // immediate drain at open) — the native port of the web client's
@@ -54,6 +59,14 @@ export default function RootLayout() {
     return () => uninstall?.();
   }, []);
 
+  if (!fontsReady) {
+    // The hold is the matte skin itself (01 s1): no logo, no spinner, no
+    // arrival. The very surface the app paints a moment later, so the
+    // wait reads as the app waking, not as a loader. The faces are bundled
+    // assets, not network: this hold is face-load time, tenths of a second.
+    return <View style={styles.boot} />;
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
@@ -62,7 +75,6 @@ export default function RootLayout() {
           under any host (and under the jest route tree). */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Stack
-          key={fontsKey}
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors["--bg"] },
@@ -79,3 +91,8 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  /** The boot hold. 01 s1 matte, the app's own background color. */
+  boot: { flex: 1, backgroundColor: colors["--bg"] },
+});

@@ -100,3 +100,14 @@ jest.mock("expo-network", () => ({
   addNetworkStateListener: () => ({ remove: () => {} }),
   getNetworkStateAsync: async () => ({ isConnected: null, isInternetReachable: null }),
 }));
+
+// Fonts: the root layout GATES the first mount on font readiness (the
+// perf fix — one mount instead of three). Under jest, expo-font's
+// useFonts never resolves (no native asset registry), which would leave
+// every route test staring at the boot hold. Faces settle immediately in
+// tests; the failure-degradation path is exercised by the type system
+// (loaded || error) and by the device, not by mocks that draw.
+jest.mock("expo-font", () => {
+  const actual = jest.requireActual("expo-font");
+  return { ...actual, useFonts: () => [true, null] };
+});
