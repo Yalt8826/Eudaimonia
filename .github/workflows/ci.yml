@@ -42,6 +42,29 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  mobile:
+    # The phone client's only automated gate — 156 jest tests, tsc strict,
+    # expo lint. No Android SDK needed: the suites run on the jest-expo
+    # preset with inert stand-ins for the native modules (jest.setup.js);
+    # the pixel-level proofs stay in mobile/renders/ on the device.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+        env:
+          CI: 1
+
   greps:
     runs-on: ubuntu-latest
     steps:
