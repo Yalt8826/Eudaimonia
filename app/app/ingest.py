@@ -51,11 +51,13 @@ from pydantic import BaseModel, Field
 
 from app import db
 
-INGEST_KINDS: frozenset[str] = frozenset({"habit_tap"})
+INGEST_KINDS: frozenset[str] = frozenset({"habit_tap", "capture_raw"})
 """Kinds this endpoint accepts — the app-write rows of the EXECUTION §7
-kind registry. Grows one task at a time (T2.2 adds the loop kinds, T2.7
-routine_done/skip). An unregistered kind is a 422: a kind the spine
-accepts but no consumer reads is exactly the drift §7 exists to prevent."""
+kind registry. Grows one task at a time (capture_raw is T2.3's — the
+mobile capture sheet queues through THIS door offline, while fuzzel and
+the online FAB use POST /capture; both land the same event kind).
+An unregistered kind is a 422: a kind the spine accepts but no consumer
+reads is exactly the drift §7 exists to prevent."""
 
 MAX_CLOCK_SKEW_S = 300
 """A ts further than this in the future is a device clock fault, not a
@@ -91,6 +93,14 @@ class ReplayBody(BaseModel):
     ts: int = Field(strict=True)
     ingested_at: int | None = Field(default=None, strict=True)
     payload: dict[str, Any]
+
+
+class CaptureBody(BaseModel):
+    """The direct capture door's body (T2.3): {text | photo_ref, origin}."""
+
+    text: str | None = None
+    photo_ref: str | None = None
+    origin: str = "pwa"
 
 
 def epoch_ms_to_iso(ts_ms: int) -> str:
@@ -138,6 +148,18 @@ def _validate(url_kind: str, body: ReplayBody) -> tuple[str, int, str]:
                 f"habit_tap payload must carry method 'tap' or 'recall' (02 §3), "
                 f"got {method!r}"
             )
+            raise IngestError(msg)
+    if body.kind == "capture_raw":
+        # the offline mobile capture sheet queues through this door (T2.1
+        # armor); the direct door is POST /capture. Same minimum: one of
+        # text | photo_ref, and text non-empty when present.
+        text = body.payload.get("text")
+        photo_ref = body.payload.get("photo_ref")
+        if (text is None) == (photo_ref is None):
+            msg = "capture_raw payload must carry exactly one of text | photo_ref"
+            raise IngestError(msg)
+        if text is not None and (not str(text).strip() or len(str(text)) > 4096):
+            msg = "capture_raw text cannot be empty or exceed 4096 characters"
             raise IngestError(msg)
     return body.kind, body.ts, f"{body.idempotency_key}:{body.ts}"
 

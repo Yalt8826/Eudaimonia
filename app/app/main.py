@@ -7,12 +7,12 @@ In dev, Vite's proxy forwards /api to this app instead.
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import db, ingest, wake
-from app.ingest import ReplayBody
+from app import capture, db, ingest, wake
+from app.ingest import CaptureBody, ReplayBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
 CLIENT_DIST = Path(__file__).resolve().parents[2] / "client" / "dist"
@@ -26,7 +26,9 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/api/events/{kind}")
-async def ingest_event(kind: str, body: ReplayBody) -> dict[str, object]:
+async def ingest_event(
+    kind: str, body: ReplayBody, background_tasks: BackgroundTasks
+) -> dict[str, object]:
     """The app-write ingest door (P2 T2.1) — the queue's ReplayBody lands here.
 
     Contract violations are 422 (the outbox's poison path — failure must be
@@ -36,11 +38,16 @@ async def ingest_event(kind: str, body: ReplayBody) -> dict[str, object]:
     """
     conn = db.connect(db.db_path())
     try:
-        return ingest.ingest_event(conn, kind, body)
+        result = ingest.ingest_event(conn, kind, body)
     except ingest.IngestError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         conn.close()
+    if kind == "capture_raw" and not result["duplicate"]:
+        # an offline capture just drained — it deserves its triage too
+        # (T2.3: the sweep takes every untriaged capture, oldest first)
+        background_tasks.add_task(capture.triage_pending)
+    return result
 
 
 @app.get("/api/habits/wake/stats")
@@ -55,6 +62,29 @@ async def wake_stats() -> dict[str, object]:
         return wake.wake_stats(conn)
     finally:
         conn.close()
+
+
+@app.post("/capture")
+async def capture_route(
+    body: CaptureBody, background_tasks: BackgroundTasks
+) -> dict[str, object]:
+    """The capture door (T2.3): fuzzel, the PWA FAB, any direct poster.
+
+    Lands capture_raw and answers immediately; triage runs in the
+    background through the chokepoint (180 s single attempt) — the 5-min
+    exit budget covers queue + model latency.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        landed = capture.land_capture(
+            conn, text=body.text, photo_ref=body.photo_ref, origin=body.origin
+        )
+    except capture.CaptureError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    background_tasks.add_task(capture.triage_pending)
+    return landed
 
 
 @app.post("/api/{rest:path}")
