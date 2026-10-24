@@ -148,7 +148,7 @@ The ingest door exists and is live; the next server gap is the P1 adapters and t
 | `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
 | Mobile CI | No CI job runs the mobile tests, lint or typecheck. |
 | Notification policy | Push (M7) is blocked until the spec gap in `10-stack-migration.md` §7 is written. |
-| Keystore off-box backup | The release signing key has no off-box copy (P6 T6.2 custody step superseded, never done) — the one irrecoverable loss on this list. |
+| Keystore custody (partial) | Off-box copy exists on olympus's vault since 2026-10-24 (`/srv/data/vaults/main/.eudaimonia-keystore-backup/`, mode 600, sha256-verified at copy time). Still owed: one copy on a third site + a rehearsed restore drill (P6 T6.2). |
 
 **Next steps.**
 
