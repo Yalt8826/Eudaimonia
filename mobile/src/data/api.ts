@@ -14,9 +14,16 @@ import type { ReplayBody, Transport } from "./queue";
  * olympus, so the tailnet IP:8000 is connection-refused for any device
  * (measured 2026-10-14, curl exit 7) — tailscale serve fronts it on the
  * ts.net origin, measured 200 on /api/health the same day. Override with
- * EXPO_PUBLIC_API_BASE (baked at build time by metro). */
+ * EXPO_PUBLIC_API_BASE (baked at build time by metro).
+ *
+ * `||`, not `??`: a SET-BUT-EMPTY base must fall back too. `EXPO_PUBLIC_API_BASE=
+ * sh scripts/build-apk.sh preview` baked "" into the 2026-10-24 16:49 build
+ * (measured: zero `olympus` strings in classes.dex) — every POST then aimed
+ * at a relative URL and failed like any network error, with the outbox
+ * correctly keeping the event. A missing default is a broken build that
+ * still looks installed. */
 export const API_BASE: string =
-  process.env.EXPO_PUBLIC_API_BASE ?? "https://olympus.tail7270c7.ts.net";
+  process.env.EXPO_PUBLIC_API_BASE || "https://olympus.tail7270c7.ts.net";
 
 /** Stub-level endpoint; 404s until P2 wires the ingest route. */
 export const HABIT_TAP_ENDPOINT = "/api/events/habit_tap";

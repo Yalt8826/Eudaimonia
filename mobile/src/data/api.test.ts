@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 
 import { API_BASE, HABIT_TAP_ENDPOINT, apiUrl, fetchTransport } from "./api";
 import type { ReplayBody } from "./queue";
@@ -25,6 +25,27 @@ describe("apiUrl", () => {
     expect(API_BASE).toMatch(/^https:\/\/[a-z0-9.]+\.ts\.net$/);
     expect(API_BASE.endsWith("/")).toBe(false);
     expect(HABIT_TAP_ENDPOINT).toBe("/api/events/habit_tap"); // web queue.ts:177, verbatim
+  });
+
+  it("falls back to the tailnet origin when the baked base is EMPTY", () => {
+    // The 2026-10-24 broken-build regression: `EXPO_PUBLIC_API_BASE=` (set
+    // but empty) baked "" — metro inlines the empty string, `??` treats it
+    // as a real value, and every POST then aimed at a relative URL with no
+    // origin, failing like any network error while the outbox correctly
+    // kept the event. A build that looks installed but cannot reach the
+    // server is worse than one that says so: the fallback must catch "".
+    const prev = process.env.EXPO_PUBLIC_API_BASE;
+    process.env.EXPO_PUBLIC_API_BASE = "";
+    jest.resetModules();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fresh = require("./api") as typeof import("./api");
+    expect(fresh.API_BASE).toBe("https://olympus.tail7270c7.ts.net");
+    expect(fresh.apiUrl("/api/events/habit_tap")).toBe(
+      "https://olympus.tail7270c7.ts.net/api/events/habit_tap",
+    );
+    if (prev === undefined) delete process.env.EXPO_PUBLIC_API_BASE;
+    else process.env.EXPO_PUBLIC_API_BASE = prev;
+    jest.resetModules();
   });
 });
 
