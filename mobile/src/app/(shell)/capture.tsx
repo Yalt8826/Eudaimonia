@@ -25,12 +25,27 @@ export default function CaptureScreen() {
     if (!trimmed || busy) return;
     setBusy(true);
     const box = appOutbox();
+    const refresh = async (): Promise<void> => {
+      const depth = await box.outbox.depth();
+      // read AFTER the sync settles (the wake screen's rule — M5's weak
+      // assertion was a claim that never re-read the store): depth 0 means
+      // the server took it, > 0 means it is still honestly queued.
+      if (depth === 0) setStatus("sent");
+      else setStatus(`queued · will sync (${depth})`);
+    };
     void box.outbox
       .enqueue("capture_raw", { text: trimmed })
       .then(async () => {
-        const depth = await box.outbox.depth();
-        setStatus(depth === 0 ? "sent" : `queued · will sync (${depth})`);
         setText("");
+        await refresh();
+        // the immediate sync may still be in flight when the first depth
+        // read lands — refine the claim when it settles
+        void box
+          .sync()
+          .then(refresh)
+          .catch(() => {
+            /* the funnel swallows its own errors */
+          });
       })
       .catch(() => setStatus("could not queue — try again"))
       .finally(() => setBusy(false));
