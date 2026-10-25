@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import capture, db, ingest, loops, wake
+from app import capture, db, ingest, loops, staged_writebacks, wake
 from app.ingest import CaptureBody, ReplayBody, RetriageBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
@@ -115,6 +115,25 @@ async def capture_retriage(body: RetriageBody) -> dict[str, object]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         conn.close()
+
+
+@app.get("/api/notes/recent")
+async def notes_recent() -> dict[str, object]:
+    """Recent notes with their honest write-back state (T2.4): staged
+    (waiting for the applier) or applied (with the vault line ref)."""
+    conn = db.connect(db.db_path())
+    try:
+        return {"notes": staged_writebacks.recent_notes(conn)}
+    finally:
+        conn.close()
+
+
+@app.post("/api/notes/apply")
+async def notes_apply() -> dict[str, object]:
+    """The MANUAL applier trigger (T2.4): appends every staged note to its
+    daily note in the vault — the repo's only vault write. Idempotent:
+    a second run changes zero bytes."""
+    return staged_writebacks.apply_pending()
 
 
 @app.get("/api/loops/open")

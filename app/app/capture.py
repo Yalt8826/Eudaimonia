@@ -290,7 +290,29 @@ def triage_capture(
             (text, direction, now),
         )
         landing = {"target": "loop", "direction": direction, "loop_id": cursor.lastrowid}
-    else:  # note | meal — T2.4 / T2.6 consume these; triaged is the record
+    elif target == "note":
+        # T2.4: notes are spine events first, then STAGED for the vault —
+        # the applier (the repo's only vault writer) appends them to the
+        # daily note on its next pass
+        note_ref = f"{capture_ref}:note"
+        note_ts = db.utc_now_iso()
+        db.insert_event(
+            conn,
+            kind="note_added",
+            origin="app-write",
+            source_id=source_id,
+            external_ref=note_ref,
+            actor="human",
+            payload={"text": text, "capture_ref": capture_ref},
+            ts=note_ts,
+        )
+        from app import staged_writebacks
+
+        staged = staged_writebacks.stage(
+            external_ref=note_ref, text=text, note_ts=note_ts
+        )
+        landing = {"target": "note", "ref": note_ref, "staged": str(staged)}
+    else:  # meal — T2.6's path consumes these; triaged is the record
         landing = {"target": target, "ref": triaged_ref}
 
     conn.commit()

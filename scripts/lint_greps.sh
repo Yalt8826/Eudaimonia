@@ -32,6 +32,8 @@ CHOKEPOINT="app/app/agent_invoke.py"
 BLUR_FIXTURE="client/src/routes/__fixtures__/blur_violation.tsx"
 ACCENT_FIXTURE="client/src/__fixtures__/accent_violation.tsx"
 CHOKEPOINT_FIXTURE="app/tests/fixtures/chokepoint_violation.py.txt"
+VAULTWRITE_APPLIER="app/app/staged_writebacks.py"
+VAULTWRITE_FIXTURE="app/tests/fixtures/vaultwrite_violation.py.txt"
 
 # Accent + state hexes from docs/plan/v1/01-design-system.md §1 (v2 Matte &
 # Torn): both accents, plum's paper pair, the three state pairs, and the v1
@@ -119,6 +121,37 @@ check_chokepoint() {  # optional arg: a single target dir (selfcheck)
   return 0
 }
 
+vaultwrite_hits() {  # prints write-mode opens of vault md outside the applier
+  # (02 §6: no vault-md writes outside staged_writebacks/ — T2.4; the
+  # applier is the ONE file allowed an "a"/"w" mode near the vault)
+  local target="$1"
+  grep -rnE "open\([^)]*['\"](w|a|x)" \
+        --include='*.py' --exclude-dir='.venv' --exclude-dir='__pycache__' \
+        "$target" 2>/dev/null \
+      | grep -v "^${VAULTWRITE_APPLIER}:" | grep -v "^${APP_DIR}/tests/" || true
+}
+
+check_vaultwrite() {  # optional arg: a single target dir (selfcheck)
+  local out
+  out=$(vaultwrite_hits "${1:-$APP_DIR}")
+  if [ -n "$out" ]; then
+    echo "VAULT WRITE VIOLATION — vault-md writes outside ${VAULTWRITE_APPLIER} (02 §2 law 6):" >&2
+    echo "$out" >&2
+    return 1
+  fi
+  return 0
+}
+
+check_vaultwrite_fixture() {
+  local tmp
+  tmp=$(mktemp -d)
+  cp "$VAULTWRITE_FIXTURE" "$tmp/vaultwrite_violation.py"
+  local rc=0
+  check_vaultwrite "$tmp" || rc=1
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # The fixture lives as .py.txt (invisible to the tree check's --include);
 # the self-check proves the same regex fires on it by offering it as real .py.
 check_chokepoint_fixture() {
@@ -147,10 +180,15 @@ check_selfcheck() {
     echo "  RED FLAG: chokepoint fixture did NOT trip — the grep stopped matching" >&2; rc=1
   else echo "  ok: chokepoint fixture trips (as it must)"; fi
 
+  if check_vaultwrite_fixture; then
+    echo "  RED FLAG: vaultwrite fixture did NOT trip — the grep stopped matching" >&2; rc=1
+  else echo "  ok: vaultwrite fixture trips (as it must)"; fi
+
   check_blur        || { echo "  tree blur check FAILED" >&2; rc=1; }
   check_accent      || { echo "  tree accent check FAILED" >&2; rc=1; }
   check_chokepoint  || { echo "  tree chokepoint check FAILED" >&2; rc=1; }
-  echo "  ok: clean tree passes all three"
+  check_vaultwrite  || { echo "  tree vaultwrite check FAILED" >&2; rc=1; }
+  echo "  ok: clean tree passes all four"
 
   return "$rc"
 }
@@ -159,7 +197,8 @@ case "${1:-all}" in
   blur)       check_blur ;;
   accent)     check_accent ;;
   chokepoint) check_chokepoint ;;
-  all)        check_blur && check_accent && check_chokepoint ;;
+  vaultwrite) check_vaultwrite ;;
+  all)        check_blur && check_accent && check_chokepoint && check_vaultwrite ;;
   selfcheck)  check_selfcheck ;;
   *)
     echo "usage: $0 blur|accent|chokepoint|all|selfcheck" >&2

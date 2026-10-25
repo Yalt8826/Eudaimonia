@@ -1,0 +1,7 @@
+"""Fixture for the vaultwrite lint (T2.4): a vault-md write OUTSIDE the
+applier. The .py.txt suffix keeps it out of the tree check; the selfcheck
+copies it as real .py and proves the grep still fires."""
+
+def bad_append(vault_day_path: str, text: str) -> None:
+    with open(vault_day_path, "a") as f:  # VIOLATION: vault write outside staged_writebacks
+        f.write(text + "\n")
