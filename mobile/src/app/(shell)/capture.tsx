@@ -11,6 +11,11 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 
 import { appOutbox } from "../../data/appOutbox";
+import {
+  fetchRecentCaptures,
+  requestRetriage,
+  type RecentCapture,
+} from "../../data/captureList";
 import { colors, fontFamily } from "../../theme/tokens";
 
 const MAX_LEN = 4096; // the server's cap (app/app/capture.py MAX_TEXT_LEN)
@@ -53,6 +58,8 @@ export default function CaptureScreen() {
 
   // returning to the sheet: refetch the queue depth so the claim matches
   // what the outbox actually holds (the wake screen's honesty rule)
+  const [recent, setRecent] = useState<RecentCapture[] | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -60,10 +67,25 @@ export default function CaptureScreen() {
       void box.outbox.depth().then((depth) => {
         if (live && depth > 0) setStatus(`queued · will sync (${depth})`);
       });
+      // the capture list: every capture with its honest triage state —
+      // failed ones carry the manual retry affordance (T2.3: failures are
+      // visible, and the human decides when to retry)
+      void fetchRecentCaptures().then((list) => {
+        if (live) setRecent(list);
+      });
       return () => {
         live = false;
       };
     }, []),
+  );
+
+  const retry = useCallback(
+    async (ref: string) => {
+      await requestRetriage(ref);
+      const list = await fetchRecentCaptures();
+      setRecent(list);
+    },
+    [],
   );
 
   return (
@@ -101,11 +123,83 @@ export default function CaptureScreen() {
       <Text style={styles.counter}>
         {text.length}/{MAX_LEN}
       </Text>
+
+      {recent !== null && recent.length > 0 ? (
+        <View style={styles.recentBox}>
+          <Text style={styles.recentHeading}>RECENT</Text>
+          {recent.map((c) => (
+            <View key={c.capture_id} style={styles.recentRow}>
+              <View style={styles.recentMain}>
+                <Text numberOfLines={1} style={styles.recentText}>
+                  {c.text ?? c.photo_ref ?? "(photo)"}
+                </Text>
+                <Text style={styles.recentState}>
+                  {c.state === "triaged"
+                    ? `triaged · ${c.target}`
+                    : c.state === "failed"
+                      ? `failed · ${c.reason}`
+                      : "untriaged"}
+                </Text>
+              </View>
+              {c.state !== "triaged" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`retry triage: ${c.text ?? c.photo_ref ?? ""}`}
+                  style={styles.recentRetry}
+                  onPress={() => void retry(c.external_ref)}
+                >
+                  <Text style={styles.recentRetryLabel}>retry</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  recentBox: {
+    gap: 6,
+    maxHeight: 180,
+  },
+  recentHeading: {
+    color: colors["--muted"],
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    letterSpacing: 1.2,
+  },
+  recentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  recentMain: {
+    flex: 1,
+  },
+  recentText: {
+    color: colors["--text"],
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+  },
+  recentState: {
+    color: colors["--muted"],
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+  },
+  recentRetry: {
+    borderWidth: 1,
+    borderColor: colors["--accent-1"],
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  recentRetryLabel: {
+    color: colors["--accent-1"],
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+  },
   screen: {
     flex: 1,
     backgroundColor: colors["--bg"],

@@ -105,6 +105,12 @@ class CaptureBody(BaseModel):
     origin: str = "pwa"
 
 
+class RetriageBody(BaseModel):
+    """The manual re-triage request (T2.3): WHICH capture, nothing else."""
+
+    capture_ref: str = Field(min_length=8, max_length=256)
+
+
 def epoch_ms_to_iso(ts_ms: int) -> str:
     """Epoch milliseconds → ISO8601 UTC, exact to the millisecond.
 

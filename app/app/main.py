@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import capture, db, ingest, loops, wake
-from app.ingest import CaptureBody, ReplayBody
+from app.ingest import CaptureBody, ReplayBody, RetriageBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
 CLIENT_DIST = Path(__file__).resolve().parents[2] / "client" / "dist"
@@ -89,6 +89,32 @@ async def capture_route(
         conn.close()
     background_tasks.add_task(capture.triage_pending)
     return landed
+
+
+@app.get("/api/capture/recent")
+async def capture_recent() -> dict[str, object]:
+    """Recent captures with their honest triage state (T2.3's list)."""
+    conn = db.connect(db.db_path())
+    try:
+        return {"captures": capture.recent_captures(conn)}
+    finally:
+        conn.close()
+
+
+@app.post("/api/capture/retriage")
+async def capture_retriage(body: RetriageBody) -> dict[str, object]:
+    """The MANUAL retry path — runs a fresh triage attempt beside the
+    originals (append-only; the first triage event is never edited).
+    Deliberately NOT an auto-retry: triage failures surface to the human,
+    who decides when to retry (PHASE-P2 T2.3).
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return capture.retriage(conn, body.capture_ref)
+    except capture.CaptureError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
 
 
 @app.get("/api/loops/open")

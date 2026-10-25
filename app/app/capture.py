@@ -182,20 +182,24 @@ def _load_capture(conn: sqlite3.Connection, external_ref: str) -> dict[str, Any]
     }
 
 
-def _triaged_ref(capture_ref: str) -> str:
-    return f"{capture_ref}:triaged"
+def _triaged_ref(capture_ref: str, attempt: int = 1) -> str:
+    return f"{capture_ref}:triaged" if attempt == 1 else f"{capture_ref}:triaged:{attempt}"
 
 
-def _failure_ref(capture_ref: str) -> str:
-    return f"{capture_ref}:failure"
+def _failure_ref(capture_ref: str, attempt: int = 1) -> str:
+    return f"{capture_ref}:failure" if attempt == 1 else f"{capture_ref}:failure:{attempt}"
 
 
-def triage_capture(conn: sqlite3.Connection, capture_ref: str) -> dict[str, object]:
+def triage_capture(
+    conn: sqlite3.Connection, capture_ref: str, attempt: int = 1
+) -> dict[str, object]:
     """Run ONE capture through the chokepoint and land the result.
 
     Success: capture_triaged (actor = the profile, plum) + provenance edge
     + the domain landing. Any terminal failure: capture_triaged_failure
-    and NOTHING lands — the capture stays untriaged, visibly.
+    and NOTHING lands — the capture stays untriaged, visibly. A manual
+    re-triage passes attempt >= 2 so its events append beside the originals
+    (append-only: the first triage event is never edited or replaced).
     """
     capture = _load_capture(conn, capture_ref)
     text = capture["text"]
@@ -218,7 +222,7 @@ def triage_capture(conn: sqlite3.Connection, capture_ref: str) -> dict[str, obje
             kind="capture_triaged_failure",
             origin="agent-write",
             source_id=None,
-            external_ref=_failure_ref(capture_ref),
+            external_ref=_failure_ref(capture_ref, attempt),
             actor=TRIAGE_PROFILE,
             payload={
                 "capture_ref": capture_ref,
@@ -239,7 +243,7 @@ def triage_capture(conn: sqlite3.Connection, capture_ref: str) -> dict[str, obje
         # (the predicate IS the parse), guarded for the type system.
         raise RuntimeError("ok outcome without a parseable target")
 
-    triaged_ref = _triaged_ref(capture_ref)
+    triaged_ref = _triaged_ref(capture_ref, attempt)
     db.insert_event(
         conn,
         kind="capture_triaged",
@@ -301,10 +305,10 @@ def pending_captures(conn: sqlite3.Connection) -> list[str]:
         " WHERE e.kind = 'capture_raw'"
         " AND NOT EXISTS (SELECT 1 FROM event t WHERE t.kind IN"
         "   ('capture_triaged', 'capture_triaged_failure')"
-        "   AND t.external_ref = e.external_ref || ':triaged')"
+        "   AND t.external_ref LIKE e.external_ref || ':triaged%')"
         " AND NOT EXISTS (SELECT 1 FROM event t WHERE t.kind ="
         "   'capture_triaged_failure'"
-        "   AND t.external_ref = e.external_ref || ':failure')"
+        "   AND t.external_ref LIKE e.external_ref || ':failure%')"
         " ORDER BY e.id"
     ).fetchall()
     return [r["external_ref"] for r in rows]
@@ -335,3 +339,64 @@ def triage_pending(conn: sqlite3.Connection | None = None) -> list[dict[str, obj
         finally:
             if owns_conn:
                 conn.close()
+
+
+def recent_captures(conn: sqlite3.Connection, limit: int = 20) -> list[dict[str, object]]:
+    """Recent captures, newest first, each with its honest triage state:
+    triaged (with the target), failed (with the reason), or untriaged
+    (nothing terminal yet — the retry affordance's work list)."""
+    rows = conn.execute(
+        "SELECT id, ts, external_ref, payload FROM event"
+        " WHERE kind = 'capture_raw' ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    out: list[dict[str, object]] = []
+    for r in rows:
+        ref = r["external_ref"]
+        text: str | None = None
+        photo_ref: str | None = None
+        try:
+            payload = json.loads(r["payload"])
+            text = payload.get("text")
+            photo_ref = payload.get("photo_ref")
+        except json.JSONDecodeError:
+            pass
+        latest = conn.execute(
+            "SELECT kind, payload, ts FROM event"
+            " WHERE (external_ref LIKE ? OR external_ref LIKE ?)"
+            " AND kind IN ('capture_triaged', 'capture_triaged_failure')"
+            " ORDER BY id DESC LIMIT 1",
+            (ref + ":triaged%", ref + ":failure%"),
+        ).fetchone()
+        state: dict[str, object] = {"state": "untriaged"}
+        if latest is not None:
+            p = json.loads(latest["payload"])
+            if latest["kind"] == "capture_triaged":
+                state = {"state": "triaged", "target": p.get("target")}
+            else:
+                state = {"state": "failed", "reason": p.get("reason")}
+        out.append(
+            {
+                "capture_id": r["id"],
+                "external_ref": ref,
+                "ts": r["ts"],
+                "text": text,
+                "photo_ref": photo_ref,
+                **state,
+            }
+        )
+    return out
+
+
+def retriage(conn: sqlite3.Connection, capture_ref: str) -> dict[str, object]:
+    """The MANUAL retry path (PHASE-P2 T2.3: manual re-triage is the retry
+    path, never auto-retry). Runs a fresh triage attempt beside whatever
+    came before — append-only, original events intact."""
+    attempt_row = conn.execute(
+        "SELECT COUNT(*) FROM event"
+        " WHERE (external_ref LIKE ? OR external_ref LIKE ?)"
+        " AND kind IN ('capture_triaged', 'capture_triaged_failure')",
+        (capture_ref + ":triaged%", capture_ref + ":failure%"),
+    ).fetchone()
+    attempt = attempt_row[0] + 1
+    return triage_capture(conn, capture_ref, attempt=attempt)
