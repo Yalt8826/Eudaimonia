@@ -17,7 +17,7 @@ via invocation outcomes.
   (freshness != success, applied to the question queue).
 - **Reversal to open** = any terminal failure outcome (timeout, error,
   predicate miss). A process that dies mid-run cannot emit its own
-  terminal event — the chokepoint detects the dead subprocess and emits
+  terminal event — the chokepoint detects the dead run and emits
   the failure itself; and the ask flow reverts the row if anything fails
   BEFORE the chokepoint takes over. A question stuck at ``picked_up`` is
   a defect by construction.
