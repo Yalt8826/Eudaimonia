@@ -119,6 +119,8 @@ is the build-wide roster.
 | `capture_triaged` | `agent-write` | triage invocation, predicate passed | P2 T2.3 |
 | `capture_triaged_failure` | `agent-write` | triage invocation, terminal failure | P2 T2.3 |
 | `task_seen` | `app-write` | triage target `task` (no task table — 07 §19 (a)) | P2 T2.3 |
+| `note_added` | `app-write` | notes compose -> staging (T2.4's applier is the vault writer) | P2 T2.4 |
+| `question_answered` | `agent-write` | the ask flow, predicate passed — answer text + invocation_ref in payload, provenance-edged (08 §20) | P2 T2.5 |
 | `note_added` | `app-write` | notes compose → staging | P2 T2.4 |
 | `meal_logged` | `agent-write` | meal estimation, food_db basis per item (law 11) | P2 T2.6 |
 | `rating_staged` | `app-write` | 1–5 tap on a reading card | P3 T3.1 / P5 T5.4 |

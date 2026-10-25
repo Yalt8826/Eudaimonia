@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import capture, db, ingest, loops, staged_writebacks, wake
+from app import capture, db, ingest, loops, questions, staged_writebacks, wake
 from app.ingest import CaptureBody, ReplayBody, RetriageBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
@@ -134,6 +134,41 @@ async def notes_apply() -> dict[str, object]:
     daily note in the vault — the repo's only vault write. Idempotent:
     a second run changes zero bytes."""
     return staged_writebacks.apply_pending()
+
+
+@app.get("/api/questions/open")
+async def questions_open() -> dict[str, object]:
+    """The question queue (T2.5): open and picked_up rows, oldest first.
+    Answered questions are history — provenance-edged, not pending work.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return questions.open_questions(conn)
+    finally:
+        conn.close()
+
+
+@app.post("/api/questions/{question_id}/ask")
+async def question_ask(
+    question_id: int, background_tasks: BackgroundTasks
+) -> dict[str, object]:
+    """Send a question to a profile (T2.5): picks it up and dispatches the
+    invocation as a background task. The background half is the ONE
+    writer that settles answered/open — a pre-chokepoint failure there
+    reverts the row itself, so a question cannot stick at picked_up.
+    Profile defaults to clio; the picker widens in P4.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        receipt = questions.ask(conn, question_id)
+    except questions.QuestionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    background_tasks.add_task(
+        questions.run_ask, question_id, receipt["text"], receipt["profile"]
+    )
+    return receipt
 
 
 @app.get("/api/loops/open")
