@@ -118,6 +118,15 @@ def source_id(conn: sqlite3.Connection, name: str) -> int:
 # ---- parsing (law 3: content dates or refusal) ----------------------------
 
 DAY_HEADER = re.compile(r"^#\s*(\d{4}-\d{2}-\d{2})\s*$", re.M)
+DAILY_REPORT_HEADER = re.compile(
+    r"^#\s*Daily Report\s*[—–-]\s*\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})\s*$",
+    re.M,
+)  # the older generation: "# Daily Report — Friday, 14 August 2026"
+CRON_LOG_MARKER = "# Cron Job:"
+"""The noesis cron output dir carries EVERY cron job's run log, not just
+day reports. A run log is not a failed day-report read — it is a
+different artifact entirely and is skipped silently (measured live:
+57 failure events would have been pure noise without this)."""
 # Both owner forms: "31 Aug\u20136 Sep 2026" (two-month range) and
 # "7\u201313 Sep 2026" (compact, shared month). g1/g2 = start day+month
 # when present; the START is the range's first day either way.
@@ -172,10 +181,29 @@ def _glob(source: str, chain: str) -> list[Artifact]:
 
 
 def parse_day_report(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
+    """Two generations of day-report headers exist in the wild:
+    '# YYYY-MM-DD' (the newer noesis format) and '# Daily Report — <weekday>,
+    <day> <month> <year>' (the older one). Cron run logs ('# Cron Job: …')
+    are SKIPped — a different artifact that shares the output dir, not a
+    failed read."""
+    if artifact.text.lstrip().startswith(CRON_LOG_MARKER):
+        return None, False, {"reason": "cron run log", "skip": True}
+
     m = DAY_HEADER.search(artifact.text)
-    if m is None:
-        return None, False, {"reason": "no day header"}
-    return m.group(1), True, {"attributed": "noesis"}
+    if m is not None:
+        return m.group(1), True, {"attributed": "noesis"}
+
+    m = DAILY_REPORT_HEADER.search(artifact.text)
+    if m is not None:
+        try:
+            day = datetime.strptime(
+                f"{m.group(1)} {m.group(2)} {m.group(3)}", "%d %B %Y"
+            )
+        except ValueError:
+            return None, False, {"reason": "unparseable daily report date"}
+        return day.date().isoformat(), True, {"attributed": "noesis"}
+
+    return None, False, {"reason": "no day header"}
 
 
 def parse_week_plan(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
@@ -283,6 +311,8 @@ def ingest_source(conn: sqlite3.Connection, source: str) -> dict[str, object]:
         content_date, ok, parse = parser(artifact)
         rev_key = f"{source}:{artifact.content_hash}"
         if content_date is None:
+            if parse.get("skip"):
+                continue  # a different artifact sharing the dir — not ours
             if ok:  # rolling revision without a content date: recorded honestly
                 if rev_key not in undated:
                     undated[rev_key] = artifact

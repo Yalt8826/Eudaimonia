@@ -214,3 +214,26 @@ def test_coverage_view_counts_the_ingested_days(env: dict[str, Path]) -> None:
     # the rolling files: ok events but no content_date -> honest zero days
     # (law 3: never fake a date; the coverage view counts dated artifacts)
     assert by_name["week-plan"]["days_fresh_7"] == 0
+
+
+def test_cron_run_logs_are_skipped_silently(
+    env: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The noesis cron dir carries EVERY cron job's run log. A run log is
+    not a failed day-report read — it shares the dir, nothing more
+    (measured live: 57 failure events of pure noise without the skip)."""
+    log = env["cron"] / "fad301ef2179" / "2026-10-29_18-40-18.md"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(
+        "# Cron Job: desktop-plugin-linker\n\n**Status:** silent (empty output)\n",
+        encoding="utf-8",
+    )
+    result = adapters.ingest_source(connect(env), "day-report")
+    assert result["ok_events"] == 0
+
+    conn = connect(env)
+    failures = conn.execute(
+        "SELECT 1 FROM event WHERE kind = 'source_read_failure'"
+    ).fetchall()
+    conn.close()
+    assert failures == []  # skipped silently, not a failure storm
