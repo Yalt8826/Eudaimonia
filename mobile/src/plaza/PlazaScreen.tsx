@@ -296,7 +296,13 @@ function StripContent({
       {(strip.id === "waiting"
         ? [waitingLine]
         : strip.id === "habits"
-          ? [coverageLines["day-report"] ?? strip.lines[0]]
+          ? // the habits strip's own lines array is EMPTY (its nutrition/
+            // reading rows carry the state) — the fallback must exist:
+            // before the coverage fetch settles this renders the honest
+            // uninstrumented line, never undefined (a device-only crash:
+            // PaperText splits its children, and the jest font-mock path
+            // never reaches it — caught live on the A059)
+            [coverageLines["day-report"] ?? "day report · not yet instrumented"]
           : strip.lines
       ).map((line) => (
         <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
