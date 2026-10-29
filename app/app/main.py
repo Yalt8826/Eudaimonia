@@ -11,7 +11,16 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import capture, db, ingest, loops, questions, staged_writebacks, wake
+from app import (
+    adapters,
+    capture,
+    db,
+    ingest,
+    loops,
+    questions,
+    staged_writebacks,
+    wake,
+)
 from app.ingest import CaptureBody, ReplayBody, RetriageBody
 
 # repo-root/client/dist — parents[2] because this file lives at app/app/main.py
@@ -169,6 +178,48 @@ async def question_ask(
         questions.run_ask, question_id, receipt["text"], receipt["profile"]
     )
     return receipt
+
+
+@app.post("/api/ingest/run")
+async def ingest_run() -> dict[str, object]:
+    """Run every adapter (P1): chain-following ingest over the vault and
+    the cron chains. Idempotent by the spine's UNIQUE constraint — a
+    second run writes nothing. Runs on olympus where the files are local.
+    """
+    conn = db.connect(db.db_path())
+    try:
+        return {"runs": adapters.ingest_all(conn)}
+    finally:
+        conn.close()
+
+
+@app.get("/api/coverage")
+async def coverage() -> dict[str, object]:
+    """The shared coverage view (law 7) — the ONLY definition of strip
+    freshness anywhere. Empty sources render honest zeros."""
+    conn = db.connect(db.db_path())
+    try:
+        rows = conn.execute(
+            "SELECT source_name, class, status, last_ok_read_ts,"
+            " days_fresh_7, artifact_count, paused_evidence FROM coverage"
+            " ORDER BY source_name"
+        ).fetchall()
+        return {
+            "coverage": [
+                {
+                    "source": r["source_name"],
+                    "class": r["class"],
+                    "status": r["status"],
+                    "last_ok_read_ts": r["last_ok_read_ts"],
+                    "days_fresh_7": r["days_fresh_7"],
+                    "artifact_count": r["artifact_count"],
+                    "paused_evidence": r["paused_evidence"],
+                }
+                for r in rows
+            ]
+        }
+    finally:
+        conn.close()
 
 
 @app.get("/api/loops/open")
