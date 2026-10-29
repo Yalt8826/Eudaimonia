@@ -222,6 +222,18 @@ async def coverage() -> dict[str, object]:
         conn.close()
 
 
+@app.get("/api/plan/today")
+async def plan_today() -> dict[str, object]:
+    """The plan strip's data: the latest week-plan revision's extracted
+    lines + its coverage. plan:missing when no revision exists — asserted,
+    never synthesized (T1.3; the dry-run's finding 3)."""
+    conn = db.connect(db.db_path())
+    try:
+        return adapters.plan_today(conn)
+    finally:
+        conn.close()
+
+
 @app.get("/api/loops/open")
 async def open_loops() -> dict[str, object]:
     """Open waiting-ons, oldest first, with the counts the Plaza badge and

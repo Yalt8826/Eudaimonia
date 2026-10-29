@@ -20,7 +20,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
+import app.main as main
 from app import adapters, db
 
 
@@ -237,3 +239,43 @@ def test_cron_run_logs_are_skipped_silently(
     ).fetchall()
     conn.close()
     assert failures == []  # skipped silently, not a failure storm
+
+
+def test_plan_missing_is_asserted_never_synthesized(
+    env: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T1.3's honesty rule: the rolling file keeps no history, so weeks
+    before P1 have NO plan snapshot — the render asserts plan-missing and
+    never synthesizes from mtimes or chat logs (dry-run finding 3)."""
+    # no week-plan revision in the spine at all
+    client = TestClient(main.app)
+    r = client.get("/api/plan/today")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["plan"] == "missing"
+    assert body["plan_lines"] == []
+    assert body["days_fresh_7"] == 0
+
+
+def test_plan_today_returns_latest_revision_lines(
+    env: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = env["vault"] / "Noesis" / "Week Plan.md"
+    plan.write_text(
+        "# Week Plan — 7–13 Sep 2026\n\n| Time | Block | Notes |\n"
+        "|---|---|---|\n| 3:00–3:45pm | **dMAT** (45m) | exam week |\n"
+        "| 4:00–7:00pm | **GRE** | deep block |\n",
+        encoding="utf-8",
+    )
+    adapters.ingest_all(connect(env))
+
+    client = TestClient(main.app)
+    r = client.get("/api/plan/today")
+    body = r.json()
+    assert body["week_start"] == "2026-09-07"
+    # both DATA rows extracted — the header row is not a plan line
+    assert len(body["plan_lines"]) == 2
+    assert "dMAT" in body["plan_lines"][0]
+    assert "GRE" in body["plan_lines"][1]
+    # the freshness rides the coverage view (law 7: one definition)
+    assert body["artifact_count"] == 1

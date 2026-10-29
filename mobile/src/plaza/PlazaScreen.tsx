@@ -29,8 +29,10 @@ import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
 import { fetchCoverage, coverageLine } from "../data/coverage";
+import { fetchPlanToday, type PlanToday } from "../data/plan";
 import { fetchOpenLoops } from "../data/loops";
 import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
+import { stripLinesFor } from "./stripLines";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
 // the read-only dashboard in the torn-paper language per the ratified
@@ -253,6 +255,7 @@ function StripContent({
   wakeLine,
   waitingLine,
   coverageLines,
+  planToday,
 }: {
   strip: PlazaStrip;
   ink: string;
@@ -263,6 +266,8 @@ function StripContent({
   waitingLine: string;
   /** Live coverage lines per source (law 7: the shared view's numbers). */
   coverageLines: Record<string, string>;
+  /** The plan strip's live data. */
+  planToday: PlanToday | null;
 }) {
   // The content width is measured, not computed from windowWidth minus the
   // paddings: this View is where the text actually lives, so its own box is
@@ -293,18 +298,11 @@ function StripContent({
           butter line laid out 55px tall in a 946px box for a string that
           needs 110). A coverage line that loses its tail is this surface
           lying about coverage, which is the one thing it exists not to do. */}
-      {(strip.id === "waiting"
-        ? [waitingLine]
-        : strip.id === "habits"
-          ? // the habits strip's own lines array is EMPTY (its nutrition/
-            // reading rows carry the state) — the fallback must exist:
-            // before the coverage fetch settles this renders the honest
-            // uninstrumented line, never undefined (a device-only crash:
-            // PaperText splits its children, and the jest font-mock path
-            // never reaches it — caught live on the A059)
-            [coverageLines["day-report"] ?? "day report · not yet instrumented"]
-          : strip.lines
-      ).map((line) => (
+      {stripLinesFor(strip, {
+        waitingLine,
+        coverageLines,
+        planToday,
+      }).map((line) => (
         <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
           {line}
         </PaperText>
@@ -346,6 +344,7 @@ export function PlazaBody({
     "not yet instrumented · loops arrive with P2 writes",
   );
   const [coverageLines, setCoverageLines] = useState<Record<string, string>>({});
+  const [planToday, setPlanToday] = useState<PlanToday | null>(null);
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -369,6 +368,9 @@ export function PlazaBody({
           for (const row of rows) lines[row.source] = coverageLine(row);
           setCoverageLines(lines);
         }
+      });
+      void fetchPlanToday().then((plan) => {
+        if (live) setPlanToday(plan);
       });
       return () => {
         live = false;
@@ -401,6 +403,7 @@ export function PlazaBody({
           wakeLine={wakeLine}
           waitingLine={waitingLine}
           coverageLines={coverageLines}
+          planToday={planToday}
         />
         </TornSheet>
       ))}

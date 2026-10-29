@@ -397,3 +397,43 @@ def ingest_all(conn: sqlite3.Connection) -> list[dict[str, object]]:
     live one; the vault archive loses ties by design (law 2)."""
     seed_registry(conn)
     return [ingest_source(conn, name) for name in SOURCES]
+
+
+def plan_today(conn: sqlite3.Connection) -> dict[str, object]:
+    """The Plaza's plan strip: the LATEST week-plan revision's extracted
+    lines plus its freshness from the coverage view (law 7: one definition).
+
+    No revision in the spine -> plan: missing, asserted, never synthesized
+    (the rolling file keeps no history; the fix for 'no plan history' is
+    from P1 on, which the revision snapshotting is).
+    """
+    latest = conn.execute(
+        "SELECT ts, payload FROM event"
+        " WHERE kind = 'source-read'"
+        " AND source_id = (SELECT id FROM source WHERE name = 'week-plan')"
+        " ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+    coverage = conn.execute(
+        "SELECT days_fresh_7, artifact_count, status FROM coverage"
+        " WHERE source_name = 'week-plan'"
+    ).fetchone()
+
+    if latest is None or coverage is None:
+        return {
+            "plan": "missing",
+            "plan_lines": [],
+            "days_fresh_7": 0,
+            "artifact_count": 0,
+            "status": "alive",
+        }
+
+    payload = json.loads(latest["payload"])
+    return {
+        "week_start": payload.get("content_date"),
+        "plan_lines": payload.get("plan_lines", []),
+        "revision_hash": payload.get("revision_hash"),
+        "days_fresh_7": int(coverage["days_fresh_7"]),
+        "artifact_count": int(coverage["artifact_count"]),
+        "status": coverage["status"],
+    }
