@@ -18,3 +18,7 @@ coverage/
 
 # editors
 .DS_Store
+
+# runtime state: the staged write-backs (T2.4) live here in dev; prod's
+# lives beside the app on olympus — never commit pending entries
+app/staged_writebacks/
