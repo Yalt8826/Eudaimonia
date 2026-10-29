@@ -28,6 +28,7 @@ import { TornSheet } from "./TornSheet";
 import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
+import { fetchCoverage, coverageLine } from "../data/coverage";
 import { fetchOpenLoops } from "../data/loops";
 import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
 
@@ -251,6 +252,7 @@ function StripContent({
   windowWidth,
   wakeLine,
   waitingLine,
+  coverageLines,
 }: {
   strip: PlazaStrip;
   ink: string;
@@ -259,6 +261,8 @@ function StripContent({
   wakeLine: string;
   /** The WAITING ON strip's live line (open-loop count from the spine). */
   waitingLine: string;
+  /** Live coverage lines per source (law 7: the shared view's numbers). */
+  coverageLines: Record<string, string>;
 }) {
   // The content width is measured, not computed from windowWidth minus the
   // paddings: this View is where the text actually lives, so its own box is
@@ -289,7 +293,12 @@ function StripContent({
           butter line laid out 55px tall in a 946px box for a string that
           needs 110). A coverage line that loses its tail is this surface
           lying about coverage, which is the one thing it exists not to do. */}
-      {(strip.id === "waiting" ? [waitingLine] : strip.lines).map((line) => (
+      {(strip.id === "waiting"
+        ? [waitingLine]
+        : strip.id === "habits"
+          ? [coverageLines["day-report"] ?? strip.lines[0]]
+          : strip.lines
+      ).map((line) => (
         <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
           {line}
         </PaperText>
@@ -330,6 +339,7 @@ export function PlazaBody({
   const [waitingLine, setWaitingLine] = useState(
     "not yet instrumented · loops arrive with P2 writes",
   );
+  const [coverageLines, setCoverageLines] = useState<Record<string, string>>({});
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -345,6 +355,13 @@ export function PlazaBody({
                 ? "nothing waiting · the inbox is clear"
                 : `waiting on · ${loops.count} open (${loops.owed_by_me} by me · ${loops.owed_to_me} to me)`,
           );
+        }
+      });
+      void fetchCoverage().then((rows) => {
+        if (live && rows !== null) {
+          const lines: Record<string, string> = {};
+          for (const row of rows) lines[row.source] = coverageLine(row);
+          setCoverageLines(lines);
         }
       });
       return () => {
@@ -377,6 +394,7 @@ export function PlazaBody({
           windowWidth={windowWidth}
           wakeLine={wakeLine}
           waitingLine={waitingLine}
+          coverageLines={coverageLines}
         />
         </TornSheet>
       ))}
