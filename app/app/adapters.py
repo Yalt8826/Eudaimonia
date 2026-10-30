@@ -430,6 +430,7 @@ def plan_today(conn: sqlite3.Connection) -> dict[str, object]:
 
     payload = json.loads(latest["payload"])
     return {
+        "plan": "ok",
         "week_start": payload.get("content_date"),
         "plan_lines": payload.get("plan_lines", []),
         "revision_hash": payload.get("revision_hash"),

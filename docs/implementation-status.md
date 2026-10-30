@@ -40,7 +40,7 @@ The server implements the foundation of P0 plus the first P2 task: the health ro
 
 **The spine.** `event` carries `ts`, `kind`, `origin` (`source-read`, `app-write` or `agent-write`), `source_id`, `external_ref`, `actor` and a JSON payload. `UNIQUE(source_id, kind, external_ref)` is the single idempotency mechanism, so replaying the same tap cannot create a second row.
 
-**The `coverage` view.** It counts distinct content-dated days in the trailing 7 where a source-read event carries `ok = 1`. It also reports the all-time artifact count and whether a human-authored `job_paused` event exists. It returns counts, never per-day rows, so a missing day is data and not a zero.
+**The `coverage` view.** It counts distinct content-dated days in the trailing 7 where a source-read event carries `ok = 1`. It also reports `artifact_count` — all-time source-read *attempts*, pass or fail (so day-report's 64 on olympus is 7 reads + the 57 historical failures from the 2026-10-29 sweep; it separates "never tried" from "tried and failing" and is not a count of reports) — and whether a human-authored `job_paused` event exists. It returns counts, never per-day rows, so a missing day is data and not a zero.
 
 **`agent_invoke`.** It runs `hermes --profile <name> -z <prompt>`, with a `$HERMES_HOME/bin/hermes` fallback for shells that lack the PATH. The chokepoint enforces the timeout itself and takes a per-profile lock. Every call writes an `agent_invoke_started` event and exactly one terminal `agent_invoke_result` event with outcome `ok`, `timeout`, `error` or `predicate_failed`, so silence cannot pass for success. A real call to the `clio` profile was recorded on olympus on 2026-10-10 and took about 27 seconds.
 

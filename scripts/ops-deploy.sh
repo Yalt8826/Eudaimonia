@@ -106,6 +106,7 @@ if $full; then
   echo "== rsync app/ + scripts/ =="
   rsync -a -e "ssh -o BatchMode=yes" \
     --exclude .venv --exclude __pycache__ --exclude '*.db' \
+    --exclude staged_writebacks \
     app/ "$HOST:$REMOTE_DIR/app/"
   rsync -a -e "ssh -o BatchMode=yes" scripts/ "$HOST:$REMOTE_DIR/scripts/"
   echo "== uv sync (olympus) =="

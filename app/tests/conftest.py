@@ -1,8 +1,20 @@
-"""Pytest wiring: the real-hermes gate (hardware-gated, like a handset test)."""
+"""Pytest wiring: the real-hermes gate (hardware-gated, like a handset test)
+and the staging/vault isolation every test gets for free."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_writeback_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Any triage that lands a note calls stage(), whose default is the REAL
+    app/staged_writebacks/ — the triage tests leaked pending entries there,
+    and ops-deploy's rsync would carry them to olympus for the applier to
+    write into the vault. Tests that need specific dirs override these."""
+    monkeypatch.setenv("EUDAIMONIA_STAGING", str(tmp_path / "_staging"))
+    monkeypatch.setenv("EUDAIMONIA_VAULT", str(tmp_path / "_vault"))
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

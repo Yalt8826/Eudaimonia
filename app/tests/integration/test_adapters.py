@@ -272,6 +272,10 @@ def test_plan_today_returns_latest_revision_lines(
     client = TestClient(main.app)
     r = client.get("/api/plan/today")
     body = r.json()
+    # the mobile strip rejects a body without plan: ok|missing (the
+    # contract fetchPlanToday validates) — absent, the strip showed the
+    # static "not yet instrumented" line over a live plan
+    assert body["plan"] == "ok"
     assert body["week_start"] == "2026-09-07"
     # both DATA rows extracted — the header row is not a plan line
     assert len(body["plan_lines"]) == 2
