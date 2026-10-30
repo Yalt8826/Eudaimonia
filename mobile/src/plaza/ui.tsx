@@ -326,12 +326,15 @@ export function Pill({
   // Text styles ride the inner Text — a Pressable is a View, and its style
   // does not reach the Text (the pills rendered Roboto mixed-case when the
   // mono/uppercase props sat on the Pressable — caught on the 430 snap).
+  // The same holds for color: set on the Pressable it was dropped, and the
+  // solid pill drew default-black type on its near-black fill.
   const textStyle: TextStyle = StyleSheet.flatten([
     mono,
     {
       fontSize: 13,
       letterSpacing: 13 * 0.06,
       textTransform: "uppercase",
+      color: tone === "solid" ? colors["--accent-1"] : PAPER_INK,
     } as TextStyle,
   ]);
   return (
@@ -345,11 +348,9 @@ export function Pill({
                 // color-mix(in srgb, var(--bg) 82%, transparent)
                 backgroundColor: "rgba(11, 11, 12, 0.82)",
                 borderColor: colors["--accent-1"],
-                color: colors["--accent-1"],
               }
             : {
                 borderColor: PAPER_INK,
-                color: PAPER_INK,
               },
         ])}
       >
