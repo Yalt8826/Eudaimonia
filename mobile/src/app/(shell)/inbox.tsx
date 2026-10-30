@@ -145,8 +145,7 @@ export default function InboxScreen() {
                   placeholderTextColor={colors["--muted"]}
                   value={reason}
                   onChangeText={(t) => {
-                    // eslint-disable-next-line no-console
-                    console.log("DEBUG onChangeText:", JSON.stringify(t));
+                      console.log("DEBUG onChangeText:", JSON.stringify(t));
                     setReason(t);
                   }}
                   autoFocus
