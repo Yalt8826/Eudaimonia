@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import type { PlazaStrip } from "./model";
-import { stripLinesFor } from "./stripLines";
+import { planCells, planStripLines, stripLinesFor } from "./stripLines";
 
 // The strip lines selector — the honesty rules per strip, pinned:
 //   waiting  -> the live count line (or unreachable), never fabricated
@@ -71,6 +71,38 @@ describe("stripLinesFor", () => {
     );
     expect(lines[0]).toBe("plan · fresh 1 of 7");
     expect(lines[1]).toContain("dMAT");
+  });
+
+  it("plan lines drop the markdown: no literal ** or | dividers", () => {
+    expect(planCells("3:00–3:45pm | **dMAT** (45m) | warm-up")).toEqual([
+      "3:00–3:45pm",
+      "dMAT (45m)",
+      "warm-up",
+    ]);
+    expect(planCells("**dMAT** | Exam **26 Sep** — check ~**12 Sep**")).toEqual([
+      "dMAT",
+      "Exam 26 Sep — check ~12 Sep",
+    ]);
+  });
+
+  it("the plan strip shows the day's time blocks and counts the weekly targets", () => {
+    // the shape of the live Week Plan.md: backbone rows, then targets
+    expect(
+      planStripLines([
+        "3:00–3:45pm | **dMAT** (45m) | Warm-up — keeps the exam fresh",
+        "11:15pm–12:30am | **Flex slot** | Project / GRE review / rest",
+        "**GRE** | Baseline from Mon's practice test | Oct/Nov exam",
+        "**Kerdos** | Parked this week | Off-plan",
+      ]),
+    ).toEqual([
+      "· 3:00–3:45pm — dMAT (45m)",
+      "· 11:15pm–12:30am — Flex slot",
+      "+ 2 weekly targets",
+    ]);
+  });
+
+  it("a plan with no time blocks still shows every row, cleaned", () => {
+    expect(planStripLines(["**GRE** | quant + verbal"])).toEqual(["· GRE · quant + verbal"]);
   });
 
   it("untouched strips render their static honest lines", () => {
