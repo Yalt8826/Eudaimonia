@@ -59,6 +59,8 @@ jest.mock("@shopify/react-native-skia", () => {
       Skia,
       useImage: () => null,
       useFont: () => null,
+      // skiaAssets.ts loads through this; null = "nothing to draw", as useFont
+      loadData: () => Promise.resolve(null),
       useFonts: () => [true],
       makeImageFromView: async () => null,
       Mix: () => 0,

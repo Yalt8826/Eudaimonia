@@ -3,7 +3,7 @@
 // Plaza header, headings and pills ride). Font loading is
 // fire-and-forget — stubs must not block on assets, and RN falls back to
 // the system face until the fonts land.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -22,6 +22,7 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { installSyncTriggers } from "../data/appOutbox";
+import { preloadSkiaAssets } from "../plaza/skiaAssets";
 import { colors } from "../theme/tokens";
 
 export default function RootLayout() {
@@ -41,8 +42,23 @@ export default function RootLayout() {
     IBMPlexMono_500Medium,
     IBMPlexMono_600SemiBold,
   });
-  const fontsReady =
-    (sansLoaded || sansError != null) && (monoLoaded || monoError != null);
+  // The Skia fonts + textures load once, during the same boot hold, so the
+  // Plaza paints complete on its first frame instead of popping in line by
+  // line (skiaAssets.ts). preloadSkiaAssets never rejects.
+  const [skiaReady, setSkiaReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void preloadSkiaAssets().then(() => {
+      if (live) setSkiaReady(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const assetsReady =
+    (sansLoaded || sansError != null) &&
+    (monoLoaded || monoError != null) &&
+    skiaReady;
 
   // The offline queue's replay triggers (foreground + network return + the
   // immediate drain at open) — the native port of the web client's
@@ -59,7 +75,7 @@ export default function RootLayout() {
     return () => uninstall?.();
   }, []);
 
-  if (!fontsReady) {
+  if (!assetsReady) {
     // The hold is the matte skin itself (01 s1): no logo, no spinner, no
     // arrival. The very surface the app paints a moment later, so the
     // wait reads as the app waking, not as a loader. The faces are bundled

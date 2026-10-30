@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet, type TextStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { Link } from "expo-router";
-import { Canvas, Text as SkiaText, useFont } from "@shopify/react-native-skia";
+import { Canvas, Text as SkiaText } from "@shopify/react-native-skia";
+import { PLEX_MONO_400, PLEX_SANS_700, useSkiaFont } from "./skiaAssets";
 
 import { colors, dotWell, type ColorToken } from "../theme/tokens";
 
@@ -103,7 +104,6 @@ export function Dot({ tone = "muted" }: { tone?: DotTone }) {
  * font. The string stays on an accessible wrapper, so the full text is
  * still exposed to assistive tech exactly as an RN Text would be.
  */
-const COVERAGE_FONT = require("@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf");
 
 /** Greedy word wrap against the font that will actually draw the glyphs. */
 export function wrapToWidth(
@@ -150,7 +150,7 @@ export function PaperText({
   opacity?: number;
   align?: "left" | "right";
 }) {
-  const font = useFont(COVERAGE_FONT, fontSize);
+  const font = useSkiaFont(PLEX_MONO_400, fontSize);
   const metrics = font?.getMetrics();
   const lineHeight = fontSize * 1.6;
   const lines =
@@ -188,7 +188,6 @@ export function PaperText({
   );
 }
 
-const LABEL_FONT = require("@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf");
 
 /**
  * A single-line label drawn through Skia, sized to its own glyphs.
@@ -216,7 +215,7 @@ export function SkiaLabel({
       assistive tech announces the same string twice. */
   accessible?: boolean;
 }) {
-  const font = useFont(LABEL_FONT, fontSize);
+  const font = useSkiaFont(PLEX_SANS_700, fontSize);
   const metrics = font?.getMetrics();
   const height = fontSize * 1.3;
   const width = font ? Math.ceil(font.measureText(children).width) + 2 : 0;

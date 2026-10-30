@@ -39,9 +39,9 @@ import {
   Path,
   Rect,
   Skia,
-  useImage,
   vec,
 } from "@shopify/react-native-skia";
+import { FRINGES, PAPER_FIBERS, useSkiaImage } from "./skiaAssets";
 
 import {
   TEAR_A_TOP,
@@ -72,20 +72,8 @@ const TEAR_W = 800;
 const TEAR_H = 112;
 const PAD_X = 25.6; // 1.6rem, torn-paper.css --pad-x
 
-const FRINGE_OF: Readonly<Record<TearVariant, { top: number; bottom: number }>> = {
-  a: {
-    top: require("../../assets/tears/fringe-a-top.png"),
-    bottom: require("../../assets/tears/fringe-a-bottom.png"),
-  },
-  b: {
-    top: require("../../assets/tears/fringe-b-top.png"),
-    bottom: require("../../assets/tears/fringe-b-bottom.png"),
-  },
-  c: {
-    top: require("../../assets/tears/fringe-c-top.png"),
-    bottom: require("../../assets/tears/fringe-c-bottom.png"),
-  },
-};
+// the fringe pairs and the fibres load ONCE for all sheets (skiaAssets.ts)
+const FRINGE_OF: Readonly<Record<TearVariant, { top: number; bottom: number }>> = FRINGES;
 
 // ---- geometry ----------------------------------------------------------
 
@@ -189,9 +177,9 @@ export function TornSheet({
   const paper = colors[paperToken];
   const ink = colors[inkToken];
 
-  const fringe = useImage(FRINGE_OF[tear].top);
-  const fringeBottom = useImage(FRINGE_OF[tear].bottom);
-  const fibers = useImage(require("../../assets/tears/paper-fibers.prepared.webp"));
+  const fringe = useSkiaImage(FRINGE_OF[tear].top);
+  const fringeBottom = useSkiaImage(FRINGE_OF[tear].bottom);
+  const fibers = useSkiaImage(PAPER_FIBERS);
 
   // everything horizontal repeats; the tile is 800px wide and phones are
   // narrower, but the offset can push the first tile's start past the left

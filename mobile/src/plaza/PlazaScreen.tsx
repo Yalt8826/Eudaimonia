@@ -17,9 +17,9 @@ import {
   LinearGradient,
   Rect,
   Text as SkiaText,
-  useFont,
   vec,
 } from "@shopify/react-native-skia";
+import { PLEX_SANS_700, useSkiaFont } from "./skiaAssets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, headerScrim } from "../theme/tokens";
@@ -74,7 +74,6 @@ export function greetingFontSize(windowWidth: number): number {
 }
 
 const GRAIN = require("../../assets/tears/grain-420tile-3x.png");
-const GREETING_FONT = require("@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf");
 
 /**
  * The matte skin behind the whole column: --bg, its static grain, and the
@@ -118,7 +117,7 @@ function SkinCanvas({ width }: { width: number }) {
  */
 function GradientGreeting({ text, windowWidth }: { text: string; windowWidth: number }) {
   const fontSize = greetingFontSize(windowWidth);
-  const font = useFont(GREETING_FONT, fontSize);
+  const font = useSkiaFont(PLEX_SANS_700, fontSize);
 
   const metrics = font?.getMetrics();
   const textWidth = font ? Math.ceil(font.measureText(text).width) : 1;
