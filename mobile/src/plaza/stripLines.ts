@@ -4,7 +4,6 @@
 // strip's lines array is empty by design; the jest font-mock never
 // reaches the split — caught live on the A059).
 import type { PlazaStrip } from "./model";
-import type { CoverageRow } from "../data/coverage";
 import type { PlanToday } from "../data/plan";
 
 interface LinesInput {

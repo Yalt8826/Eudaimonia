@@ -63,3 +63,20 @@ export const RESOLUTIONS: readonly { kind: ResolutionKind; label: string }[] = [
   { kind: "loop_rolled", label: "roll" },
   { kind: "loop_dropped", label: "drop" },
 ];
+
+
+/** The resolution's wire payload (T2.2): the loop id, and the drop reason
+ * ONLY when actually given — an empty reason must not ride the event. */
+export function resolutionPayload(
+  kind: ResolutionKind,
+  loopId: number,
+  reason?: string,
+): { kind: ResolutionKind; loop_id: number; reason?: string } {
+  const payload: { kind: ResolutionKind; loop_id: number; reason?: string } = {
+    kind,
+    loop_id: loopId,
+  };
+  const trimmed = reason?.trim();
+  if (trimmed) payload.reason = trimmed;
+  return payload;
+}

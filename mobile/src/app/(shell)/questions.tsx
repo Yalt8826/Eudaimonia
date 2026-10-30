@@ -7,6 +7,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   askQuestion,
@@ -20,6 +21,7 @@ const PROFILE = "clio"; // the picker widens in P4 (08: profiles glob-enumerated
 
 export default function QuestionsScreen() {
   const [queue, setQueue] = useState<OpenQuestions | null>(null);
+  const insets = useSafeAreaInsets();
   const [unreachable, setUnreachable] = useState(false);
   const [asking, setAsking] = useState<number | null>(null);
 
@@ -73,7 +75,7 @@ export default function QuestionsScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 24 }]}>
       <Text accessibilityRole="header" accessibilityLabel="Questions" style={styles.heading}>
         QUESTIONS
       </Text>

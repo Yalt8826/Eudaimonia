@@ -9,6 +9,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { appOutbox } from "../../data/appOutbox";
 import {
@@ -22,6 +23,7 @@ const MAX_LEN = 4096; // the server's cap (app/app/capture.py MAX_TEXT_LEN)
 
 export default function CaptureScreen() {
   const [text, setText] = useState("");
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -89,7 +91,7 @@ export default function CaptureScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 24 }]}>
       <Text accessibilityRole="header" accessibilityLabel="Capture" style={styles.heading}>
         CAPTURE
       </Text>

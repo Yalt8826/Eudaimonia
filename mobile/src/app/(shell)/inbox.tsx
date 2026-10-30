@@ -13,10 +13,12 @@
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { appOutbox } from "../../data/appOutbox";
 import {
   fetchOpenLoops,
+  resolutionPayload,
   RESOLUTIONS,
   type OpenLoops,
   type ResolutionKind,
@@ -28,6 +30,7 @@ const DROP_ASKED_KEY = "drop-reason-asked:human";
 type Tab = "owed-by-me" | "owed-to-me";
 
 export default function InboxScreen() {
+  const insets = useSafeAreaInsets();
   const [data, setData] = useState<OpenLoops | null>(null);
   const [tab, setTab] = useState<Tab>("owed-by-me");
   const [status, setStatus] = useState<string | null>(null);
@@ -39,7 +42,10 @@ export default function InboxScreen() {
     const d = await fetchOpenLoops();
     setData(d);
     const kv = appOutbox().kv;
-    setReasonAsked((await kv.getItem(DROP_ASKED_KEY)) !== undefined);
+    // getItem returns NULL (not undefined) for a missing key — the
+    // owner-measured bug: the reason prompt never showed because null
+    // !== undefined read as "already asked". != null covers both.
+    setReasonAsked((await kv.getItem(DROP_ASKED_KEY)) != null);
   }, []);
 
   useFocusEffect(
@@ -51,8 +57,7 @@ export default function InboxScreen() {
   const resolve = useCallback(
     async (kind: ResolutionKind, loopId: number, withReason?: string) => {
       const box = appOutbox();
-      const payload: Record<string, unknown> = { loop_id: loopId };
-      if (kind === "loop_dropped" && withReason) payload.reason = withReason;
+      const payload = resolutionPayload(kind, loopId, withReason);
       await box.outbox.enqueue(kind, payload);
       const depth = await box.outbox.depth();
       // read after the sync settles — the depth is the claim's truth
@@ -96,7 +101,7 @@ export default function InboxScreen() {
   const rows = (data?.loops ?? []).filter((l) => l.direction === tab);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 24 }]}>
       <Text accessibilityRole="header" accessibilityLabel="Inbox" style={styles.heading}>
         WAITING ON
       </Text>
@@ -139,7 +144,11 @@ export default function InboxScreen() {
                   placeholder="why drop it? (one line)"
                   placeholderTextColor={colors["--muted"]}
                   value={reason}
-                  onChangeText={setReason}
+                  onChangeText={(t) => {
+                    // eslint-disable-next-line no-console
+                    console.log("DEBUG onChangeText:", JSON.stringify(t));
+                    setReason(t);
+                  }}
                   autoFocus
                   maxLength={500}
                 />
@@ -188,6 +197,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors["--bg"],
     padding: 24,
+    // the top inset rides inline: styles are module-level, the inset is
+    // per-device — edge-to-edge means the status bar overlays the screen
     gap: 16,
   },
   heading: {

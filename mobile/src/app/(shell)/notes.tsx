@@ -5,12 +5,14 @@
 import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fetchRecentNotes, type RecentNote } from "../../data/notes";
 import { colors, fontFamily } from "../../theme/tokens";
 
 export default function NotesScreen() {
   const [notes, setNotes] = useState<RecentNote[] | null>(null);
+  const insets = useSafeAreaInsets();
   const [unreachable, setUnreachable] = useState(false);
 
   useFocusEffect(
@@ -29,7 +31,7 @@ export default function NotesScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 24 }]}>
       <Text accessibilityRole="header" accessibilityLabel="Notes" style={styles.heading}>
         NOTES
       </Text>

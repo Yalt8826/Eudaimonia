@@ -6,7 +6,7 @@ import { describe, expect, it } from "@jest/globals";
 // enforced before render. The partition/count rules live server-side and
 // are measured in app/tests/integration/test_loops.py.
 
-import { fetchOpenLoops } from "./loops";
+import { fetchOpenLoops, resolutionPayload } from "./loops";
 
 describe("fetchOpenLoops", () => {
   it("resolves the parsed shape on 2xx", async () => {
@@ -46,5 +46,20 @@ describe("fetchOpenLoops", () => {
       throw new TypeError("Network request failed");
     }) as unknown as typeof fetch;
     expect(await fetchOpenLoops(dead)).toBeNull();
+  });
+});
+
+describe("resolutionPayload", () => {
+  it("carries the drop reason when given", () => {
+    expect(resolutionPayload("loop_dropped", 7, "the booking happened without me")).toEqual({
+      kind: "loop_dropped",
+      loop_id: 7,
+      reason: "the booking happened without me",
+    });
+  });
+
+  it("omits the reason when absent or empty — an empty reason must not ride the event", () => {
+    expect(resolutionPayload("loop_done", 7).reason).toBeUndefined();
+    expect(resolutionPayload("loop_dropped", 7, "   ").reason).toBeUndefined();
   });
 });
