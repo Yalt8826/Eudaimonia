@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from app import (
     adapters,
@@ -19,6 +20,7 @@ from app import (
     loops,
     questions,
     staged_writebacks,
+    tasks,
     wake,
 )
 from app.ingest import CaptureBody, ReplayBody, RetriageBody
@@ -244,6 +246,97 @@ async def open_loops() -> dict[str, object]:
         return loops.open_loops(conn)
     finally:
         conn.close()
+
+
+# ---- tasks (the plan card's task pages) -------------------------------------
+# Reads serve the phone and Hermes alike. The writes below are HERMES'S
+# door (agent-write, actor = profile); the phone writes the same kinds
+# through /api/events/{kind} so they survive being offline.
+
+
+class TaskItemBody(BaseModel):
+    type: str = "subtask"
+    text: str
+    actor: str = Field(default="agent", max_length=64)
+
+
+class TaskCheckBody(BaseModel):
+    done: bool = True
+    actor: str = Field(default="agent", max_length=64)
+
+
+class TaskActorBody(BaseModel):
+    actor: str = Field(default="agent", max_length=64)
+
+
+class TaskLogBody(BaseModel):
+    text: str
+    minutes: int | None = None
+    actor: str = Field(default="agent", max_length=64)
+
+
+def _task_write(kind: str, payload: dict[str, object], actor: str) -> int:
+    conn = db.connect(db.db_path())
+    try:
+        return tasks.agent_write(conn, kind, payload, actor)
+    except tasks.TaskError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.get("/api/tasks")
+async def task_list() -> dict[str, object]:
+    """Every task with notes, subtasks or time on it (card hints)."""
+    conn = db.connect(db.db_path())
+    try:
+        return tasks.task_summaries(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/tasks/{subject}")
+async def task_detail(subject: str) -> dict[str, object]:
+    """One task: next-time notes, subtasks, running timer, session history."""
+    conn = db.connect(db.db_path())
+    try:
+        return tasks.task_detail(conn, subject)
+    finally:
+        conn.close()
+
+
+@app.post("/api/tasks/items/{item_id}/check")
+async def task_item_check(item_id: str, body: TaskCheckBody) -> dict[str, object]:
+    event_id = _task_write(
+        "task_item_checked", {"item_id": item_id, "done": body.done}, body.actor
+    )
+    return {"status": "ok", "event_id": event_id}
+
+
+@app.post("/api/tasks/items/{item_id}/remove")
+async def task_item_remove(item_id: str, body: TaskActorBody) -> dict[str, object]:
+    event_id = _task_write("task_item_removed", {"item_id": item_id}, body.actor)
+    return {"status": "ok", "event_id": event_id}
+
+
+@app.post("/api/tasks/{subject}/items")
+async def task_item_add(subject: str, body: TaskItemBody) -> dict[str, object]:
+    item_id = tasks.new_id()
+    event_id = _task_write(
+        "task_item_added",
+        {"subject": subject, "item_id": item_id, "type": body.type, "text": body.text},
+        body.actor,
+    )
+    return {"status": "ok", "event_id": event_id, "item_id": item_id}
+
+
+@app.post("/api/tasks/{subject}/logs")
+async def task_log_add(subject: str, body: TaskLogBody) -> dict[str, object]:
+    payload: dict[str, object] = {"subject": subject, "log_id": tasks.new_id(), "text": body.text}
+    if body.minutes is not None:
+        payload["minutes"] = body.minutes
+    event_id = _task_write("task_log_added", payload, body.actor)
+    return {"status": "ok", "event_id": event_id}
 
 
 @app.post("/api/{rest:path}")

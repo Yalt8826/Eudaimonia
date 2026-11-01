@@ -141,3 +141,23 @@ export function truncateToWidth(
   }
   return `${text.slice(0, lo).trimEnd()}…`;
 }
+
+/**
+ * The task a block belongs to — its notes thread. A block that names one
+ * of the week's targets is that target ("GRE deep work (~3h)" → "GRE"),
+ * longest name first so "Deep Learning" wins over a shorter overlap;
+ * anything else is its title without the "(~3h)" duration.
+ */
+export function subjectOf(title: string, targetNames: readonly string[]): string {
+  const lower = title.toLowerCase();
+  const byLength = [...targetNames].sort((a, b) => b.length - a.length);
+  for (const name of byLength) {
+    const escaped = name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(lower)) return name;
+  }
+  return title.replace(/\s*\([^)]*\)\s*/g, " ").trim() || title;
+}
+
+export function subjectKey(subject: string): string {
+  return subject.split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+}

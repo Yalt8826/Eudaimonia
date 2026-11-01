@@ -35,7 +35,9 @@ import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
 import { planFreshness, stripLinesFor } from "./stripLines";
 import { PlanCard } from "./PlanCard";
 import { PlanSheet } from "./PlanSheet";
-import { parsePlan, weekOfLabel, type ParsedPlan } from "./planModel";
+import { TaskSheet } from "./TaskSheet";
+import { fetchTaskSummaries, taskHint, type TaskSummary } from "../data/tasks";
+import { parsePlan, subjectKey, subjectOf, weekOfLabel, type ParsedPlan } from "./planModel";
 import { useNow } from "./useNow";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
@@ -262,6 +264,8 @@ function StripContent({
   parsedPlan,
   now,
   onOpenPlan,
+  rowHints,
+  onOpenRow,
 }: {
   strip: PlazaStrip;
   ink: string;
@@ -278,6 +282,8 @@ function StripContent({
   parsedPlan: ParsedPlan | null;
   now: Date;
   onOpenPlan: () => void;
+  rowHints: (string | null)[];
+  onOpenRow: (index: number) => void;
 }) {
   const planCard = strip.id === "plan" && planToday?.plan === "ok" && parsedPlan !== null;
   // The content width is measured, not computed from windowWidth minus the
@@ -317,7 +323,9 @@ function StripContent({
           header={planFreshness(planToday)}
           now={now}
           width={contentWidth}
-          onPress={onOpenPlan}
+          hints={rowHints}
+          onOpenDetails={onOpenPlan}
+          onOpenRow={onOpenRow}
         />
       ) : null}
       {(planCard ? [] : stripLinesFor(strip, {
@@ -373,6 +381,40 @@ export function PlazaBody({
     () => (planToday?.plan === "ok" ? parsePlan(planToday.plan_lines) : null),
     [planToday],
   );
+  // the open task page: its subject and where it sits today. The sheet
+  // unmounts on close, so every opening starts from fresh state.
+  const [task, setTask] = useState<{ subject: string; context: string | null } | null>(null);
+  const [taskSummaries, setTaskSummaries] = useState<TaskSummary[]>([]);
+  const refreshTasks = useCallback(() => {
+    void fetchTaskSummaries().then((t) => {
+      if (t !== null) setTaskSummaries(t);
+    });
+  }, []);
+  const targetNames = useMemo(() => parsedPlan?.targets.map((t) => t.name) ?? [], [parsedPlan]);
+  const summaryOf = useMemo(() => {
+    const bySubject = new Map(taskSummaries.map((t) => [subjectKey(t.subject), t]));
+    return (subject: string) => bySubject.get(subjectKey(subject));
+  }, [taskSummaries]);
+  // the card's rows are the blocks, or the targets for a plan without any
+  const rowSubjects = useMemo(() => {
+    if (parsedPlan === null) return [];
+    return parsedPlan.blocks.length > 0
+      ? parsedPlan.blocks.map((b) => subjectOf(b.title, targetNames))
+      : parsedPlan.targets.map((t) => t.name);
+  }, [parsedPlan, targetNames]);
+  const rowHints = rowSubjects.map((s) => taskHint(summaryOf(s), now));
+  const openBlock = (i: number) => {
+    const b = parsedPlan?.blocks[i];
+    if (!b) return;
+    setPlanOpen(false);
+    setTask({ subject: subjectOf(b.title, targetNames), context: `${b.time} · ${b.title}` });
+  };
+  const openTarget = (i: number) => {
+    const t = parsedPlan?.targets[i];
+    if (!t) return;
+    setPlanOpen(false);
+    setTask({ subject: t.name, context: t.details[0] ?? null });
+  };
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -397,13 +439,14 @@ export function PlazaBody({
           setCoverageLines(lines);
         }
       });
+      refreshTasks();
       void fetchPlanToday().then((plan) => {
         if (live) setPlanToday(plan);
       });
       return () => {
         live = false;
       };
-    }, []),
+    }, [refreshTasks]),
   );
   return (
     <View style={{ width: windowWidth }}>
@@ -435,6 +478,8 @@ export function PlazaBody({
           parsedPlan={parsedPlan}
           now={now}
           onOpenPlan={() => setPlanOpen(true)}
+          rowHints={rowHints}
+          onOpenRow={(i) => (parsedPlan && parsedPlan.blocks.length > 0 ? openBlock(i) : openTarget(i))}
         />
         </TornSheet>
       ))}
@@ -450,6 +495,19 @@ export function PlazaBody({
             .filter((s) => s !== null)
             .join(" · ")}
           now={now}
+          onOpenBlock={openBlock}
+          onOpenTarget={openTarget}
+        />
+      ) : null}
+      {task !== null ? (
+        <TaskSheet
+          open
+          subject={task.subject}
+          context={task.context}
+          onClose={() => {
+            setTask(null);
+            refreshTasks();
+          }}
         />
       ) : null}
     </View>

@@ -1,39 +1,28 @@
-// The plan's detail sheet: slides up over the Plaza when the glass card is
-// tapped. Every time block with its notes (the current one marked, past
-// ones muted), the week's targets, and which week the plan is for.
-// Closed by dragging it down, tapping the dimmed Plaza, or Android back.
+// The whole day's plan (the card's "details ›"): every time block with its
+// notes (the current one marked, past ones muted), the week's targets, and
+// which week the plan is for. Tapping a block or a target opens its task.
 //
-// Glass on the matte skin: --bg under --glass-fill, the surface the
-// contrast suite measures (text 14.88, muted 6.17, teal 9.38). Past blocks
-// switch to --muted rather than fading, so they never fall under 4.5.
+// Past blocks switch to --muted rather than fading, so they never fall
+// under 4.5 (text 14.88, muted 6.17, teal 9.38 on this glass).
 //
 // Each section's text is ONE Skia canvas (measured with the font that
 // paints it — see ui.tsx PaperText — and one TextureView per section, not
-// per line).
-import { useEffect } from "react";
-import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView } from "react-native-gesture-handler";
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+// per line); transparent Pressables over each block's measured box make
+// the rows tappable.
+import { Pressable, View, useWindowDimensions } from "react-native";
 import { Canvas, Rect, RoundedRect, Text as SkiaText, type SkFont } from "@shopify/react-native-skia";
 
 import { colors } from "../theme/tokens";
-import { MOTION } from "../theme/motion";
 import { PLEX_MONO_400, PLEX_SANS_700, useSkiaFont } from "./skiaAssets";
 import { wrapToWidth } from "./ui";
+import { BottomSheet, SHEET_PAD_X } from "./BottomSheet";
 import { blockPhases, type BlockPhase, type ParsedPlan } from "./planModel";
-
-const PAD_X = 20;
-const SHEET_RADIUS = 24;
-/** Drag past this, or flick faster than DISMISS_VELOCITY, and it closes. */
-const DISMISS_DRAG = 110;
-const DISMISS_VELOCITY = 900;
 
 type Op =
   | { kind: "text"; text: string; x: number; y: number; font: SkFont; color: string }
   | { kind: "rect"; x: number; y: number; w: number; h: number; r: number; color: string };
 
-function Ops({ ops, height }: { ops: Op[]; height: number }) {
+export function Ops({ ops, height }: { ops: Op[]; height: number }) {
   return (
     <Canvas pointerEvents="none" style={{ height }}>
       {ops.map((op, i) =>
@@ -51,7 +40,7 @@ function Ops({ ops, height }: { ops: Op[]; height: number }) {
 
 /** A small text-layout cursor: wraps each paragraph against the font that
     draws it and advances y by its line height. */
-class Cursor {
+export class Cursor {
   ops: Op[] = [];
   y = 0;
   constructor(private width: number) {}
@@ -62,6 +51,18 @@ class Cursor {
       this.ops.push({ kind: "text", text: line, x, y: baseline, font, color });
       this.y += lineHeight;
     }
+  }
+  /** A single line pinned to the right edge, on the row starting at `top`. */
+  right(text: string, font: SkFont, color: string, top: number, lineHeight: number, inset = 0) {
+    const m = font.getMetrics();
+    this.ops.push({
+      kind: "text",
+      text,
+      x: this.width - inset - font.measureText(text).width,
+      y: top + (lineHeight - (-m.ascent + m.descent)) / 2 - m.ascent,
+      font,
+      color,
+    });
   }
   gap(px: number) {
     this.y += px;
@@ -75,8 +76,14 @@ interface Fonts {
   small: SkFont;
 }
 
+interface Box {
+  top: number;
+  height: number;
+}
+
 function layoutBlocks(plan: ParsedPlan, phases: BlockPhase[], width: number, f: Fonts) {
   const c = new Cursor(width);
+  const boxes: Box[] = [];
   const BAR = 3;
   const INDENT = 14;
   plan.blocks.forEach((b, i) => {
@@ -89,16 +96,8 @@ function layoutBlocks(plan: ParsedPlan, phases: BlockPhase[], width: number, f: 
     c.para(b.time, f.mono, past ? colors["--muted"] : colors["--text"], 18, INDENT);
     const tag = phase === "now" ? "now" : phase === "next" ? "next" : past ? "done" : null;
     if (tag) {
-      const w = f.small.measureText(tag).width;
-      const m = f.small.getMetrics();
-      c.ops.push({
-        kind: "text",
-        text: tag,
-        x: width - INDENT - w,
-        y: timeTop + (18 - (-m.ascent + m.descent)) / 2 - m.ascent,
-        font: f.small,
-        color: phase === "now" || phase === "next" ? colors["--accent-1"] : colors["--muted"],
-      });
+      const tone = phase === "now" || phase === "next" ? colors["--accent-1"] : colors["--muted"];
+      c.right(tag, f.small, tone, timeTop, 18, INDENT);
     }
     if (b.title) c.para(b.title, f.head, past ? colors["--muted"] : colors["--text"], 22, INDENT);
     if (b.notes) c.para(b.notes, f.mono, colors["--muted"], 18, INDENT);
@@ -112,19 +111,58 @@ function layoutBlocks(plan: ParsedPlan, phases: BlockPhase[], width: number, f: 
         { kind: "rect", x: 0, y: top + 8, w: BAR, h: c.y - top - 16, r: 0, color: colors["--accent-1"] },
       );
     }
+    boxes.push({ top, height: c.y - top });
     c.gap(4);
   });
-  return c;
+  return { c, boxes };
 }
 
 function layoutTargets(plan: ParsedPlan, width: number, f: Fonts) {
   const c = new Cursor(width);
-  plan.targets.forEach((t, i) => {
-    if (i > 0) c.gap(12);
+  const boxes: Box[] = [];
+  plan.targets.forEach((t) => {
+    const top = c.y;
+    c.gap(6);
     c.para(t.name, f.head, colors["--text"], 22);
     for (const d of t.details) c.para(d, f.mono, colors["--muted"], 18);
+    c.gap(6);
+    boxes.push({ top, height: c.y - top });
   });
-  return c;
+  return { c, boxes };
+}
+
+/** Transparent tap targets laid over a canvas's measured boxes. */
+function Hits({
+  boxes,
+  labels,
+  onPress,
+}: {
+  boxes: Box[];
+  labels: string[];
+  onPress: (i: number) => void;
+}) {
+  return (
+    <>
+      {boxes.map((box, i) => (
+        <Pressable
+          key={i}
+          accessibilityRole="button"
+          accessibilityLabel={labels[i]}
+          accessibilityHint="Opens this task's notes and timer"
+          onPress={() => onPress(i)}
+          style={({ pressed }) => ({
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: box.top,
+            height: box.height,
+            borderRadius: 12,
+            backgroundColor: pressed ? colors["--glass-fill"] : "transparent",
+          })}
+        />
+      ))}
+    </>
+  );
 }
 
 export function PlanSheet({
@@ -133,6 +171,8 @@ export function PlanSheet({
   plan,
   subtitle,
   now,
+  onOpenBlock,
+  onOpenTarget,
 }: {
   open: boolean;
   onClose: () => void;
@@ -140,162 +180,70 @@ export function PlanSheet({
   /** e.g. "week of 31 Aug · fresh 0 of 7 · alive" */
   subtitle: string;
   now: Date;
+  onOpenBlock: (index: number) => void;
+  onOpenTarget: (index: number) => void;
 }) {
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
-  const offset = useSharedValue(windowHeight);
-  const backdrop = useSharedValue(0);
-
+  const { width: windowWidth } = useWindowDimensions();
   const title = useSkiaFont(PLEX_SANS_700, 20);
   const head = useSkiaFont(PLEX_SANS_700, 15);
   const mono = useSkiaFont(PLEX_MONO_400, 12.5);
   const small = useSkiaFont(PLEX_MONO_400, 11.5);
 
-  const ms = reduceMotion ? 0 : MOTION.stateChangeMs;
-
-  useEffect(() => {
-    if (open) {
-      offset.set(windowHeight);
-      offset.set(withTiming(0, { duration: ms }));
-      backdrop.set(withTiming(1, { duration: ms }));
-    }
-  }, [open, ms, windowHeight, offset, backdrop]);
-
-  // the sheet stays mounted while it slides out: the parent's `open`
-  // only drops once the travel is over
-  const close = () => {
-    offset.set(withTiming(windowHeight, { duration: ms }));
-    backdrop.set(withTiming(0, { duration: ms }));
-    setTimeout(onClose, ms);
-  };
-
-  // JS-thread callbacks: the drag only moves the sheet, and the decision to
-  // close is plain JS (no worklet hop needed for a two-number comparison)
-  const drag = Gesture.Pan()
-    .runOnJS(true)
-    .activeOffsetY(8)
-    .onUpdate((e) => {
-      offset.set(Math.max(0, e.translationY));
-    })
-    .onEnd((e) => {
-      if (e.translationY > DISMISS_DRAG || e.velocityY > DISMISS_VELOCITY) close();
-      else offset.set(withTiming(0, { duration: ms }));
-    });
-
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: offset.get() }] }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.get() }));
-
-  if (!open) return null;
-
-  const width = windowWidth - PAD_X * 2;
+  const width = windowWidth - SHEET_PAD_X * 2;
   const fonts = title && head && mono && small ? { title, head, mono, small } : null;
   const phases = blockPhases(plan.blocks, now);
-  const blocks = fonts ? layoutBlocks(plan, phases, width, fonts) : null;
-  const targets = fonts && plan.targets.length > 0 ? layoutTargets(plan, width, fonts) : null;
 
-  let header: { ops: Op[]; height: number } | null = null;
-  let targetsHead: { ops: Op[]; height: number } | null = null;
+  let header = <View style={{ height: 46 }} />;
+  let body = null;
   if (fonts) {
     const h = new Cursor(width);
     h.para("Today's Plan", fonts.title, colors["--text"], 28);
     h.para(subtitle, fonts.small, colors["--muted"], 18);
-    header = { ops: h.ops, height: h.y };
-    const t = new Cursor(width);
-    t.para("WEEKLY TARGETS", fonts.small, colors["--muted"], 18);
-    targetsHead = { ops: t.ops, height: t.y };
+    header = (
+      <View accessible accessibilityRole="header" accessibilityLabel={`Today's plan, ${subtitle}`}>
+        <Ops ops={h.ops} height={h.y} />
+      </View>
+    );
+    const blocks = layoutBlocks(plan, phases, width, fonts);
+    const targets = plan.targets.length > 0 ? layoutTargets(plan, width, fonts) : null;
+    const th = new Cursor(width);
+    th.para("WEEKLY TARGETS", fonts.small, colors["--muted"], 18);
+    body = (
+      <>
+        <View>
+          <Ops ops={blocks.c.ops} height={blocks.c.y} />
+          <Hits
+            boxes={blocks.boxes}
+            labels={plan.blocks.map(
+              (b, i) =>
+                `${b.time}, ${b.title}${b.notes ? `, ${b.notes}` : ""}` +
+                (phases[i] === "now" ? ", now" : phases[i] === "past" ? ", done" : ""),
+            )}
+            onPress={onOpenBlock}
+          />
+        </View>
+        {targets ? (
+          <View style={{ marginTop: 12 }}>
+            <View style={{ height: 1, backgroundColor: colors["--glass-border"], marginBottom: 14 }} />
+            <Ops ops={th.ops} height={th.y} />
+            <View style={{ height: 4 }} />
+            <View>
+              <Ops ops={targets.c.ops} height={targets.c.y} />
+              <Hits
+                boxes={targets.boxes}
+                labels={plan.targets.map((t) => `${t.name}: ${t.details.join(", ")}`)}
+                onPress={onOpenTarget}
+              />
+            </View>
+          </View>
+        ) : null}
+      </>
+    );
   }
 
-  const a11y = [
-    `Today's plan, ${subtitle}.`,
-    ...plan.blocks.map((b, i) => `${b.time}, ${b.title}${b.notes ? `, ${b.notes}` : ""}${phases[i] === "now" ? ", now" : phases[i] === "past" ? ", done" : ""}.`),
-    ...(plan.targets.length > 0 ? ["Weekly targets."] : []),
-    ...plan.targets.map((t) => `${t.name}: ${t.details.join(", ")}.`),
-  ];
-
   return (
-    <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
-          <Pressable accessibilityLabel="Close the plan" onPress={close} style={{ flex: 1 }} />
-        </Animated.View>
-        <Animated.View
-          style={[styles.sheet, { maxHeight: windowHeight * 0.82, paddingBottom: insets.bottom + 12 }, sheetStyle]}
-        >
-          <View style={styles.fill} pointerEvents="none" />
-          <GestureDetector gesture={drag}>
-            <View accessible accessibilityRole="header" accessibilityLabel={a11y[0]} style={styles.handleArea}>
-              <View style={styles.grabber} />
-              {header ? <Ops ops={header.ops} height={header.height} /> : <View style={{ height: 46 }} />}
-            </View>
-          </GestureDetector>
-          <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-            <View accessible accessibilityLabel={a11y.slice(1, plan.blocks.length + 1).join(" ")}>
-              {blocks ? <Ops ops={blocks.ops} height={blocks.y} /> : null}
-            </View>
-            {targets && targetsHead ? (
-              <View accessible accessibilityLabel={a11y.slice(plan.blocks.length + 1).join(" ")} style={styles.targets}>
-                <View style={styles.rule} />
-                <Ops ops={targetsHead.ops} height={targetsHead.height} />
-                <View style={{ height: 8 }} />
-                <Ops ops={targets.ops} height={targets.y} />
-              </View>
-            ) : null}
-          </ScrollView>
-        </Animated.View>
-      </GestureHandlerRootView>
-    </Modal>
+    <BottomSheet open={open} onClose={onClose} closeLabel="Close the plan" header={header}>
+      {() => body}
+    </BottomSheet>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    backgroundColor: colors["--scrim"],
-  },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors["--bg"],
-    borderTopLeftRadius: SHEET_RADIUS,
-    borderTopRightRadius: SHEET_RADIUS,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: colors["--glass-border"],
-    overflow: "hidden",
-  },
-  fill: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors["--glass-fill"],
-  },
-  handleArea: {
-    paddingHorizontal: PAD_X,
-    paddingTop: 10,
-    paddingBottom: 12,
-  },
-  grabber: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors["--muted"],
-    marginBottom: 14,
-  },
-  body: {
-    paddingHorizontal: PAD_X,
-    paddingBottom: 12,
-  },
-  targets: {
-    marginTop: 12,
-  },
-  rule: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors["--glass-border"],
-    marginBottom: 14,
-  },
-});

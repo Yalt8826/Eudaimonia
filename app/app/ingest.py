@@ -49,11 +49,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app import db, loops
+from app import db, loops, tasks
 
 INGEST_KINDS: frozenset[str] = frozenset(
     {"habit_tap", "capture_raw", "loop_done", "loop_rolled", "loop_dropped"}
-)
+) | tasks.TASK_KINDS
 """Kinds this endpoint accepts — the app-write rows of the EXECUTION §7
 kind registry. Grows one task at a time (capture_raw is T2.3's — the
 mobile capture sheet queues through THIS door offline, while fuzzel and
@@ -166,6 +166,11 @@ def _validate(url_kind: str, body: ReplayBody) -> tuple[str, int, str]:
         if reason is not None and (not str(reason).strip() or len(str(reason)) > 500):
             msg = "drop reason must be 1-500 characters when present"
             raise IngestError(msg)
+    if body.kind in tasks.TASK_KINDS:
+        try:
+            tasks.validate(body.kind, body.payload)
+        except tasks.TaskError as exc:
+            raise IngestError(str(exc)) from exc
     if body.kind == "capture_raw":
         # the offline mobile capture sheet queues through this door (T2.1
         # armor); the direct door is POST /capture. Same minimum: one of

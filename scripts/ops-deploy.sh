@@ -109,6 +109,14 @@ if $full; then
     --exclude staged_writebacks \
     app/ "$HOST:$REMOTE_DIR/app/"
   rsync -a -e "ssh -o BatchMode=yes" scripts/ "$HOST:$REMOTE_DIR/scripts/"
+  # the skills that teach Hermes this server's APIs (e.g. eudaimonia-tasks),
+  # installed for the root and every profile — each profile reads its own
+  echo "== install Hermes skills =="
+  $SSH "$HOST" 'for d in ~/.hermes/skills ~/.hermes/profiles/*/skills; do
+      [ -d "$d" ] || continue
+      mkdir -p "$d/productivity"
+      cp -r ~/eudaimonia/scripts/hermes-skills/. "$d/productivity/"
+    done'
   echo "== uv sync (olympus) =="
   $SSH "$HOST" 'cd ~/eudaimonia/app && ~/.local/bin/uv sync'
 
