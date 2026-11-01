@@ -23,13 +23,16 @@ export function stripLinesFor(
   if (strip.id === "plan") {
     if (planToday === null) return strip.lines; // not fetched yet
     if (planToday.plan === "missing") return ["plan · missing (P1 rolling files keep no history)"];
-    const freshness =
-      planToday.days_fresh_7 > 0
-        ? `plan · fresh ${planToday.days_fresh_7} of 7`
-        : `plan · 0 of 7 · ${planToday.status}`;
-    return [freshness, ...planStripLines(planToday.plan_lines)];
+    return [`plan · ${planFreshness(planToday)}`, ...planStripLines(planToday.plan_lines)];
   }
   return strip.lines;
+}
+
+/** "fresh 1 of 7", or "0 of 7 · alive" when no day this week was fresh. */
+export function planFreshness(planToday: PlanToday): string {
+  return planToday.days_fresh_7 > 0
+    ? `fresh ${planToday.days_fresh_7} of 7`
+    : `0 of 7 · ${planToday.status}`;
 }
 
 // A time-block row's first cell: "3:00–3:45pm", "11:15pm–12:30am", "9–10am".

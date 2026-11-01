@@ -228,6 +228,23 @@ describe("contrast lint (01 v2 §7 gate 1) — computed, not transcribed", () =>
     });
   });
 
+  describe("the plan's glass card on the mint sheet", () => {
+    // --paper-glass-fill frosts the paper; the card's ink rides at full
+    // strength, 0.75 (secondary lines) and 0.7 (past rows). All three must
+    // clear the text floor on the composited glass.
+    const surface = compositeOver(token("--paper-glass-fill"), token("--sheet-mint"));
+    for (const alpha of [1, 0.75, 0.7]) {
+      it(`--sheet-mint-ink at ${alpha} on the glass: >= ${TEXT_FLOOR}`, () => {
+        const ink = { ...token("--sheet-mint-ink"), a: alpha };
+        const ratio = contrastRatio(compositeOver(ink, surface), surface);
+        expect(ratio).toBeGreaterThanOrEqual(TEXT_FLOOR);
+      });
+    }
+    it(`the "now" tag (--sheet-mint on --sheet-mint-ink): >= ${TEXT_FLOOR}`, () => {
+      expect(contrastRatio(token("--sheet-mint"), token("--sheet-mint-ink"))).toBeGreaterThanOrEqual(TEXT_FLOOR);
+    });
+  });
+
   describe("the hue-law accent on its own sheet", () => {
     // The accent marks who acts (01 §4). On paper it must use the -ink
     // pair: the raw accents are tuned for glass and the black skin, and

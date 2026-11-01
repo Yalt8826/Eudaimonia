@@ -48,6 +48,8 @@ export type ColorToken =
   | "--paused-glass"
   | "--paused-paper"
   | "--bubble-veil"
+  | "--paper-glass-fill"
+  | "--paper-glass-border"
   | "--skin-lip-1"
   | "--skin-lip-2"
   | "--skin-lip-3"
@@ -148,6 +150,14 @@ export const colors: Readonly<Record<ColorToken, string>> = {
      Composites to exactly the glass surface the contrast suite measures:
      --glass-fill over --bg. */
   "--bubble-veil": "rgba(11, 11, 12, 0.62)",
+
+  /* Glass laid ON a section sheet (the Plaza's Today's Plan card): a white
+     frost over the paper, so the sheet's own ink pair keeps working on it —
+     lightening a light tint only raises the dark ink's contrast (mint ink
+     measures 11.28 on it; contrast.test.ts holds the floor, including the
+     dimmed past rows). */
+  "--paper-glass-fill": "rgba(255, 255, 255, 0.32)",
+  "--paper-glass-border": "rgba(255, 255, 255, 0.6)",
 
   /* The bubbles float over BOTH the black skin and the coloured sheets, so
      --glass-fill alone is not enough to sit an icon on: white-on-glass

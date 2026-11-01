@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 // RNGH's ScrollView, not RN's. The radial nav's Pan and a native scroll
 // both want a vertical drag, and RN's ScrollView wins it at the native
@@ -32,7 +32,11 @@ import { fetchCoverage, coverageLine } from "../data/coverage";
 import { fetchPlanToday, type PlanToday } from "../data/plan";
 import { fetchOpenLoops } from "../data/loops";
 import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
-import { stripLinesFor } from "./stripLines";
+import { planFreshness, stripLinesFor } from "./stripLines";
+import { PlanCard } from "./PlanCard";
+import { PlanSheet } from "./PlanSheet";
+import { parsePlan, weekOfLabel, type ParsedPlan } from "./planModel";
+import { useNow } from "./useNow";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
 // the read-only dashboard in the torn-paper language per the ratified
@@ -255,6 +259,9 @@ function StripContent({
   waitingLine,
   coverageLines,
   planToday,
+  parsedPlan,
+  now,
+  onOpenPlan,
 }: {
   strip: PlazaStrip;
   ink: string;
@@ -267,7 +274,12 @@ function StripContent({
   coverageLines: Record<string, string>;
   /** The plan strip's live data. */
   planToday: PlanToday | null;
+  /** planToday's lines as blocks + targets, when the plan is live. */
+  parsedPlan: ParsedPlan | null;
+  now: Date;
+  onOpenPlan: () => void;
 }) {
+  const planCard = strip.id === "plan" && planToday?.plan === "ok" && parsedPlan !== null;
   // The content width is measured, not computed from windowWidth minus the
   // paddings: this View is where the text actually lives, so its own box is
   // the only width that cannot drift from the layout.
@@ -297,11 +309,22 @@ function StripContent({
           butter line laid out 55px tall in a 946px box for a string that
           needs 110). A coverage line that loses its tail is this surface
           lying about coverage, which is the one thing it exists not to do. */}
-      {stripLinesFor(strip, {
+      {/* a live plan is the glass card (tap -> PlanSheet); every other
+          state of the plan strip keeps its honest text line */}
+      {planCard ? (
+        <PlanCard
+          plan={parsedPlan}
+          header={planFreshness(planToday)}
+          now={now}
+          width={contentWidth}
+          onPress={onOpenPlan}
+        />
+      ) : null}
+      {(planCard ? [] : stripLinesFor(strip, {
         waitingLine,
         coverageLines,
         planToday,
-      }).map((line) => (
+      })).map((line) => (
         <PaperText key={line} maxWidth={contentWidth} color={ink} opacity={0.78}>
           {line}
         </PaperText>
@@ -344,6 +367,12 @@ export function PlazaBody({
   );
   const [coverageLines, setCoverageLines] = useState<Record<string, string>>({});
   const [planToday, setPlanToday] = useState<PlanToday | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
+  const now = useNow();
+  const parsedPlan = useMemo(
+    () => (planToday?.plan === "ok" ? parsePlan(planToday.plan_lines) : null),
+    [planToday],
+  );
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -403,12 +432,26 @@ export function PlazaBody({
           waitingLine={waitingLine}
           coverageLines={coverageLines}
           planToday={planToday}
+          parsedPlan={parsedPlan}
+          now={now}
+          onOpenPlan={() => setPlanOpen(true)}
         />
         </TornSheet>
       ))}
       {/* the black below the last sheet: 4rem, so the floating cluster can
           never cover the final OPEN link (PlazaScreen.tsx) */}
       <View style={{ height: MAIN_PAD.bottom }} />
+      {parsedPlan !== null && planToday !== null ? (
+        <PlanSheet
+          open={planOpen}
+          onClose={() => setPlanOpen(false)}
+          plan={parsedPlan}
+          subtitle={[weekOfLabel(planToday.week_start), planFreshness(planToday)]
+            .filter((s) => s !== null)
+            .join(" · ")}
+          now={now}
+        />
+      ) : null}
     </View>
   );
 }

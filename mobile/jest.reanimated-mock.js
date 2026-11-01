@@ -55,7 +55,15 @@ const stub = {
   Animated,
   createAnimatedComponent: animatedPassthrough,
 
-  useSharedValue: (init) => ({ value: init }),
+  // .get()/.set() are the React-Compiler-safe accessors (Reanimated 4)
+  useSharedValue: (init) => {
+    const sv = { value: init };
+    sv.get = () => sv.value;
+    sv.set = (v) => {
+      sv.value = v;
+    };
+    return sv;
+  },
   useAnimatedStyle: (fn) => (typeof fn === "function" ? fn() : {}),
   useDerivedValue: (fn) => ({ value: typeof fn === "function" ? fn() : undefined }),
   useAnimatedProps: (fn) => (typeof fn === "function" ? fn() : {}),
