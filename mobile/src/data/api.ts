@@ -59,3 +59,36 @@ export function fetchTransport(
     },
   };
 }
+
+/**
+ * The task queue's transport (appOutbox.ts taskOutbox). Same door as
+ * fetchTransport, one difference: a 422 from a server that HAS the task
+ * API means this event is genuinely malformed and would block the task
+ * queue forever, so it is dropped (logged). A 422 from an older server —
+ * one without /api/tasks — keeps the event queued until the deploy lands.
+ */
+export function taskTransport(
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Transport {
+  return {
+    async post(body: ReplayBody) {
+      try {
+        const response = await fetchFn(apiUrl(`/api/events/${body.kind}`), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (response.status >= 200 && response.status < 300) return true;
+        if (response.status !== 422) return false;
+        const probe = await fetchFn(apiUrl("/api/tasks"));
+        if (probe.status >= 200 && probe.status < 300) {
+          console.warn(`[tasks] dropped a rejected ${body.kind} event`);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    },
+  };
+}

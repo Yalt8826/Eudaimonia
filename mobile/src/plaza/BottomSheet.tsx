@@ -5,17 +5,12 @@
 //
 // `requestClose` is handed to the children so a button inside can close
 // the sheet WITH its travel (the parent's `open` only drops at the end).
-import { useEffect, type ReactNode } from "react";
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView } from "react-native-gesture-handler";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+// RN's ScrollView, not RNGH's: the drag lives on the header only, and RNGH's
+// ScrollView dropped keyboardShouldPersistTaps — the first tap on "Add" with
+// the keyboard up only closed the keyboard (measured on the A059).
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,6 +52,41 @@ export function BottomSheet({
 
   const ms = reduceMotion ? 0 : MOTION.stateChangeMs;
 
+  // The keyboard slides OVER the sheet; the sheet never moves. The scroll
+  // content grows by the keyboard's height so its last rows can still be
+  // reached, and the focused field scrolls up into the visible part.
+  const scrollRef = useRef<ScrollView>(null);
+  const contentRef = useRef<View>(null);
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboard(e.endCoordinates.height);
+      // scroll ONLY when the keyboard would cover the focused field
+      const keyboardTop = e.endCoordinates.screenY;
+      const input = TextInput.State.currentlyFocusedInput();
+      const content = contentRef.current;
+      if (input && content) {
+        input.measureInWindow((_x, winY, _w, h) => {
+          const overlap = winY + h + 16 - keyboardTop;
+          if (overlap > 0) {
+            input.measureLayout(
+              content,
+              (_x2, y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 140), animated: true }),
+              () => undefined,
+            );
+          }
+        });
+      }
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboard(0);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (open) {
       offset.set(windowHeight);
@@ -97,15 +127,15 @@ export function BottomSheet({
         <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
           <Pressable accessibilityLabel={closeLabel} onPress={requestClose} style={{ flex: 1 }} />
         </Animated.View>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboard}
-          pointerEvents="box-none"
-        >
+        <View style={styles.keyboard} pointerEvents="box-none">
           <Animated.View
             style={[
               styles.sheet,
-              fullHeight ? { height: sheetHeight } : { maxHeight: sheetHeight },
+              // a page with inputs is pinned by its TOP, so a window resize
+              // for the keyboard cannot lift it
+              fullHeight
+                ? { position: "absolute", left: 0, right: 0, top: windowHeight - sheetHeight, height: sheetHeight }
+                : { maxHeight: sheetHeight },
               { paddingBottom: insets.bottom + 12 },
               sheetStyle,
             ]}
@@ -118,14 +148,17 @@ export function BottomSheet({
               </View>
             </GestureDetector>
             <ScrollView
-              contentContainerStyle={styles.body}
+              ref={scrollRef}
+              contentContainerStyle={[styles.body, { paddingBottom: 12 + keyboard }]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {children(requestClose)}
+              <View ref={contentRef} collapsable={false}>
+                {children(requestClose)}
+              </View>
             </ScrollView>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );

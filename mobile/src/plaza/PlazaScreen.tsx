@@ -36,8 +36,9 @@ import { planFreshness, stripLinesFor } from "./stripLines";
 import { PlanCard } from "./PlanCard";
 import { PlanSheet } from "./PlanSheet";
 import { TaskSheet } from "./TaskSheet";
-import { fetchTaskSummaries, taskHint, type TaskSummary } from "../data/tasks";
-import { parsePlan, subjectKey, subjectOf, weekOfLabel, type ParsedPlan } from "./planModel";
+import { hintFromDetail, type TaskDetail } from "../data/tasks";
+import { readLocalMany, syncMany } from "../data/taskStore";
+import { parsePlan, subjectOf, weekOfLabel, type ParsedPlan } from "./planModel";
 import { useNow } from "./useNow";
 
 // The Plaza (04 `/`), ported from client/src/routes/PlazaScreen.tsx at M2:
@@ -384,17 +385,7 @@ export function PlazaBody({
   // the open task page: its subject and where it sits today. The sheet
   // unmounts on close, so every opening starts from fresh state.
   const [task, setTask] = useState<{ subject: string; context: string | null } | null>(null);
-  const [taskSummaries, setTaskSummaries] = useState<TaskSummary[]>([]);
-  const refreshTasks = useCallback(() => {
-    void fetchTaskSummaries().then((t) => {
-      if (t !== null) setTaskSummaries(t);
-    });
-  }, []);
   const targetNames = useMemo(() => parsedPlan?.targets.map((t) => t.name) ?? [], [parsedPlan]);
-  const summaryOf = useMemo(() => {
-    const bySubject = new Map(taskSummaries.map((t) => [subjectKey(t.subject), t]));
-    return (subject: string) => bySubject.get(subjectKey(subject));
-  }, [taskSummaries]);
   // the card's rows are the blocks, or the targets for a plan without any
   const rowSubjects = useMemo(() => {
     if (parsedPlan === null) return [];
@@ -402,7 +393,32 @@ export function PlazaBody({
       ? parsedPlan.blocks.map((b) => subjectOf(b.title, targetNames))
       : parsedPlan.targets.map((t) => t.name);
   }, [parsedPlan, targetNames]);
-  const rowHints = rowSubjects.map((s) => taskHint(summaryOf(s), now));
+  // the rows' task hints, local first: the phone's copy at once, then a
+  // sync (queued writes out, Hermes's changes in) and the copy again
+  const [taskViews, setTaskViews] = useState<Map<string, TaskDetail>>(new Map());
+  const [taskTick, setTaskTick] = useState(0);
+  const refreshTasks = useCallback(() => setTaskTick((t) => t + 1), []);
+  useEffect(() => {
+    let live = true;
+    // hints are garnish: a task store that cannot open must never take the
+    // Plaza down with it, so every failure here just leaves rows hint-less
+    readLocalMany(rowSubjects)
+      .then((views) => {
+        if (!live) return;
+        setTaskViews(views);
+        return syncMany(rowSubjects).then((synced) => {
+          if (live) setTaskViews(synced);
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [rowSubjects, taskTick]);
+  const rowHints = rowSubjects.map((s) => {
+    const view = taskViews.get(s);
+    return view ? hintFromDetail(view, now) : null;
+  });
   const openBlock = (i: number) => {
     const b = parsedPlan?.blocks[i];
     if (!b) return;

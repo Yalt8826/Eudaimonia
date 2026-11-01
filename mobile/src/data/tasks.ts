@@ -142,6 +142,9 @@ export function applyLocal(
       d.running = { session_id: String(payload.session_id), started_at: nowIso };
       return d;
     case "task_session_ended": {
+      // only the session this page has running (pending events from other
+      // tasks pass through every page's fold)
+      if (d.running?.session_id !== payload.session_id) return detail;
       const started = d.running?.started_at ?? nowIso;
       const minutes = Math.max(0, Math.floor((Date.parse(nowIso) - Date.parse(started)) / 60000));
       const note = typeof payload.note === "string" && payload.note.trim() ? payload.note.trim() : null;
@@ -204,4 +207,56 @@ export function taskHint(summary: TaskSummary | undefined, now: Date): string | 
   if (summary.next_first) parts.push(`next: ${summary.next_first}`);
   if (summary.open_subtasks > 0) parts.push(`${summary.open_subtasks} open`);
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+const SUBJECT_KINDS: ReadonlySet<string> = new Set(["task_item_added", "task_session_started", "task_log_added"]);
+
+function keyOf(subject: string): string {
+  return subject.split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+}
+
+export interface PendingWrite {
+  kind: string;
+  /** epoch ms of the write (the outbox record's ts) */
+  ts: number;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * The task as this phone sees it: the last server copy, with every write
+ * still waiting in the task queue applied on top, in order. Writes that
+ * name a subject apply only to theirs; id-based ones (check, remove, end)
+ * are no-ops on pages that do not hold that id.
+ */
+export function localView(
+  subject: string,
+  serverCopy: TaskDetail | null,
+  pending: readonly PendingWrite[],
+): TaskDetail {
+  let d = serverCopy ?? emptyTask(subject);
+  const key = keyOf(subject);
+  for (const w of pending) {
+    if (SUBJECT_KINDS.has(w.kind) && keyOf(String(w.payload.subject ?? "")) !== key) continue;
+    d = applyLocal(d, w.kind as TaskKind, w.payload, new Date(w.ts).toISOString());
+  }
+  return d;
+}
+
+/** The card row's hint, from the local view of the row's task. */
+export function hintFromDetail(d: TaskDetail, now: Date): string | null {
+  return taskHint(
+    {
+      subject: d.subject,
+      next_first: d.next[0]?.text ?? null,
+      next_count: d.next.length,
+      open_subtasks: d.subtasks.filter((s) => !s.done).length,
+      running: d.running,
+      minutes_7d: d.minutes_7d,
+    },
+    now,
+  );
+}
+
+export function cacheKey(subject: string): string {
+  return `task:${keyOf(subject)}`;
 }

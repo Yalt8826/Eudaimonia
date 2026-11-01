@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { applyLocal, emptyTask, formatElapsed, formatMinutes, newTaskId, taskHint } from "./tasks";
+import { applyLocal, emptyTask, formatElapsed, formatMinutes, localView, newTaskId, taskHint } from "./tasks";
 import { subjectOf } from "../plaza/planModel";
 
 const TARGETS = ["GRE", "dMAT", "Deep Learning", "Market Momentum", "Kerdos"];
@@ -75,5 +75,28 @@ describe("formatting", () => {
         now,
       ),
     ).toBe("• 23m running · next: RC 4 · 2 open");
+  });
+});
+
+describe("localView — local first", () => {
+  const server = { ...emptyTask("GRE"), subtasks: [{ id: "srv00001", type: "subtask" as const, text: "from hermes", done: false, ts: "2026-11-01T09:00:00.000Z", actor: "noesis" }] };
+  it("queued writes apply over the server copy, only to their own subject", () => {
+    const pending = [
+      { kind: "task_item_added", ts: Date.parse("2026-11-01T10:00:00Z"), payload: { subject: "gre", item_id: "loc00001", type: "next", text: "RC 4" } },
+      { kind: "task_item_added", ts: Date.parse("2026-11-01T10:01:00Z"), payload: { subject: "Gym", item_id: "loc00002", type: "subtask", text: "legs" } },
+      { kind: "task_item_checked", ts: Date.parse("2026-11-01T10:02:00Z"), payload: { item_id: "srv00001", done: true } },
+      { kind: "task_session_started", ts: Date.parse("2026-11-01T10:03:00Z"), payload: { subject: "GRE", session_id: "ses00001" } },
+    ];
+    const d = localView("GRE", server, pending);
+    expect(d.next.map((n) => n.text)).toEqual(["RC 4"]);
+    expect(d.subtasks).toEqual([{ ...server.subtasks[0], done: true }]);
+    expect(d.running?.session_id).toBe("ses00001");
+    expect(localView("Gym", null, pending).subtasks.map((s) => s.text)).toEqual(["legs"]);
+  });
+  it("another task's session end never touches this page", () => {
+    const d = localView("GRE", null, [
+      { kind: "task_session_ended", ts: Date.now(), payload: { session_id: "other001" } },
+    ]);
+    expect(d.history).toEqual([]);
   });
 });

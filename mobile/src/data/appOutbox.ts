@@ -10,12 +10,13 @@ import * as Network from "expo-network";
 import * as SQLite from "expo-sqlite";
 import { AppState } from "react-native";
 
-import { fetchTransport } from "./api";
+import { fetchTransport, taskTransport } from "./api";
 import {
   Outbox,
   deviceUUID,
   systemClock,
   type KeyValueStore,
+  type OutboxRecord,
   type ReplayResult,
 } from "./queue";
 import {
@@ -78,6 +79,43 @@ export function appOutbox(): AppOutbox {
   return instance;
 }
 
+export interface TaskOutbox {
+  outbox: Outbox;
+  /** The last server copy of each task (local-first reads). */
+  kv: KeyValueStore;
+  sync(): Promise<ReplayResult>;
+  /** Task writes not yet accepted by the server, in write order. */
+  pending(): Promise<OutboxRecord[]>;
+}
+
+let taskInstance: TaskOutbox | null = null;
+
+/**
+ * The task pages' own queue, in its own database file. Task notes are
+ * local-first: a write lands here and shows at once, and drains to the
+ * server when it can. A SEPARATE queue on purpose — replay stops at the
+ * first rejected event, and a task event must never be able to hold a
+ * wake tap behind it (an older server rejects the task kinds outright).
+ */
+export function taskOutbox(): TaskOutbox {
+  if (taskInstance === null) {
+    const db = SQLite.openDatabaseSync("eudaimonia-tasks.db");
+    const exec = expoExecutor(db);
+    const kv: KeyValueStore = createSqliteKeyValue(exec);
+    const store = createSqliteOutboxStore(exec);
+    // the same device key as every other write from this install
+    const deviceKey = deviceUUID(appOutbox().kv, () => Crypto.randomUUID());
+    const outbox = new Outbox({ store, clock: systemClock, deviceKey });
+    taskInstance = {
+      outbox,
+      kv,
+      sync: createSyncScheduler(outbox, taskTransport()),
+      pending: () => store.getAll(),
+    };
+  }
+  return taskInstance;
+}
+
 /**
  * Install the replay triggers. The immediate sync is the port of the
  * browser firing `online` at page load, so a queue that survived a
@@ -85,7 +123,16 @@ export function appOutbox(): AppOutbox {
  * Returns the uninstaller (root layout effect cleanup).
  */
 export function installSyncTriggers(): () => void {
-  const { sync } = appOutbox();
+  const { sync: syncMain } = appOutbox();
+  // both queues drain on the same triggers; the task queue never blocks
+  // the main one (it runs after, and its failures are its own)
+  const sync = async () => {
+    const result = await syncMain();
+    void taskOutbox()
+      .sync()
+      .catch(() => undefined);
+    return result;
+  };
   void sync();
   const offForeground = replayOnForeground(sync, AppState);
   const offReconnect = replayOnReconnect(sync, Network.addNetworkStateListener);

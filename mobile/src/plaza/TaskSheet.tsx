@@ -1,18 +1,17 @@
 // One task's page, opened from a row on the plan card: a session timer,
 // notes left for next time, a subtask checklist, and the history of past
-// sessions. Everything writes through the outbox (offline-safe) and shows
-// at once; Hermes writes the same thread from olympus (app/app/tasks.py).
+// sessions. Local first: every write is saved on the phone and shows at
+// once, then syncs (data/taskStore.ts); Hermes writes the same thread from
+// olympus (app/app/tasks.py) and its changes arrive with the next sync.
 //
 // Plain RN text on the sheet's glass: --text 14.88, --muted 6.17, the
 // teal 9.38, and --bg on the teal button well above 4.5.
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, type TextStyle } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View, type GestureResponderEvent, type TextStyle } from "react-native";
 
-import { appOutbox } from "../data/appOutbox";
+import { readLocal, syncTask, writeTask, type ServerState } from "../data/taskStore";
 import {
-  applyLocal,
   emptyTask,
-  fetchTask,
   formatElapsed,
   formatMinutes,
   newTaskId,
@@ -38,6 +37,38 @@ function historyMeta(h: TaskHistoryEntry): string {
   if (h.minutes) parts.push(h.capped ? `${formatMinutes(h.minutes)}+ (timer left on)` : formatMinutes(h.minutes));
   if (h.actor !== "human") parts.push(`via ${h.actor}`);
   return parts.join(" · ");
+}
+
+/**
+ * A button that still works while the keyboard is up. Measured on the
+ * A059 inside this Modal sheet: with a field focused, the touch reaches the
+ * button (raw touch events arrive) but the responder system never grants
+ * it the press — the keyboard just closes and the tap is lost, even with
+ * keyboardShouldPersistTaps="handled" and onPressIn. So the raw touch is
+ * honoured too: a touch that ends where it started fires, and onPress (the
+ * keyboard-down path, and assistive tech) fires the same action. Whichever
+ * arrives first wins; the other is dropped for 400ms.
+ */
+function useKeyboardTap(action: () => void) {
+  const firedAt = useRef(0);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const fire = () => {
+    const t = Date.now();
+    if (t - firedAt.current < 400) return;
+    firedAt.current = t;
+    action();
+  };
+  return {
+    onPress: fire,
+    onTouchStart: (e: GestureResponderEvent) => {
+      start.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+    },
+    onTouchEnd: (e: GestureResponderEvent) => {
+      const s0 = start.current;
+      start.current = null;
+      if (s0 && Math.abs(e.nativeEvent.pageX - s0.x) < 12 && Math.abs(e.nativeEvent.pageY - s0.y) < 12) fire();
+    },
+  };
 }
 
 /** A one-line input with an Add button; submits trimmed, non-empty text. */
@@ -68,7 +99,7 @@ function AddRow({
         returnKeyType="done"
         submitBehavior="submit"
       />
-      <Pressable accessibilityRole="button" accessibilityLabel={`Add: ${placeholder}`} onPress={submit} style={styles.addBtn} hitSlop={6}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Add: ${placeholder}`} {...useKeyboardTap(submit)} style={styles.addBtn} hitSlop={6}>
         <Text style={styles.addBtnText}>Add</Text>
       </Pressable>
     </View>
@@ -99,26 +130,25 @@ export function TaskSheet({
   context: string | null;
 }) {
   const [detail, setDetail] = useState<TaskDetail>(() => emptyTask(subject));
-  const [reachable, setReachable] = useState<boolean | "outdated" | null>(null);
-  const [queued, setQueued] = useState(0);
+  const [server, setServer] = useState<ServerState | null>(null);
+  const [pending, setPending] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [note, setNote] = useState("");
   const now = useNow(1000);
 
-  const refresh = useCallback(async () => {
-    const d = await fetchTask(subject);
-    setReachable(d === "outdated" ? "outdated" : d !== null);
-    if (d !== null && d !== "outdated") setDetail(d);
-  }, [subject]);
-
-  // mounted per opening (the parent unmounts it on close), so state starts
-  // fresh each time; this is the first read
+  // local first: show the phone's copy at once, then sync and show again
   useEffect(() => {
     let live = true;
-    void fetchTask(subject).then((d) => {
+    void readLocal(subject).then((l) => {
       if (!live) return;
-      setReachable(d === "outdated" ? "outdated" : d !== null);
-      if (d !== null && d !== "outdated") setDetail(d);
+      setDetail(l.detail);
+      setPending(l.pending);
+      void syncTask(subject).then((r) => {
+        if (!live) return;
+        setDetail(r.detail);
+        setPending(r.pending);
+        setServer(r.server);
+      });
     });
     return () => {
       live = false;
@@ -127,24 +157,28 @@ export function TaskSheet({
 
   const write = useCallback(
     async (kind: TaskKind, payload: Record<string, unknown>) => {
-      if (reachable === "outdated") return; // see fetchTask: never queue what the server rejects
-      setDetail((d) => applyLocal(d, kind, payload, new Date().toISOString()));
-      const box = appOutbox();
-      await box.outbox.enqueue(kind, payload);
-      setQueued(await box.outbox.depth());
-      try {
-        await box.sync();
-      } catch {
-        // stays queued; the depth below says so
-      }
-      const depth = await box.outbox.depth();
-      setQueued(depth);
-      if (depth === 0) void refresh();
+      await writeTask(kind, payload);
+      const l = await readLocal(subject);
+      setDetail(l.detail);
+      setPending(l.pending);
+      const r = await syncTask(subject);
+      setDetail(r.detail);
+      setPending(r.pending);
+      setServer(r.server);
     },
-    [refresh, reachable],
+    [subject],
   );
 
   const running = detail.running;
+  const saveTap = useKeyboardTap(() => {
+    if (!running) return;
+    const payload: Record<string, unknown> = { session_id: running.session_id };
+    if (note.trim()) payload.note = note.trim();
+    setStopping(false);
+    setNote("");
+    void write("task_session_ended", payload);
+  });
+  const keepGoingTap = useKeyboardTap(() => setStopping(false));
   const elapsed = running ? now.getTime() - Date.parse(running.started_at) : 0;
   const openSubtasks = detail.subtasks.filter((s) => !s.done);
   const doneSubtasks = detail.subtasks.filter((s) => s.done);
@@ -155,9 +189,11 @@ export function TaskSheet({
       {context ? <Text style={styles.meta}>{context}</Text> : null}
       <Text style={styles.meta}>
         this week {formatMinutes(detail.minutes_7d)} · all time {formatMinutes(detail.minutes_total)}
-        {reachable === false ? " · offline, showing what you add" : ""}
-        {reachable === "outdated" ? " · the server needs updating before notes can be saved" : ""}
-        {queued > 0 ? ` · ${queued} queued` : ""}
+        {pending > 0
+          ? ` · ${pending} change${pending === 1 ? "" : "s"} on this phone, ${server === "outdated" ? "will sync once the server is updated" : "waiting to sync"}`
+          : server === "offline"
+            ? " · offline"
+            : ""}
       </Text>
     </View>
   );
@@ -207,19 +243,13 @@ export function TaskSheet({
                 autoFocus
               />
               <View style={styles.stopActions}>
-                <Pressable accessibilityRole="button" onPress={() => setStopping(false)} hitSlop={6}>
+                <Pressable accessibilityRole="button" {...keepGoingTap} hitSlop={6}>
                   <Text style={styles.linkMuted}>keep going</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Save session"
-                  onPress={() => {
-                    const payload: Record<string, unknown> = { session_id: running.session_id };
-                    if (note.trim()) payload.note = note.trim();
-                    setStopping(false);
-                    setNote("");
-                    void write("task_session_ended", payload);
-                  }}
+                  {...saveTap}
                   style={[styles.timerBtn, styles.timerBtnSolid]}
                 >
                   <Text style={[styles.timerBtnText, { color: colors["--bg"] }]}>Save session</Text>

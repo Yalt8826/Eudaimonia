@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 
-import { API_BASE, HABIT_TAP_ENDPOINT, apiUrl, fetchTransport } from "./api";
+import { API_BASE, HABIT_TAP_ENDPOINT, apiUrl, fetchTransport, taskTransport } from "./api";
 import type { ReplayBody } from "./queue";
 
 // The API client contract: the endpoint path is the web client's verbatim,
@@ -101,5 +101,23 @@ describe("fetchTransport", () => {
       `${API_BASE}/api/events/habit_tap`,
       `${API_BASE}/api/events/capture_raw`,
     ]);
+  });
+});
+
+describe("taskTransport — a rejected task event never wedges its queue", () => {
+  const body: ReplayBody = { idempotency_key: "k", kind: "task_item_added", ts: 1, ingested_at: 2, payload: {} };
+  const server = (eventStatus: number, probeStatus: number) =>
+    (async (url: string) =>
+      new Response(null, { status: String(url).endsWith("/api/tasks") ? probeStatus : eventStatus })) as unknown as typeof fetch;
+
+  it("keeps the event while the server predates the task API", async () => {
+    expect(await taskTransport(server(422, 404)).post(body)).toBe(false);
+  });
+  it("drops an event a task-aware server rejects", async () => {
+    expect(await taskTransport(server(422, 200)).post(body)).toBe(true);
+  });
+  it("accepts on 2xx, keeps on 5xx", async () => {
+    expect(await taskTransport(server(200, 200)).post(body)).toBe(true);
+    expect(await taskTransport(server(503, 200)).post(body)).toBe(false);
   });
 });
