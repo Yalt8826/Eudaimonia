@@ -8,7 +8,7 @@
 // background) — this screen's whole job is to not lose the text.
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { appOutbox } from "../../data/appOutbox";
@@ -22,7 +22,11 @@ import { colors, fontFamily } from "../../theme/tokens";
 const MAX_LEN = 4096; // the server's cap (app/app/capture.py MAX_TEXT_LEN)
 
 export default function CaptureScreen() {
-  const [text, setText] = useState("");
+  // T2.6: the "log a meal" affordance deep-links here with ?meal=1 —
+  // the #meal tag IS the classification (capture.py routes it straight
+  // to Hygeia's estimation), so it prefills the sheet
+  const { meal } = useLocalSearchParams<{ meal?: string }>();
+  const [text, setText] = useState(meal !== undefined ? "#meal " : "");
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
