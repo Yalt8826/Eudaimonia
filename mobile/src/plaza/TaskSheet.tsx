@@ -19,6 +19,7 @@ import {
   type TaskHistoryEntry,
   type TaskKind,
 } from "../data/tasks";
+import { buildHeatmap, type HeatCell } from "../data/taskHeatmap";
 import { colors, fontFamily } from "../theme/tokens";
 import { BottomSheet } from "./BottomSheet";
 import { useNow } from "./useNow";
@@ -72,7 +73,7 @@ function useKeyboardTap(action: () => void) {
 }
 
 /** A one-line input with an Add button; submits trimmed, non-empty text. */
-function AddRow({
+function ComposeAdd({
   placeholder,
   onAdd,
 }: {
@@ -80,12 +81,12 @@ function AddRow({
   onAdd: (text: string) => void;
 }) {
   const [text, setText] = useState("");
-  const submit = () => {
+  const tap = useKeyboardTap(() => {
     const t = text.trim();
     if (!t) return;
     onAdd(t);
     setText("");
-  };
+  });
   return (
     <View style={styles.addRow}>
       <TextInput
@@ -95,15 +96,44 @@ function AddRow({
         placeholderTextColor={colors["--muted"]}
         value={text}
         onChangeText={setText}
-        onSubmitEditing={submit}
+        onSubmitEditing={() => {
+          const t = text.trim();
+          if (!t) return;
+          onAdd(t);
+          setText("");
+        }}
         returnKeyType="done"
         submitBehavior="submit"
+        autoFocus
       />
-      <Pressable accessibilityRole="button" accessibilityLabel={`Add: ${placeholder}`} {...useKeyboardTap(submit)} style={styles.addBtn} hitSlop={6}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Add: ${placeholder}`} {...tap} style={styles.addBtn} hitSlop={6}>
         <Text style={styles.addBtnText}>Add</Text>
       </Pressable>
     </View>
   );
+}
+
+const COMPOSE_KINDS = [
+  { key: "next", label: "next note", placeholder: "Note for next session" },
+  { key: "subtask", label: "subtask", placeholder: "Add a subtask" },
+  { key: "log", label: "log", placeholder: "Log what you did (no timer)" },
+] as const;
+
+type ComposeKind = (typeof COMPOSE_KINDS)[number]["key"];
+
+const HEAT_LEVEL_COLOR: Record<HeatCell["level"], string> = {
+  0: colors["--glass-border"],
+  1: "rgba(45, 212, 191, 0.25)",
+  2: "rgba(45, 212, 191, 0.45)",
+  3: "rgba(45, 212, 191, 0.7)",
+  4: colors["--accent-1"],
+};
+
+function cellLabel(c: HeatCell): string {
+  const day = `${DAYS[c.date.getDay()]} ${c.date.getDate()} ${MONTHS[c.date.getMonth()]}`;
+  if (c.entries.length === 0) return `${day}: no activity`;
+  if (c.minutes <= 0) return `${day}: logged work, no time recorded`;
+  return `${day}: worked ${formatMinutes(c.minutes)}`;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -134,6 +164,10 @@ export function TaskSheet({
   const [pending, setPending] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [note, setNote] = useState("");
+  // the activity heatmap: which day is expanded (null = collapsed)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // the ONE add affordance: null = closed, else the kind being composed
+  const [compose, setCompose] = useState<ComposeKind | null>(null);
   const now = useNow(1000);
 
   // local first: show the phone's copy at once, then sync and show again
@@ -170,6 +204,8 @@ export function TaskSheet({
   );
 
   const running = detail.running;
+  const heat = buildHeatmap(detail.history, now);
+  const selected = selectedDay !== null ? heat.columns.flat().find((c) => c.day === selectedDay) ?? null : null;
   const saveTap = useKeyboardTap(() => {
     if (!running) return;
     const payload: Record<string, unknown> = { session_id: running.session_id };
@@ -182,6 +218,29 @@ export function TaskSheet({
   const elapsed = running ? now.getTime() - Date.parse(running.started_at) : 0;
   const openSubtasks = detail.subtasks.filter((s) => !s.done);
   const doneSubtasks = detail.subtasks.filter((s) => s.done);
+
+  const addByKind = useCallback(
+    (kind: ComposeKind, text: string) => {
+      if (kind === "log") {
+        void write("task_log_added", { subject, log_id: newTaskId(), text });
+        return;
+      }
+      void write("task_item_added", { subject, item_id: newTaskId(), type: kind, text });
+    },
+    [subject, write],
+  );
+
+  const heatCell = (c: HeatCell) => (
+    <Pressable
+      key={c.day}
+      accessibilityRole="button"
+      accessibilityLabel={cellLabel(c)}
+      accessibilityState={{ selected: selectedDay === c.day }}
+      disabled={c.future || c.entries.length === 0}
+      onPress={() => setSelectedDay((d) => (d === c.day ? null : c.day))}
+      style={[styles.heatCell, { backgroundColor: HEAT_LEVEL_COLOR[c.level] }, c.future && styles.heatFuture]}
+    />
+  );
 
   const header = (
     <View accessible accessibilityRole="header" accessibilityLabel={`${subject}${context ? `, ${context}` : ""}`}>
@@ -258,6 +317,98 @@ export function TaskSheet({
             </View>
           ) : null}
 
+          {/* the activity heatmap: when this task actually got worked */}
+          <Section title="ACTIVITY · LAST 18 WEEKS">
+            <View style={styles.heatWrap}>
+              <View style={styles.heatGrid}>
+                {heat.columns.map((column, ci) => (
+                  <View key={ci} style={styles.heatColumn}>{column.map(heatCell)}</View>
+                ))}
+              </View>
+              <View style={styles.heatLegend}>
+                <Text style={styles.heatLegendText}>less</Text>
+                {([0, 1, 2, 3, 4] as const).map((l) => (
+                  <View key={l} style={[styles.heatCell, { backgroundColor: HEAT_LEVEL_COLOR[l] }]} />
+                ))}
+                <Text style={styles.heatLegendText}>more</Text>
+              </View>
+            </View>
+            {selected !== null ? (
+              <View style={styles.dayBox}>
+                <Text style={styles.dayBoxDate}>
+                  {dayLabel(selected.date.toISOString())}
+                  {selected.entries.length > 0
+                    ? ` · ${selected.minutes > 0 ? formatMinutes(selected.minutes) : "logged, no time"}`
+                    : ""}
+                </Text>
+                {selected.entries.length === 0 ? (
+                  <Text style={styles.empty}>no activity that day</Text>
+                ) : (
+                  selected.entries.map((h) => (
+                    <View key={h.id} style={styles.historyRow}>
+                      <Text style={styles.historyMeta}>{historyMeta(h)}</Text>
+                      {h.text ? <Text style={styles.historyText}>{h.text}</Text> : null}
+                    </View>
+                  ))
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="close the day details"
+                  onPress={() => setSelectedDay(null)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.linkMuted}>close</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.heatHint}>tap a day for its sessions and logs</Text>
+            )}
+          </Section>
+
+          {/* the ONE add affordance: + opens a compose box with a kind
+              picker; the entry lands in its section above */}
+          {compose === null ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="add a next note, subtask, or log"
+              onPress={() => setCompose("subtask")}
+              style={styles.addPlus}
+            >
+              <Text style={styles.addPlusText}>＋ add</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.composeBox}>
+              <View style={styles.composeKinds}>
+                {COMPOSE_KINDS.map((k) => (
+                  <Pressable
+                    key={k.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: compose === k.key }}
+                    accessibilityLabel={`compose: ${k.label}`}
+                    onPress={() => setCompose(k.key)}
+                    style={[styles.composeKind, compose === k.key && styles.composeKindOn]}
+                  >
+                    <Text style={[styles.composeKindText, compose === k.key && styles.composeKindTextOn]}>
+                      {k.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <ComposeAdd
+                placeholder={COMPOSE_KINDS.find((k) => k.key === compose)?.placeholder ?? "add"}
+                onAdd={(text) => addByKind(compose, text)}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="close the compose box"
+                onPress={() => setCompose(null)}
+                hitSlop={8}
+              >
+                <Text style={styles.linkMuted}>done</Text>
+              </Pressable>
+            </View>
+          )}
+
           <Section title="NEXT TIME">
             {detail.next.map((n) => (
               <View key={n.id} style={styles.nextRow}>
@@ -275,10 +426,9 @@ export function TaskSheet({
                 </Pressable>
               </View>
             ))}
-            <AddRow
-              placeholder="Note for next session"
-              onAdd={(text) => void write("task_item_added", { subject, item_id: newTaskId(), type: "next", text })}
-            />
+            {detail.next.length === 0 ? (
+              <Text style={styles.empty}>nothing pinned for next time — ＋ add one</Text>
+            ) : null}
           </Section>
 
           <Section title={`SUBTASKS${openSubtasks.length ? ` · ${openSubtasks.length} open` : ""}`}>
@@ -309,19 +459,14 @@ export function TaskSheet({
                 </Pressable>
               </View>
             ))}
-            <AddRow
-              placeholder="Add a subtask"
-              onAdd={(text) => void write("task_item_added", { subject, item_id: newTaskId(), type: "subtask", text })}
-            />
+            {detail.subtasks.length === 0 ? (
+              <Text style={styles.empty}>no subtasks — ＋ add one</Text>
+            ) : null}
           </Section>
 
           <Section title="SESSIONS">
-            <AddRow
-              placeholder="Log what you did (no timer)"
-              onAdd={(text) => void write("task_log_added", { subject, log_id: newTaskId(), text })}
-            />
             {detail.history.length === 0 ? (
-              <Text style={styles.empty}>no sessions yet — start the timer, or log one</Text>
+              <Text style={styles.empty}>no sessions yet — start the timer, or ＋ log one</Text>
             ) : (
               detail.history.map((h) => (
                 <View key={h.id} style={styles.historyRow}>
@@ -416,6 +561,66 @@ const styles = StyleSheet.create({
   addBtn: { paddingVertical: 8, paddingHorizontal: 6 },
   addBtnText: { ...mono, fontSize: 13, color: colors["--accent-1"] },
   empty: { ...mono, fontSize: 12.5, color: colors["--muted"], marginTop: 10 },
+  heatWrap: { gap: 8 },
+  heatGrid: { flexDirection: "row", gap: 2 },
+  heatColumn: { gap: 2 },
+  heatCell: {
+    width: 13,
+    height: 13,
+    borderRadius: 3,
+  },
+  heatFuture: { opacity: 0.15 },
+  heatLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    justifyContent: "flex-end",
+  },
+  heatLegendText: { ...mono, fontSize: 10.5, color: colors["--muted"], marginHorizontal: 3 },
+  heatHint: { ...mono, fontSize: 11, color: colors["--muted"], marginTop: 2 },
+  dayBox: {
+    marginTop: 4,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors["--accent-1"],
+    backgroundColor: colors["--glass-fill"],
+    gap: 8,
+  },
+  dayBoxDate: { fontFamily: fontFamily.bold, fontSize: 14.5, color: colors["--text"] },
+  addPlus: {
+    alignSelf: "center",
+    marginTop: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 22,
+    borderRadius: 9999,
+    borderWidth: 1.5,
+    borderColor: colors["--accent-1"],
+  },
+  addPlusText: { ...mono, fontSize: 14, color: colors["--accent-1"] },
+  composeBox: {
+    marginTop: 18,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors["--glass-border"],
+    backgroundColor: colors["--glass-fill"],
+    gap: 10,
+    alignItems: "flex-end",
+  },
+  composeKinds: { flexDirection: "row", gap: 6, alignSelf: "stretch" },
+  composeKind: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors["--glass-border"],
+    alignItems: "center",
+  },
+  composeKindOn: { borderColor: colors["--accent-1"], backgroundColor: colors["--glass-fill"] },
+  composeKindText: { ...mono, fontSize: 12, color: colors["--muted"] },
+  composeKindTextOn: { color: colors["--accent-1"] },
   historyRow: {
     marginTop: 10,
     paddingBottom: 10,
