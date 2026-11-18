@@ -1,165 +1,185 @@
 # Eudaimonia — What's Implemented So Far
 
-As of 2026-10-24
+As of 2026-11-19 (rewritten from the 2026-10-24 edition after P2 closed)
 
 ## Overview
 
-The Expo mobile client is built through milestone M5 and verified on a physical phone, while the server is still a skeleton. M5 is merged: `main` holds M0–M5, pushed to origin on 2026-10-24.
+The app is a write surface now. P0 (foundation), P1 (adapters + Plaza read
+model) and **P2 (writes) are complete** — wake, inbox, capture+triage,
+questions, notes, tasks, routine ticks and meals all land on the spine —
+while the Expo client has moved well past M5: the Plaza reads live data,
+task pages and routine ticks work local-first, and the phone has survived
+two force-stop legs on device. The server is supervised by systemd user
+units; both wellness profiles run on DeepSeek after the GLM balance death.
 
-Eudaimonia is a personal life-OS: one FastAPI + SQLite server on olympus, with thin clients. The data plane (`/api/*`) is tailnet-only with no auth. Agents run on the server through `hermes --profile`; the phone never schedules anything.
+Eudaimonia is a personal life-OS: one FastAPI + SQLite server on olympus,
+with thin clients. The data plane (`/api/*`) is tailnet-only with no auth.
+Agents run on the server through `hermes --profile`; the phone never
+schedules anything.
 
 | Area | State | Evidence |
 | --- | --- | --- |
 | Plan and design docs (v1, docs 01–10) | Ratified | `docs/plan/v1/` |
-| Phase and task docs | Written for P0–P6 and M | `docs/implementation/` |
-| Server (`app/`) | P0 foundation + the T2.1 ingest door | pytest suite (56+1), CI; T2.1 device leg green |
-| Web client (`client/`) | Built, frozen as the reference render | vitest suite (128), kept green until M8 |
-| Mobile client (`mobile/`) | M0–M5 done; taps now reach the server | 155 jest tests; T2.1 round-trip measured on the phone |
-| Interactive widget, push, cutover (M6–M8) | Not started | none |
+| Phase and task docs | P0–P2 written and executed; P3–P6 written | `docs/implementation/` |
+| Server (`app/`) | P0 + P1 + P2 complete | pytest 148 (+2 hardware-gated real-hermes legs), CI green |
+| Web client (`client/`) | Feature-frozen reference render | vitest suite, kept green until M8 |
+| Mobile client (`mobile/`) | M0–M5 + P2 write surfaces; 242 jest tests | device legs: T2.1, T2.7, meals/capture live legs |
+| Interactive widget, push, cutover (M6–M8) | Not started | M7 gated on the §7 notification spec |
+| Ops (olympus) | Supervised | `eudaimonia-uvicorn.service`, `eudaimonia-static.service` |
 
 The laws that shape every component, from `02-architecture.md` §2 and §6:
 
-- **Append-only spine.** Every state change is an event. Corrections are new events, never `UPDATE` or `DELETE`.
-- **Freshness is not success.** A source counts as read only when its artifact passes a success predicate.
-- **Coverage honesty.** A missing day is data, never a zero.
+- **Append-only spine.** Every state change is an event. Corrections are
+  new events, never `UPDATE` or `DELETE`.
+- **Freshness is not success.** A source counts as read only when its
+  artifact passes a success predicate.
+- **Coverage honesty.** A missing day is data, never a zero; a stale
+  plan renders "coverage unavailable offline", not a fabricated 0 of 7.
 - **One agent primitive.** Every agent call goes through `agent_invoke`.
-- **Hard-mode wake surface.** The wake tap needs no navigation, works offline, and queues with its original timestamp.
+- **Hard-mode wake surface.** The wake tap — and now every write — needs
+  no navigation, works offline, and queues with its original timestamp.
 - **Single-writer statuses.** Each status enum has exactly one writer.
 
 ## Server (`app/`)
 
-The server implements the foundation of P0 plus the first P2 task: the health route, the frozen schema, the agent chokepoint, and — since 2026-10-24 — the app-write ingest door. It has about 780 lines across five modules plus the 224-line `001_initial.sql`, and 57 pytest tests (56 run in CI, one hardware-gated behind `--real-hermes`). The P1 adapters and the Plaza read model are still unbuilt.
+About 2,300 lines across thirteen modules plus the migrations. Every
+client write lands through one door; every agent call through one
+chokepoint; the spine's `UNIQUE(source_id, kind, external_ref)` is the
+only idempotency mechanism anywhere.
 
-| Piece | What it does |
+| Module | What it does |
 | --- | --- |
-| `app/main.py` | `GET /api/health` returns `{"status":"ok"}`. Any other path serves the built web client from `client/dist`, falling back to `index.html` so deep links work. Unknown `/api/*` paths return JSON 404, and a missing build returns 503. |
-| `app/db.py` | SQLite connection, forward-only migration runner, and `insert_event`, the one function that writes to the spine. |
-| `migrations/001_initial.sql` | Schema v0.1 plus the v0.2 additive tables: `source`, `event`, `loop`, `question`, `reading_item`, `habit`, `document`, `provenance_edge`, `context_note`, `project`, `goal`, `assignment`, and the `coverage` view. |
-| `app/coverage.py` | `derive_render_state` maps a coverage row to one of the five render states, so every strip reads freshness the same way. |
-| `app/agent_invoke.py` | The only module allowed to spawn `hermes`. |
+| `main.py` | Health; the ingest door; wake stats; capture doors; notes; questions; loops; tasks; plan/today; routine day; meals/recent; ingest/run; coverage. Serves `client/dist` at `/`. |
+| `db.py` | SQLite connection, forward-only migration runner, `insert_event` — the one spine writer. |
+| `migrations/001_initial.sql` | Schema v0.1 + v0.2 additive tables + the `coverage` view. |
+| `ingest.py` | `POST /api/events/{kind}` — the client write door. Kind registry (habit_tap, capture_raw, loop resolutions, task kinds, routine ticks); `ts` = tap time; idempotency via the spine. |
+| `adapters.py` | P1: chain-following adapters (day-report, week-plan, tasklist; kanban descoped), content-dated or refusal, dedupe by constraint. Week-plan lines carry `plan_keys` — T1.3's stable routine slugs (07 §19). |
+| `coverage.py` | `derive_render_state`: one freshness definition for every strip. |
+| `agent_invoke.py` | The only spawn site (grep-enforced). Per-profile lock, enforced timeout, start + terminal events with `duration_ms`. |
+| `capture.py` | T2.3 + T2.6: the capture doors, clio classification, **meal estimation via Hygeia**, per-attempt append-only triage events, provenance edges, `recent_meals`. |
+| `routines.py` | T2.7: `routine_done`/`routine_skip` validation and the day read model. No routine table — the spine is the storage. |
+| `tasks.py` | Task kinds (item add/check/remove, session start/end, logs) — app-write and agent-write. |
+| `questions.py` | T2.5: open queue, ask dispatch, answered-by-predicate with revert-on-failure. |
+| `loops.py` | T2.2: waiting-on rows, resolutions (done/rolled/dropped), cache updated from drained events. |
+| `wake.py` | The wake strip's numbers. |
+| `staged_writebacks.py` | T2.4: the repo's ONLY vault writer — notes staged then appended to the daily note. |
 
-**The spine.** `event` carries `ts`, `kind`, `origin` (`source-read`, `app-write` or `agent-write`), `source_id`, `external_ref`, `actor` and a JSON payload. `UNIQUE(source_id, kind, external_ref)` is the single idempotency mechanism, so replaying the same tap cannot create a second row.
+### The write paths (P2, closed)
 
-**The `coverage` view.** It counts distinct content-dated days in the trailing 7 where a source-read event carries `ok = 1`. It also reports `artifact_count` — all-time source-read *attempts*, pass or fail (so day-report's 64 on olympus is 7 reads + the 57 historical failures from the 2026-10-29 sweep; it separates "never tried" from "tried and failing" and is not a count of reports) — and whether a human-authored `job_paused` event exists. It returns counts, never per-day rows, so a missing day is data and not a zero.
+| path | door | landing |
+| --- | --- | --- |
+| Wake tap | offline queue → ingest door | `habit_tap` (method tap/recall) |
+| Waiting-on | loops screen | `loop_done` / `loop_rolled` / `loop_dropped` (`{loop_id}:{day}` refs) |
+| Capture | sheet (offline queue) or `/capture` (fuzzel, PWA) | `capture_raw` → clio triage → domain landing |
+| Task threads | tasks screen (own queue, local-first) | `task_item_*`, `task_session_*`, `task_log_added` |
+| Notes | questions→notes→vault | `note_added` → staged write-back |
+| Questions | questions screen | ask → `question_picked_up`/`question_answered`, revert on failure |
+| **Routine ticks** | plan card, plan sheet, `/routine` (offline-capable) | `routine_done` (method tap/recall) / `routine_skip` — `{routine_key}:{date}` refs, one per block per day |
+| **Meals** | capture sheet prefilled `#meal` | clio noun "meal" or the tag → Hygeia estimation → `meal_logged` with per-item `food_db:` bases |
 
-**`agent_invoke`.** It runs `hermes --profile <name> -z <prompt>`, with a `$HERMES_HOME/bin/hermes` fallback for shells that lack the PATH. The chokepoint enforces the timeout itself and takes a per-profile lock. Every call writes an `agent_invoke_started` event and exactly one terminal `agent_invoke_result` event with outcome `ok`, `timeout`, `error` or `predicate_failed`, so silence cannot pass for success. A real call to the `clio` profile was recorded on olympus on 2026-10-10 and took about 27 seconds.
+**T2.3/T2.6 exit evidence** (`docs/implementation/T2.3-MEASUREMENTS.md`):
+fuzzel capture → triaged measured twice. The 2026-10-25 leg ran 13 real
+captures (median 198 s) against the then-degraded upstream; the
+2026-11-19 burst ran 10 real captures on the repaired provider — **every
+target noun exercised live (task, question, loop, note, meal), worst case
+21.3 s, budget 300 s**. The failure clause was also verified against
+reality: a real provider outage met the 180 s chokepoint cap exactly and
+landed `capture_triaged_failure` with nothing else.
 
-**The ingest door (`app/app/ingest.py`, T2.1).** `POST /api/events/{kind}` is the one server door clients write through; the wire shape is the phone outbox's `ReplayBody`. The laws it enforces: idempotency is the spine's `UNIQUE(source_id, kind, external_ref)` with `external_ref` built from the device UUID **and** `ts` (the key alone is constant per install — deduping on it would make a device's first tap its last stored event); `source_id` is never NULL (SQLite treats NULLs as distinct — the constraint cannot dedupe them), every client write attaches the one behavioral `app` source row; `event.ts` is the client's tap time to the millisecond while `ingested_at` is stamped by the server at receipt and rides the payload; contract violations are 4xx (the outbox's poison path), a replay is 200 `duplicate:true` — never a second row. Kinds are registered one task at a time (`habit_tap` today, routine ticks at T2.7); an unregistered kind is a loud 422, never a silent spine row. Verified end-to-end on the phone — airplane tap → force-stop → relaunch → exactly one event, `ts` the tap moment, receipt 17 s later: `mobile/renders/T2.1-MEASUREMENTS.md`.
+**T2.6's predicate is the estimates law**: strict JSON, every item needs
+a `food_db:` basis; a basis-less estimate rejects the whole response into
+`capture_triaged_failure` — enforced at the chokepoint, live (hygeia
+estimated 3 items in 13 s, every basis a USDA ref). `~` is applied at
+render by `est()`; the screen's gate test strips every `est()` span and
+fails if any estimate field is left bare.
+
+### The infra outage ledger (found by the legs, fixed)
+
+| outage | window | fix |
+| --- | --- | --- |
+| uvicorn (prod API) down | Nov 6 20:45 → Nov 18 23:59 | restarted on the T2.6 build; **now `eudaimonia-uvicorn.service`** (Restart=always, proven by kill -9 revival) |
+| static plane (port 8090) down | same window | **now `eudaimonia-static.service`** (revival proven) |
+| clio dead: GLM balance (429 code 1113) | ~Nov (found Nov 19) | clio default model → `ds/deepseek-chat` (same 9Router/key; old config backed up `config.yaml.bak-20261119`) |
+| hygeia same balance death | found Nov 19 | same one-line fix; hygeia answers in ~34 s |
 
 ## Web client (`client/`)
 
-The React/Vite PWA is feature-frozen and kept deployable as the reference render for the Expo port. It has 3 screens with real content (the Plaza, wake, settings) and 17 stubs — 20 routes in all; the migration plan's "5 screens with real content" overcounted, and the route table is authoritative (corrected here 2026-10-24). It stays green until M8, so rollback during the migration is "deploy `client/` as before".
-
-- **Stack.** React 19, react-router 7, Vite, vitest, pnpm. Node is pinned by `.nvmrc`.
-- **Screens with content.** The Plaza (five torn-paper sheets, greeting header, nav cluster), the wake screen and settings.
-- **Offline contract.** `src/sw/` holds the service worker, the precache list and `queue.ts`. The queue sets `ts` at tap time, `ingested_at` at replay time, and a device-UUID idempotency key. `queue.ts` is what the mobile outbox was ported from.
-- **Torn-paper surface.** `TornSheet`, `TornPaperSection`, the tear SVGs and the paper texture, with measured contrast ratios carried in `theme.css`.
-- **Frozen copy.** `preserved/torn-paper-web/` holds the surface as of commit `c0740e8`, including its README of hard-won rules. Delete it only after M8 sign-off.
+Feature-frozen reference render (React 19, Vite, vitest) — rollback is
+"deploy `client/` as before". `preserved/torn-paper-web/` stays until M8
+sign-off. The static plane is supervised (above).
 
 ## Mobile app (`mobile/`)
 
-The Expo client renders the full Plaza, a gesture-driven nav, and a wake screen whose taps survive airplane mode, force-stop and an app update. It runs Expo SDK 57, React Native 0.86, React 19.2, Skia 2.6, Reanimated 4.5 and expo-router 57, with 155 jest tests. The server is untouched, per the phase rule.
+Expo SDK 57, RN 0.86, Skia 2.6, Reanimated 4.5. 242 jest tests, tsc
+clean, eslint at the pre-existing warning count. The phone runs the
+2026-11-18 build (T2.7 + offline plan cache).
 
-| Milestone | What was built | Exit evidence |
-| --- | --- | --- |
-| M0 | Skia spike of one mint torn-paper sheet: tear mask, fibre texture, fringe | 5 of 7 acceptance rows passed at 390px / 3× DPR on Android |
-| M1 | expo-router shell with 20 routes as stubs, `theme.css` ported to typed tokens, contrast suite ported | 63 of 63 jest, route count 20 = 20 against the web test, all routes deep-linked on device |
-| M2 | The Plaza: five Skia sheets on three hand-authored contours, gradient greeting header, static bubble cluster | Renders at 320 and 430 measured against the preserved references on the owner's phone |
-| M3 | API client, offline outbox on expo-sqlite, wake round-trip | Queue semantics ported verbatim from `client/src/sw/queue.ts` |
-| M4 | The nav as a real radial gesture, with motion tokens | Gesture works on device; the screen transition was removed after measuring it invisible |
-| M5 | APK pipeline and device verification | See the next section |
+**Real surfaces (8 of 20 routes)** — Plaza (glass plan card with tick
+column, habits coverage line, waiting-on counts), wake (hard-mode),
+inbox (waiting-on + resolutions), capture (+ `?meal=1` prefill),
+questions, notes, **routine** (day detail: tick/skip/recall), **meals**
+(day cards, `~` marks, mismatch flag, log-a-meal deep link).
 
-**Surface and theme.** `MintSheet` and `TornSheet` paint the torn paper in Skia. The three contours are the hand-authored tables from `author_tears.py`, shipped as SVG and as `tearContours.ts`, with `tear-metrics.json` driving text padding. `src/theme/tokens.ts` is the only place accent and state hexes may live, and `contrast.test.ts` recomputes every ratio. Fonts are IBM Plex Sans and Mono.
+**Offline-first, two queues.** The app outbox (T2.1 armor: wake taps,
+capture_raw, routine ticks — a tick needs zero queue code of its own,
+import-asserted) and the task outbox (local-first task pages). Replay
+triggers: reconnect, foreground, install. The plan revision rides the
+phone (kv) so the tick surface survives outages offline — found by the
+T2.7 device leg: blocks that do not render cannot tick.
 
-**Plaza.** `plaza/model.ts` defines the five strips (mint, sky, blush, butter, lavender). Until the P1 adapters exist, each strip renders its true state: uninstrumented, with an honest coverage line and no fabricated counts. `greeting.ts` and the model were ported unchanged from the web client.
+**Routine ticks (T2.7)** — done and device-verified
+(`mobile/renders/T2.7-MEASUREMENTS.md`): airplane tick → force-stop →
+relaunch → exactly one `routine_done`, `ts` = tap time (delta 0 s),
+`external_ref` = `gre-deep-work:2026-11-18`, dedupe holds on re-foreground.
+`routine_skip` renders muted (covered-not-done); recall ticks render `~`
+everywhere; a tick-less day renders its coverage line, never a zero. Keys
+are T1.3's extractor slugs — never typed or derived client-side.
 
-**Navigation.** `radialModel.ts` is a pure, clock-injected state machine: a hold of about 150ms or a drag past about 10px fans out the bubbles, and selection is by angle past a dead zone. Release on a spoke navigates, and release on nothing folds back. `BubbleCluster.tsx` performs the actions, and a quick tap still goes to `/capture`. `theme/motion.ts` pins every threshold, and `motion.test.ts` scans the source so motion never encodes data. The wake screen sits outside the shell with no entrance animation.
+**Meals (T2.6)** — `/meals` renders the estimates law structurally:
+`est()` is the only tilde source for numbers (gate-tested), totals are
+the sum of rows, a disagreeing stored total fires the mismatch flag.
+Photo-only captures stay honestly `skipped` until a vision transport
+exists (the ref rides the prompt when text accompanies it).
 
-**Offline outbox (M3).** The three hard-mode fields are fixed by `queue.ts`:
+## APK pipeline and device verification (M5, re-verified since)
 
-- `ts` is the tap time, captured at enqueue.
-- `ingested_at` is the retry time, set only at replay.
-- `idempotency_key` is a device UUID that rides every event.
-
-Replay runs in enqueue order and stops at the first failed POST. Storage is a SQLite file that also holds the device UUID. Replay triggers are reconnect, next foreground, and an immediate sync after each enqueue and at install, all funnelled through one serialized scheduler so triggers cannot double-POST. The API base defaults to `https://olympus.tail7270c7.ts.net`, because uvicorn binds only to localhost on olympus. The ingest endpoint went live on 2026-10-24 (T2.1) — a wake tap now completes the round-trip: `mobile/renders/T2.1-MEASUREMENTS.md`.
-
-**Wake screen.** A full-bleed teal screen with one "I'M AWAKE" target and a "~recall instead" option. Offline, taps queue silently and the screen never blocks. The label is drawn in Skia because Fabric measured it with fallback metrics on a cold direct-link start.
-
-## APK pipeline and device verification (M5)
-
-A signed release APK installs and cold-starts in at most 373 ms on the owner's phone, against a 2000 ms budget. The phone is an A059 (OnePlus), 1080×2392, running Android 16, driven over USB adb from athena. The numbers below are from `mobile/renders/M5-MEASUREMENTS.md`.
-
-**Build.** Package `com.yalt8826.eudaimonia`, versionCode 1. `eas.json` defines `development` (dev client), `preview` (signed APK, the M5 artifact) and `production` (AAB). `scripts/build-apk.sh <profile>` runs the same prebuild and Gradle path locally and copies each artifact to `dist/`. Signing uses an own keystore, wired in by the config plugin `withReleaseSigning.js` rather than hand-edited Gradle. The release APK is 158,278,214 bytes across 4 ABIs, and the dev-client APK is 339,806,915 bytes.
-
-| Exit test | Result |
-| --- | --- |
-| APK installs on a physical device | Pass, 12.19 s |
-| Cold start to the Plaza within 2 s | Pass, worst 373 ms over three runs (re-run: 325 ms) |
-| `web+eudaimonia://wake` lands on the wake route | Pass, 250 ms cold (re-run: 224 ms) |
-| Wake surface never shows browser chrome | Pass, and the tripwire was proven to fire when the app is disabled |
-| Offline: app opens and the wake tap queues | Pass, 221 ms cold open in airplane mode |
-| Drain survives an app update | Pass: a tap queued at 01:00:06 ingested at 01:08:56 after an `install -r`, once, with its original `ts` |
-| Dev-client launcher check | Pending: scripted, but it uninstalls the app and needs your approval |
-
-**Deep link.** expo-router reads `web+eudaimonia://wake` as the path `/wake`, which matches no screen. `app.json`, `+native-intent.tsx` and `wakeIntent.ts` rewrite that short link to `/habits/wake`, and `wakeIntent.test.ts` pins the three together. There is exactly one wake route.
-
-**Harness fixes.** `scripts/verify_apk.sh` has one leg per flag and its exit code is the verdict. Four defects made it misreport the app, and none were app bugs:
-
-- Android silently dropped cleartext POSTs from the release build. `app.config.js` now enables cleartext only when the baked API base is `http://`.
-- The cleartext check grepped a compiled binary manifest, where the attribute is a resource ID, so it could never pass. It now reads the source manifest.
-- The drain assertion demanded one POST when the contract is that every queued event ingests exactly once.
-- The phone dozed during the 9-minute Gradle build. The harness now wakes the device immediately before install.
-
-Build artifacts were once destroyed by `expo prebuild --clean`, so every profile's output is now preserved to `dist/`.
+Signed release APK via `scripts/build-apk.sh preview`; installs in-place
+(same cert), cold start worst 373 ms, deep links land and never degrade
+to browser chrome. Since M5: the phone took the 2026-11-01 (tasks) and
+2026-11-18 (T2.7) builds; two force-stop legs ran on it (T2.1 Oct 24,
+T2.7 Nov 18 — the latter's tick `ts` matched the tap to 0 s and drained
+17.4 s later, the honest receipt pair).
 
 ## Tooling, CI and lints
 
-CI runs four jobs on every pull request and on pushes to `main`. Only the server and web client are covered, and the mobile app has no CI job yet.
-
-| Job | Runs |
-| --- | --- |
-| `app` | `uv sync --locked`, ruff, mypy (strict), pytest on Python 3.13 |
-| `client` | pnpm install, eslint, `tsc --noEmit`, vitest |
-| `greps` | The three lints from `EXECUTION.md` §4, via `scripts/lint_greps.sh` |
-| `lint-selfcheck` | Each lint must fail on its fixture and pass on the clean tree |
-
-The three grep lints:
-
-- **Blur budget.** At most one `backdrop-filter` per screen route.
-- **Accent hexes.** Accent and state hex values may appear only in `client/src/theme.css` and `mobile/src/theme/tokens.ts`.
-- **Chokepoint.** No `subprocess`, `Popen` or `hermes` outside `agent_invoke.py`.
-
-A fixture that violates each rule proves the regex still fires. Mobile checks are run by hand: `npx jest`, `npx tsc --noEmit` and `npx expo lint`.
-
-Other conventions: tasks use a commit pair (a baseline commit, then the closing commit), `core.fileMode` is false because of the fuseblk mount, pushes go over HTTPS through athena's gh credential helper, and history is never rewritten.
+Unchanged from the 2026-10-24 edition: four CI jobs (`app`, `client`,
+`greps`, `lint-selfcheck`), the three grep lints with failing fixtures,
+commit pairs per task, `core.fileMode` false on fuseblk, history never
+rewritten. Standing greps green across the P2 diff (verified 2026-11-19
+at the phase exit). Still open: no mobile CI job; mobile checks run by
+hand (`npx jest`, `npx tsc --noEmit`, `npx expo lint`).
 
 ## Known gaps and what is next
 
-The ingest door exists and is live; the next server gap is the P1 adapters and the Plaza read model — the phone posts real events, but nothing reads them yet.
-
 | Gap | Detail |
 | --- | --- |
-| P1 adapters and read model | The WAKE row reads the spine since 2026-10-24 (`/api/habits/wake/stats` — days-of-7, last tap with age_minutes); every other strip is still static-uninstrumented, and nothing consumes the `coverage` view yet. Phase P1 work. |
-| ~~Wake status vs outbox depth~~ ~~Weak offline assertion~~ | **Closed 2026-10-24**: the wake surface reads real outbox depth (`registered` at 0, `queued · will sync` above it) and is one-shot — a double-tap can no longer mint a second event (the 4-event morning). Ships in the next APK; the device legs' grep for "will sync" stays valid until then. |
-| Poison-entry UX | A 4xx marks nothing on the phone yet — the outbox keeps the event queued and silent. T2.1's queue spec wants `failed` + a visible plaza line. |
-| ~~Flaky mobile tests~~ | **Closed 2026-10-24**: jest `testTimeout` raised to 30 s (the 3 heavy-render suites measured 8-14 s locally; the 5 s default first bit on CI's loaded runner). 166/166 green locally and in CI. |
-| **P1 adapters (partial)** | **Live 2026-10-29**: the adapter framework (chain-following, content-dated or refusal, dedupe-by-constraint, failures as source_read_failure) + day-report (both header generations), week-plan (rolling revisions, both header forms) and tasklist adapters. REAL ingest on olympus: 8 vault day reports (Aug 14–Sep 4) + the rolling files landed; the noesis cron dir carries cron RUN LOGS, not day reports — skipped silently (the 57-noise-failures bug caught and fixed). /api/coverage + /api/ingest/run live. The Plaza's Habits strip reads the coverage; plan/yesterday strips wire the same fetch next build. Kanban descoped. |
-| **T2.5 question lifecycle** | **Live 2026-10-25**: GET /api/questions/open + POST /api/questions/{id}/ask — the ONE writer (the ask flow) settles picked_up by dispatch, answered on a passing predicate (question_answered event + provenance edge), and REVERTS to open on any terminal failure. 6 server tests, all mocked (the live ask waits on the clio blocker); /questions screen shipped in the latest APK. |
-| **BLOCKED: clio upstream degraded (2026-10-25)** | agent invocations fail intermittently (exit 1 at 17-27s; successes run 133-173s — pattern suggests upstream/model-service flakiness, cause undiagnosed). 3 triage attempts failed since the 13/13 exit test; every failure recorded honestly as capture_triaged_failure, captures stay untriaged with the retry affordance ready. NOT a code issue. Unblocks: 2 note captures awaiting triage+apply, T2.6 meals (agent estimation), T2.5's answered state. |
-| **T2.3 capture + triage** | **Live and COMPLETE 2026-10-25**: POST /capture + the generic door land capture_raw; triage through agent_invoke (clio, 180 s single attempt) sweeps every landing. Exit test MEASURED: 13 real captures, median capture→triaged **198 s** (budget 300 s), 0 failures. The capture LIST is live (`/api/capture/recent` + the sheet's RECENT rows) and the MANUAL re-triage affordance works: attempt-numbered events append beside the originals (a failed capture re-triaged live — `:failure` then `:triaged:2`, target note). Fuzzel script ready for the keybind. Note/meal domain paths land with T2.4/T2.6. |
-| Dev-client launch check | Scripted as `verify_apk.sh devclient`, not yet run. It uninstalls the ship APK and the outbox with it, so it needs approval. |
-| ~~Weak offline assertion~~ | Closed with the wake-status row above (the claim now reads outbox depth). |
-| `assetlinks.json` | Returns 404 on the public origin. It matters only for https app-links in M8. |
-| Mobile CI | No CI job runs the mobile tests, lint or typecheck. |
-| Notification policy | Push (M7) is blocked until the spec gap in `10-stack-migration.md` §7 is written. |
-| Keystore custody (partial) | Off-box copy exists on olympus's vault since 2026-10-24 (`/srv/data/vaults/main/.eudaimonia-keystore-backup/`, mode 600, sha256-verified at copy time). Still owed: one copy on a third site + a rehearsed restore drill (P6 T6.2). |
+| **Phase two-pass** | P2's exit claims were verified 2026-11-19; the second pass (different greps, cold re-read) is owed the next day per EXECUTION §5. |
+| **Weekly review (user action)** | The live Week Plan is the 31 Aug revision — `plan_keys` arrive with the next real revision, and routine ticks activate with them. The plan strip honestly shows the stale week until then. |
+| Meals photo path | Photo-only captures stay `skipped` until a vision transport through `agent_invoke` exists; the ref + provenance plumbing is already in place. |
+| M6 widget | Home-screen wake tap; same spine, same idempotency. |
+| M7 push | **Gated**: notifications appear in no v1 doc — write the §7 spec first; do not invent the policy in code. |
+| M8 cutover | Retire/demote the web client; delete `preserved/torn-paper-web/` only after sign-off. |
+| P3 strips | Plan-vs-actual drift; T2.7's tick data is its first real input. |
+| Poison-entry UX | A 4xx still marks nothing visible on the phone; the event queues silently (the queue spec wants `failed` + a plaza line). |
+| Mobile CI | Still no CI job for jest/tsc/eslint. |
+| `assetlinks.json` | 404 on the public origin; matters at M8. |
+| Keystore custody | Off-box copy exists (olympus vault, sha256-verified); still owed a third site + restore drill (P6 T6.2). |
+| Dev-client launch check | Scripted, unrun (uninstalls the ship APK — needs approval). |
 
 **Next steps.**
 
-1. ~~T2.1 ingest route~~ — done 2026-10-24: shipped, deployed to olympus, and proven on the phone end to end.
-2. Pick the next P-phase slice: T2.2 (waiting-on inbox + resolutions) or T2.7 (routine ticks — proves the queue is consumer-agnostic) ride the door that just opened; P1 adapters unblock the Plaza reading real data and are M6's other half.
-3. M6 (interactive widget) is now unblocked — its write path exists.
-4. Cheap, real-world: the owner's next real wake tap becomes event id 1 in the prod spine. M7's notification spec (`10-stack-migration.md` §7) is dependency-free writing for any gap.
-5. The keystore off-box backup is ten minutes and removes the worst tail risk.
-
-M8 then retires or demotes the web client. Descope order, if time runs short, is M7, then M6, then M4. M0 and M3 are never cut.
+1. Weekly review → new Week Plan revision → ingest → the tick surfaces
+   light up on the phone's next build.
+2. Pick: M6 (widget — the wake tap from home) or P3 (strips/drift —
+   fed by a few weeks of tick data). Current pull: M6 first.
+3. Tomorrow: the P2 two-pass cold re-read, then close the phase books.
