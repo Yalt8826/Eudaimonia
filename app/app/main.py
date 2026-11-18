@@ -148,6 +148,19 @@ async def notes_apply() -> dict[str, object]:
     return staged_writebacks.apply_pending()
 
 
+@app.get("/api/meals/recent")
+async def meals_recent() -> dict[str, object]:
+    """Recent meal_logged rows (T2.6) — the flat list the client groups
+    into its own local-day cards (03 §4: rows are canonical, totals are
+    the sum of rows at render). meal_logged is agent-write only: it never
+    rides the client ingest door, so there is no kind to register here."""
+    conn = db.connect(db.db_path())
+    try:
+        return {"meals": capture.recent_meals(conn)}
+    finally:
+        conn.close()
+
+
 @app.get("/api/questions/open")
 async def questions_open() -> dict[str, object]:
     """The question queue (T2.5): open and picked_up rows, oldest first.

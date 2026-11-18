@@ -46,6 +46,7 @@ actor (plum), with a provenance edge back to the raw capture.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 from typing import Any
@@ -56,8 +57,13 @@ from app import db
 __all__ = [
     "CaptureError",
     "land_capture",
+    "meal_capture",
+    "meal_predicate",
+    "meal_prompt",
+    "parse_meal_items",
     "parse_target",
     "pending_captures",
+    "recent_meals",
     "triage_capture",
     "triage_pending",
     "triage_prompt",
@@ -83,6 +89,21 @@ TRIAGE_TIMEOUT_S = 180.0
 """Single attempt, ~3 min headroom inside the 5-min exit budget. The
 budget is the exit test, not a knob (PHASE-P2 T2.3 If-it-fails)."""
 
+MEAL_PROFILE = "hygeia"
+"""Meals route to the wellness profile (T2.6) — the estimation is Hygeia's
+domain, the same chokepoint, no new transport (PHASE-P2 T2.6)."""
+MEAL_TIMEOUT_S = 180.0
+MEAL_MAX_ITEMS = 20
+"""A capture is a meal, not a banquet menu; more than 20 items is a junk
+response and the predicate rejects it whole."""
+
+MEAL_TAG = "#meal"
+"""The capture-sheet prefill (04 /capture): a capture tagged #meal is
+ALREADY classified — the human said so. It routes straight to Hygeia's
+estimation; a clio round-trip to be told "meal" would be a second
+opinion nobody asked for. Untagged captures still reach the meal path
+when clio's generic triage returns the noun."""
+
 PROMPT_TEMPLATE = """You are triaging a raw capture for a personal life-OS.
 Classify it into EXACTLY ONE of these six words:
 task, question, loop-by-me, loop-to-me, note, meal
@@ -98,6 +119,24 @@ Meanings:
 Reply with the single word only. Nothing else.
 
 Capture: {text}"""
+
+
+MEAL_PROMPT_TEMPLATE = """You are estimating the nutrition of a logged meal for a personal wellness record.
+Estimate EVERY distinct food item in the meal description below.
+
+Reply with STRICT JSON only — no prose, no markdown fence, exactly this shape:
+
+{{"items": [{{"label": "...", "kcal_est": 0, "protein_g_est": 0, "basis": "food_db:<ref>"}}]}}
+
+- "label": a short item name
+- "kcal_est" and "protein_g_est": numbers (grams for protein)
+- "basis": REQUIRED for every item — a food-database reference string
+  starting with food_db: (e.g. "food_db:usda_01123"), the entry your
+  estimate leans on. An item without a basis is REJECTED by the machine
+  reading this reply and the whole estimate is discarded — never guess
+  without naming the reference.
+
+Meal: {text}"""
 
 
 class CaptureError(ValueError):
@@ -160,6 +199,62 @@ def triage_prompt(text: str) -> str:
     return PROMPT_TEMPLATE.format(text=text)
 
 
+def meal_prompt(text: str, photo_ref: str | None = None) -> str:
+    """Hygeia's estimation prompt. A photo rides as bracketed context: the
+    vision transport is Hermes-side, the ref is what this wire can carry."""
+    ctx = text
+    if photo_ref:
+        ctx = f"{text}\n[photo attached: {photo_ref}]".strip()
+    return MEAL_PROMPT_TEMPLATE.format(text=ctx)
+
+
+def parse_meal_items(stdout: str) -> list[dict[str, Any]] | None:
+    """The meal contract: strict JSON, 1..MEAL_MAX_ITEMS items, EVERY item
+    carrying label + numeric kcal_est/protein_g_est + a non-empty
+    ``food_db:<ref>`` basis. Estimates without provenance are not stored
+    (02 §2 law 11 enforced at the predicate — the prompt asking nicely is
+    not the mechanism). Returns the cleaned items, or None to reject."""
+    try:
+        parsed = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    items = parsed.get("items")
+    if not isinstance(items, list) or not 1 <= len(items) <= MEAL_MAX_ITEMS:
+        return None
+    cleaned: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            return None
+        label = item.get("label")
+        kcal = item.get("kcal_est")
+        protein = item.get("protein_g_est")
+        basis = item.get("basis")
+        if not isinstance(label, str) or not label.strip():
+            return None
+        for number in (kcal, protein):
+            if isinstance(number, bool) or not isinstance(number, (int, float)) or number < 0:
+                return None
+        if not isinstance(basis, str) or re.fullmatch(r"food_db:\S+", basis) is None:
+            return None
+        cleaned.append(
+            {
+                "label": label.strip(),
+                "kcal_est": kcal,
+                "protein_g_est": protein,
+                "basis": basis,
+            }
+        )
+    return cleaned
+
+
+def meal_predicate(stdout: str, exit_code: int | None) -> bool:
+    """The meal success predicate IS the estimates law: every item named a
+    food_db basis or the whole response is rejected (T2.6 [impl])."""
+    return exit_code == 0 and parse_meal_items(stdout) is not None
+
+
 def _success_predicate(stdout: str, exit_code: int | None) -> bool:
     """Triage passed iff the output parses to exactly one legal target."""
     return exit_code == 0 and parse_target(stdout) is not None
@@ -200,13 +295,23 @@ def triage_capture(
     and NOTHING lands — the capture stays untriaged, visibly. A manual
     re-triage passes attempt >= 2 so its events append beside the originals
     (append-only: the first triage event is never edited or replaced).
+
+    A #meal-tagged capture skips clio's classification entirely: the tag
+    IS the human's classification, and the capture routes straight to
+    Hygeia's estimation (T2.6). Untagged captures reach the same meal
+    path when clio's noun comes back "meal".
     """
     capture = _load_capture(conn, capture_ref)
     text = capture["text"]
     if not text:
-        # photo captures have no text to triage; T2.6 owns them. A failure
-        # event would lie (nothing was attempted) — report skipped instead.
+        # photo-only captures have no text to triage; the meal estimation
+        # needs at least a description today (the vision transport is
+        # Hermes-side). A failure event would lie (nothing was attempted)
+        # — report skipped instead.
         return {"capture_ref": capture_ref, "state": "skipped", "reason": "no text"}
+
+    if text.lstrip().lower().startswith(MEAL_TAG):
+        return meal_capture(conn, capture_ref, text, capture["photo_ref"], attempt)
 
     result = ai.agent_invoke(
         TRIAGE_PROFILE,
@@ -242,6 +347,9 @@ def triage_capture(
         # the chokepoint said ok but the parse disagrees — never happens
         # (the predicate IS the parse), guarded for the type system.
         raise RuntimeError("ok outcome without a parseable target")
+
+    if target == "meal":
+        return meal_capture(conn, capture_ref, text, capture["photo_ref"], attempt)
 
     triaged_ref = _triaged_ref(capture_ref, attempt)
     db.insert_event(
@@ -312,11 +420,161 @@ def triage_capture(
             external_ref=note_ref, text=text, note_ts=note_ts
         )
         landing = {"target": "note", "ref": note_ref, "staged": str(staged)}
-    else:  # meal — T2.6's path consumes these; triaged is the record
+    else:  # unreachable in practice — "meal" routes to meal_capture above
         landing = {"target": target, "ref": triaged_ref}
 
     conn.commit()
     return {"capture_ref": capture_ref, "state": "triaged", **landing}
+
+
+def meal_capture(
+    conn: sqlite3.Connection,
+    capture_ref: str,
+    text: str,
+    photo_ref: str | None,
+    attempt: int = 1,
+) -> dict[str, object]:
+    """T2.6's second stage: Hygeia estimates the meal, the predicate
+    enforces per-item food_db provenance, and ONE meal_logged lands per
+    capture — ``external_ref = {capture_ref}:meal`` makes the UNIQUE
+    constraint the re-triage idempotency (a second successful attempt
+    dedupes to the first meal; corrections are T4 compensating events,
+    never a second row wearing the same ref).
+
+    Failure (timeout, junk JSON, a basis-less item) lands
+    capture_triaged_failure and nothing else — a basis-less estimate is
+    not stored (02 §2 law 11 at the predicate, not the prompt).
+    """
+    stripped = text.strip()
+    if stripped.lower().startswith(MEAL_TAG):
+        stripped = stripped[len(MEAL_TAG) :].strip()
+    if not stripped and photo_ref:
+        stripped = "(photo meal)"
+
+    result = ai.agent_invoke(
+        MEAL_PROFILE,
+        meal_prompt(stripped, photo_ref),
+        MEAL_TIMEOUT_S,
+        meal_predicate,
+        conn,
+    )
+
+    if result.outcome != "ok":
+        db.insert_event(
+            conn,
+            kind="capture_triaged_failure",
+            origin="agent-write",
+            source_id=None,
+            external_ref=_failure_ref(capture_ref, attempt),
+            actor=MEAL_PROFILE,
+            payload={
+                "capture_ref": capture_ref,
+                "reason": result.outcome,
+                "target": "meal",
+                "invocation_ref": result.external_ref,
+            },
+        )
+        conn.commit()
+        return {
+            "capture_ref": capture_ref,
+            "state": "untriaged",
+            "reason": result.outcome,
+        }
+
+    items = parse_meal_items(result.stdout)
+    if items is None:
+        raise RuntimeError("ok outcome without parseable meal items")
+
+    capture_ts = _load_capture(conn, capture_ref)["ts"]
+    meal_ref = f"{capture_ref}:meal"
+    try:
+        db.insert_event(
+            conn,
+            kind="meal_logged",
+            origin="agent-write",
+            source_id=db_get_app_source(conn),
+            external_ref=meal_ref,
+            actor=MEAL_PROFILE,
+            payload={
+                "capture_ref": capture_ref,
+                "items": items,
+                "photo_ref": photo_ref,
+                "method": "estimate",
+            },
+            ts=capture_ts,
+        )
+    except sqlite3.IntegrityError:
+        # the re-triage hit the first meal's ref — append-only: the row
+        # stays, the attempt appends beside it, no second meal mints
+        conn.rollback()
+        row = conn.execute(
+            "SELECT id FROM event WHERE external_ref = ? AND kind = 'meal_logged'",
+            (meal_ref,),
+        ).fetchone()
+        if row is None:
+            raise
+        conn.commit()
+        return {
+            "capture_ref": capture_ref,
+            "state": "triaged",
+            "target": "meal",
+            "ref": meal_ref,
+            "deduped": True,
+        }
+
+    # the triage outcome rides beside the meal (T2.3's contract: one
+    # capture_triaged per attempt), plus the meal's own provenance edge —
+    # the photo ref, when present, travels inside capture_raw's payload,
+    # so capture_raw -> meal_logged IS the photo's chain to the estimate
+    db.insert_event(
+        conn,
+        kind="capture_triaged",
+        origin="agent-write",
+        source_id=None,
+        external_ref=_triaged_ref(capture_ref, attempt),
+        actor=MEAL_PROFILE,
+        payload={
+            "capture_ref": capture_ref,
+            "target": "meal",
+            "invocation_ref": result.external_ref,
+        },
+    )
+    conn.execute(
+        "INSERT INTO provenance_edge (from_ref, to_ref, type, ts) VALUES (?, ?, ?, ?)",
+        (capture_ref, meal_ref, "meal", db.utc_now_iso()),
+    )
+    conn.commit()
+    return {
+        "capture_ref": capture_ref,
+        "state": "triaged",
+        "target": "meal",
+        "ref": meal_ref,
+        "items": items,
+    }
+
+
+def recent_meals(conn: sqlite3.Connection, limit: int = 60) -> list[dict[str, object]]:
+    """Recent meal_logged rows, newest first. The DAY grouping is the
+    client's (its local calendar, not the server's UTC day) — the read
+    model returns the rows, never day cards (single definition: totals
+    are summed from item rows at render, 03 §4)."""
+    rows = conn.execute(
+        "SELECT ts, external_ref, payload FROM event"
+        " WHERE kind = 'meal_logged' ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    out: list[dict[str, object]] = []
+    for r in rows:
+        payload = json.loads(r["payload"])
+        out.append(
+            {
+                "meal_ref": r["external_ref"],
+                "ts": r["ts"],
+                "items": payload.get("items", []),
+                "photo_ref": payload.get("photo_ref"),
+            }
+        )
+    return out
 
 
 def pending_captures(conn: sqlite3.Connection) -> list[str]:
