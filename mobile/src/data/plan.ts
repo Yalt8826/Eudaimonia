@@ -4,6 +4,7 @@
 // (dry-run finding 3). Unreachable resolves null; the strip keeps its
 // honest static line.
 import { apiUrl } from "./api";
+import { appOutbox } from "./appOutbox";
 
 export interface PlanToday {
   plan: "ok" | "missing";
@@ -16,9 +17,60 @@ export interface PlanToday {
   days_fresh_7: number;
   artifact_count: number;
   status: string;
+  /** True when this object was rebuilt from the on-device cache because
+      the server was unreachable — the coverage numbers are NOT fresh
+      (they are the cache-time values, or unset) and planFreshness must
+      say so instead of reading days_fresh_7 as a zero (law 7). */
+  stale?: boolean;
 }
 
 export const PLAN_TODAY_ENDPOINT = "/api/plan/today";
+
+const PLAN_CACHE_KEY = "eudaimonia:plan-revision";
+
+/** Keep the last good revision on the phone. The tick surface must not
+    die with the network: an offline tick (the exit test) needs the day's
+    blocks to render, and the rolling file's latest revision is the thing
+    to render. Cache is written only for plan:ok — a missing plan caches
+    nothing and nothing is synthesized (T1.3's law). */
+export function cachePlanToday(plan: PlanToday): void {
+  if (plan.plan !== "ok") return;
+  try {
+    appOutbox().kv.setItem(
+      PLAN_CACHE_KEY,
+      JSON.stringify({
+        week_start: plan.week_start,
+        plan_lines: plan.plan_lines,
+        plan_keys: plan.plan_keys,
+      }),
+    );
+  } catch {
+    // the cache is armor, not the product: a store that cannot open
+    // degrades to online-only ticking, never takes a screen down
+  }
+}
+
+/** The cached revision, if any. The caller marks the result stale — the
+    cache carries no coverage numbers, and inventing zeros would break
+    law 7. */
+export function cachedPlanToday(): Pick<
+  PlanToday,
+  "week_start" | "plan_lines" | "plan_keys"
+> | null {
+  try {
+    const raw = appOutbox().kv.getItem(PLAN_CACHE_KEY);
+    if (raw === null) return null;
+    const b = JSON.parse(raw) as Record<string, unknown>;
+    if (!Array.isArray(b.plan_lines) || !Array.isArray(b.plan_keys)) return null;
+    return {
+      week_start: typeof b.week_start === "string" ? b.week_start : undefined,
+      plan_lines: b.plan_lines.filter((l): l is string => typeof l === "string"),
+      plan_keys: b.plan_keys.filter((k): k is string => typeof k === "string"),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchPlanToday(
   fetchFn: typeof globalThis.fetch = globalThis.fetch,

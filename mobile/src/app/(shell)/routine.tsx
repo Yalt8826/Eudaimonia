@@ -16,7 +16,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { fetchPlanToday, type PlanToday } from "../../data/plan";
+import { cachedPlanToday, cachePlanToday, fetchPlanToday, type PlanToday } from "../../data/plan";
 import {
   cacheDay,
   dayCountLine,
@@ -48,7 +48,28 @@ export default function RoutineScreen() {
       // the store could not open — the server copy below still renders
     }
     const fetched = await fetchPlanToday();
-    setPlan(fetched);
+    if (fetched !== null) {
+      // online: the fresh revision (and the phone keeps a copy — an
+      // offline tick needs the day's blocks to render at all)
+      setPlan(fetched);
+      cachePlanToday(fetched);
+    } else {
+      // unreachable: the cached revision, marked stale — no fabricated
+      // coverage numbers (law 7); ticks still queue (law 9)
+      const cached = cachedPlanToday();
+      setPlan(
+        cached
+          ? {
+              plan: "ok",
+              ...cached,
+              days_fresh_7: 0,
+              artifact_count: 0,
+              status: "alive",
+              stale: true,
+            }
+          : null,
+      );
+    }
     const serverTicks = await fetchRoutineDay(date);
     if (serverTicks === null) {
       setUnreachable(true);
@@ -164,9 +185,13 @@ export default function RoutineScreen() {
       <Text style={styles.muted}>
         {dateLabel}
         {countLine !== null ? ` · ${countLine}` : ""} ·{" "}
-        {plan?.plan === "ok"
-          ? `fresh ${plan.days_fresh_7} of 7`
-          : "plan · missing"}
+        {plan === null
+          ? "plan · missing"
+          : plan.stale
+            ? "coverage unavailable offline"
+            : plan.plan === "ok"
+              ? `fresh ${plan.days_fresh_7} of 7`
+              : "plan · missing"}
         {day !== null && day.pending > 0 ? ` · ${day.pending} queued` : ""}
         {unreachable ? " · server unreachable" : ""}
         {failed ? " · tick failed — not queued" : ""}
@@ -179,7 +204,9 @@ export default function RoutineScreen() {
       ) : (
         <Text style={styles.muted}>
           {plan === null
-            ? "plan · loading"
+            ? unreachable
+              ? "no cached plan — open once online and the day's blocks tick offline after that"
+              : "plan · loading"
             : plan.plan === "missing"
               ? "no live plan — the routine reads the Week Plan's blocks"
               : "no time blocks in this week's plan"}

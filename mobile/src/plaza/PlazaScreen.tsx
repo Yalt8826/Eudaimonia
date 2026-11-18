@@ -29,7 +29,7 @@ import { Chevron, CoverageLine, Dot, PaperText, Pill, Row } from "./ui";
 import { dailyLine, dateLabel, greetingFor } from "./greeting";
 import { captureMode } from "./captureMode";
 import { fetchCoverage, coverageLine } from "../data/coverage";
-import { fetchPlanToday, type PlanToday } from "../data/plan";
+import { cachedPlanToday, cachePlanToday, fetchPlanToday, type PlanToday } from "../data/plan";
 import { fetchOpenLoops } from "../data/loops";
 import { fetchWakeStats, wakeCoverageLine } from "../data/wakeStats";
 import { planFreshness, stripLinesFor } from "./stripLines";
@@ -529,7 +529,31 @@ export function PlazaBody({
       });
       refreshTasks();
       void fetchPlanToday().then((plan) => {
-        if (live) setPlanToday(plan);
+        if (!live) return;
+        if (plan !== null) {
+          // online: the fresh revision, and the phone keeps a copy so the
+          // tick surface survives the next outage (offline ticks are the
+          // exit test, and blocks that do not render cannot tick)
+          setPlanToday(plan);
+          cachePlanToday(plan);
+          return;
+        }
+        // unreachable: render the cached revision, marked stale — the
+        // coverage numbers are NOT fresh and planFreshness says so instead
+        // of reading them as zeros (law 7). Ticks still queue (law 9).
+        const cached = cachedPlanToday();
+        if (cached !== null) {
+          setPlanToday({
+            plan: "ok",
+            ...cached,
+            days_fresh_7: 0,
+            artifact_count: 0,
+            status: "alive",
+            stale: true,
+          });
+        } else {
+          setPlanToday(null);
+        }
       });
       void refreshRoutineDay();
       return () => {

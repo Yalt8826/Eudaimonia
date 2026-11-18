@@ -28,8 +28,12 @@ export function stripLinesFor(
   return strip.lines;
 }
 
-/** "fresh 1 of 7", or "0 of 7 · alive" when no day this week was fresh. */
+/** "fresh 1 of 7", or "0 of 7 · alive" when no day this week was fresh.
+    A stale (cached, server-unreachable) plan claims NO freshness number:
+    days_fresh_7 is absent-by-definition there, and printing it as a zero
+    would be exactly the fabricated count law 7 forbids. */
 export function planFreshness(planToday: PlanToday): string {
+  if (planToday.stale) return "coverage unavailable offline";
   return planToday.days_fresh_7 > 0
     ? `fresh ${planToday.days_fresh_7} of 7`
     : `0 of 7 · ${planToday.status}`;
