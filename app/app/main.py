@@ -19,6 +19,7 @@ from app import (
     ingest,
     loops,
     questions,
+    routines,
     staged_writebacks,
     tasks,
     wake,
@@ -232,6 +233,24 @@ async def plan_today() -> dict[str, object]:
     conn = db.connect(db.db_path())
     try:
         return adapters.plan_today(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/routine/day")
+async def routine_day(date: str) -> dict[str, object]:
+    """One plan day's routine ticks (T2.7), read off the spine.
+
+    One row per (routine_key, date) exists by the UNIQUE constraint, so
+    the ticks list IS the day's state — there is no routine table (07
+    §19) and no latest-wins logic to apply. A bad date param is a 422:
+    the same loud failure the ingest door gives an unregistered kind."""
+    conn = db.connect(db.db_path())
+    try:
+        try:
+            return routines.day(conn, date)
+        except routines.RoutineError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         conn.close()
 

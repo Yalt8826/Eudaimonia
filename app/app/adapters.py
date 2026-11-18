@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from app import db
+from app.routines import KEY_MAX
 
 __all__ = [
     "ingest_all",
@@ -206,6 +207,23 @@ def parse_day_report(artifact: Artifact) -> tuple[str | None, bool, dict[str, An
     return None, False, {"reason": "no day header"}
 
 
+def routine_slug(title_cell: str) -> str:
+    """T1.3's stable slug of a Week Plan line's title (07 §19).
+
+    "**GRE deep work** (~3h)" → "gre-deep-work"; "Flex slot" → "flex-slot".
+    Derived from the TITLE cell only — a time or notes edit must not orphan
+    the tick history. Deterministic: the same title always yields the same
+    key, so the tick sites never hardcode or re-derive one (T2.7). An empty
+    string means "no stable name" (an unnamed block row) and nothing may
+    tick it. A repeated title in one week disambiguates by occurrence
+    ("gym", "gym-2", ...) in parse_week_plan, so two same-named slots can
+    never share a day's external_ref.
+    """
+    text = re.sub(r"\([^)]*\)", " ", title_cell.replace("**", " "))
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:KEY_MAX].strip("-")
+
+
 def parse_week_plan(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
     m = WEEK_HEADER.search(artifact.text)
     if m is None:
@@ -222,8 +240,13 @@ def parse_week_plan(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any
         return None, False, {"reason": "unparseable week header"}
     # plan-line extraction: the daily-backbone table's DATA rows — the
     # header ("Time | Block | Notes") is not a plan line. Rows only count
-    # after their table's separator line.
+    # after their table's separator line. Alongside each line, its stable
+    # routine_key (07 §19) rides the same-index plan_keys list, so tick
+    # sites read the extractor's slug instead of deriving one — a renamed
+    # line changes the row text, never its key's derivation rules.
     rows: list[str] = []
+    keys: list[str] = []
+    seen: dict[str, int] = {}
     seen_separator = False
     for line in artifact.text.splitlines():
         stripped = line.strip()
@@ -234,13 +257,24 @@ def parse_week_plan(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any
             seen_separator = True
             continue
         if seen_separator:
-            rows.append(
-                " | ".join(cell.strip() for cell in stripped.strip("|").split("|"))
-            )
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            rows.append(" | ".join(cells))
+            base = routine_slug(cells[1] if len(cells) > 1 else "")
+            if base == "":
+                keys.append("")
+            else:
+                n = seen.get(base, 0) + 1
+                seen[base] = n
+                keys.append(base if n == 1 else f"{base}-{n}")
     return (
         start.date().isoformat(),
         True,
-        {"attributed": "noesis", "plan_lines": rows, "revision_hash": artifact.content_hash},
+        {
+            "attributed": "noesis",
+            "plan_lines": rows,
+            "plan_keys": keys,
+            "revision_hash": artifact.content_hash,
+        },
     )
 
 
@@ -423,6 +457,7 @@ def plan_today(conn: sqlite3.Connection) -> dict[str, object]:
         return {
             "plan": "missing",
             "plan_lines": [],
+            "plan_keys": [],
             "days_fresh_7": 0,
             "artifact_count": 0,
             "status": "alive",
@@ -433,6 +468,7 @@ def plan_today(conn: sqlite3.Connection) -> dict[str, object]:
         "plan": "ok",
         "week_start": payload.get("content_date"),
         "plan_lines": payload.get("plan_lines", []),
+        "plan_keys": payload.get("plan_keys", []),
         "revision_hash": payload.get("revision_hash"),
         "days_fresh_7": int(coverage["days_fresh_7"]),
         "artifact_count": int(coverage["artifact_count"]),

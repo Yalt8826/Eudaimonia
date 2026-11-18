@@ -173,11 +173,12 @@ def test_bad_method_is_4xx(
 def test_unknown_kind_is_4xx(
     client: TestClient, rows: Callable[[], list[sqlite3.Row]]
 ) -> None:
-    """routine_done rides this queue at T2.7 — until that task registers it,
-    an unregistered kind must fail loudly, never lie in the spine."""
-    r = client.post("/api/events/routine_done", json=tap_body(kind="routine_done"))
+    """meal_done rides this queue at T2.6 — until that task registers it,
+    an unregistered kind must fail loudly, never lie in the spine.
+    (routine_done WAS this test's stand-in; T2.7 registered it.)"""
+    r = client.post("/api/events/meal_done", json=tap_body(kind="meal_done"))
     assert r.status_code == 422
-    assert "routine_done" in r.json()["detail"]
+    assert "meal_done" in r.json()["detail"]
     assert rows() == []
 
 

@@ -283,3 +283,68 @@ def test_plan_today_returns_latest_revision_lines(
     assert "GRE" in body["plan_lines"][1]
     # the freshness rides the coverage view (law 7: one definition)
     assert body["artifact_count"] == 1
+
+
+def test_routine_slug_is_stable_and_title_only() -> None:
+    # T2.7's keys come from HERE (T1.3's extractor), never typed at the
+    # tick site: same title → same key, whatever the time or notes say.
+    assert adapters.routine_slug("**GRE deep work** (~3h)") == "gre-deep-work"
+    assert adapters.routine_slug("**GRE deep work** (~2h)") == "gre-deep-work"
+    assert adapters.routine_slug("dMAT") == "dmat"
+    assert adapters.routine_slug("Flex slot") == "flex-slot"
+    # a time edit cannot orphan the history (the key reads the TITLE cell)
+    assert adapters.routine_slug("**GRE deep work**") == "gre-deep-work"
+
+
+def test_plan_keys_align_with_plan_lines_and_disambiguate(
+    env: dict[str, Path],
+) -> None:
+    plan = env["vault"] / "Noesis" / "Week Plan.md"
+    plan.write_text(
+        "# Week Plan — 7–13 Sep 2026\n\n| Time | Block | Notes |\n"
+        "|---|---|---|\n| 3:00–3:45pm | **dMAT** (45m) | warm-up |\n"
+        "| 3:45–6:45pm | **GRE deep work** (~3h) | quant + verbal |\n"
+        "| 7:00–8:00pm | **Gym** | push day |\n"
+        "| 8:00–9:00pm | **Gym** | pull day |\n",
+        encoding="utf-8",
+    )
+    adapters.ingest_all(connect(env))
+    conn = connect(env)
+    row = conn.execute(
+        "SELECT payload FROM event WHERE kind = 'source-read'"
+        " AND source_id = (SELECT id FROM source WHERE name = 'week-plan')"
+        " ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    payload = json.loads(row["payload"])
+    assert len(payload["plan_keys"]) == len(payload["plan_lines"]) == 4
+    assert payload["plan_keys"] == ["dmat", "gre-deep-work", "gym", "gym-2"]
+    # an unnamed block row has no stable name and gets no key
+    plan.write_text(
+        "# Week Plan — 14–20 Sep 2026\n\n| Time | Block | Notes |\n"
+        "|---|---|---|\n| 3:00–3:45pm |  | warm-up |\n",
+        encoding="utf-8",
+    )
+    adapters.ingest_all(connect(env))
+    conn = connect(env)
+    row = conn.execute(
+        "SELECT payload FROM event WHERE kind = 'source-read'"
+        " AND source_id = (SELECT id FROM source WHERE name = 'week-plan')"
+        " ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert json.loads(row["payload"])["plan_keys"] == [""]
+
+
+def test_plan_today_passes_the_keys_through(
+    env: dict[str, Path],
+) -> None:
+    plan = env["vault"] / "Noesis" / "Week Plan.md"
+    plan.write_text(
+        "# Week Plan — 7–13 Sep 2026\n\n| Time | Block | Notes |\n"
+        "|---|---|---|\n| 3:00–3:45pm | **dMAT** (45m) | exam week |\n",
+        encoding="utf-8",
+    )
+    adapters.ingest_all(connect(env))
+    body = TestClient(main.app).get("/api/plan/today").json()
+    assert body["plan_keys"] == ["dmat"]

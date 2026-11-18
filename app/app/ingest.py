@@ -49,11 +49,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app import db, loops, tasks
+from app import db, loops, routines, tasks
 
 INGEST_KINDS: frozenset[str] = frozenset(
     {"habit_tap", "capture_raw", "loop_done", "loop_rolled", "loop_dropped"}
-) | tasks.TASK_KINDS
+) | tasks.TASK_KINDS | routines.ROUTINE_KINDS
 """Kinds this endpoint accepts — the app-write rows of the EXECUTION §7
 kind registry. Grows one task at a time (capture_raw is T2.3's — the
 mobile capture sheet queues through THIS door offline, while fuzzel and
@@ -171,6 +171,11 @@ def _validate(url_kind: str, body: ReplayBody) -> tuple[str, int, str]:
             tasks.validate(body.kind, body.payload)
         except tasks.TaskError as exc:
             raise IngestError(str(exc)) from exc
+    if body.kind in routines.ROUTINE_KINDS:
+        try:
+            routines.validate(body.kind, body.payload)
+        except routines.RoutineError as exc:
+            raise IngestError(str(exc)) from exc
     if body.kind == "capture_raw":
         # the offline mobile capture sheet queues through this door (T2.1
         # armor); the direct door is POST /capture. Same minimum: one of
@@ -195,6 +200,17 @@ def _validate(url_kind: str, body: ReplayBody) -> tuple[str, int, str]:
         )
         loop_id = body.payload.get("loop_id")
         return body.kind, body.ts, f"{loop_id}:{day}"
+    if body.kind in routines.ROUTINE_KINDS:
+        # T2.7: ticks are {routine_key}:{plan day} — one row per block per
+        # day (07 §19), so a double-tap is a replay, not a second event,
+        # and the same block on another day is a different event. The day
+        # rides the payload because it is the CLIENT's plan day (its local
+        # rollover rule), which the server cannot recompute from ts in UTC.
+        return (
+            body.kind,
+            body.ts,
+            f"{body.payload['routine_key']}:{body.payload['date']}",
+        )
     return body.kind, body.ts, f"{body.idempotency_key}:{body.ts}"
 
 
