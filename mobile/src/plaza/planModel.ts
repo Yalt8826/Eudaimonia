@@ -15,11 +15,19 @@ export interface PlanBlock {
   /** Minutes on the plan's day; past midnight runs on past 1440. */
   start: number;
   end: number;
+  /** The line's stable routine_key (T1.3's extractor slug), or undefined
+      when the revision predates keys or the row has no stable name —
+      undefined is NOT tickable. Never derived here: keys come from the
+      server's plan_keys list, index-aligned with plan_lines. */
+  key?: string;
 }
 
 export interface PlanTarget {
   name: string;
   details: string[];
+  /** Same rule as PlanBlock.key — targets are not tickable in T2.7, but
+      the mapping stays total so a target row can become one later. */
+  key?: string;
 }
 
 export interface ParsedPlan {
@@ -71,10 +79,16 @@ export function startLabel(minutes: number): string {
   return `${h % 12 === 0 ? 12 : h % 12}:${mm}`;
 }
 
-export function parsePlan(planLines: readonly string[]): ParsedPlan {
+export function parsePlan(
+  planLines: readonly string[],
+  planKeys: readonly string[] = [],
+): ParsedPlan {
   const blocks: PlanBlock[] = [];
   const targets: PlanTarget[] = [];
-  for (const line of planLines) {
+  for (const [i, line] of planLines.entries()) {
+    // keys are index-aligned with the raw lines (blocks and targets share
+    // one list server-side), so the mapping survives the split below
+    const key = planKeys[i] !== undefined && planKeys[i] !== "" ? planKeys[i] : undefined;
     const cells = planCells(line);
     if (cells.length === 0) continue;
     const range = parseTimeRange(cells[0]);
@@ -84,10 +98,11 @@ export function parsePlan(planLines: readonly string[]): ParsedPlan {
         startLabel: startLabel(range.start),
         title: cells[1] ?? "",
         notes: cells.slice(2).join(" · "),
+        key,
         ...range,
       });
     } else {
-      targets.push({ name: cells[0], details: cells.slice(1) });
+      targets.push({ name: cells[0], details: cells.slice(1), key });
     }
   }
   return { blocks, targets };

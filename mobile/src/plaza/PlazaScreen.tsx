@@ -38,6 +38,16 @@ import { PlanSheet } from "./PlanSheet";
 import { TaskSheet } from "./TaskSheet";
 import { hintFromDetail, type TaskDetail } from "../data/tasks";
 import { readLocalMany, syncMany } from "../data/taskStore";
+import {
+  cacheDay,
+  dayCountLine,
+  fetchRoutineDay,
+  planDate,
+  readLocalDay,
+  tickMethod,
+  writeTick,
+  type TickState,
+} from "../data/routines";
 import { parsePlan, subjectOf, weekOfLabel, type ParsedPlan } from "./planModel";
 import { useNow } from "./useNow";
 
@@ -254,6 +264,18 @@ function OpenLink({ to, label, ink }: { to: string; label: string; ink: string }
   );
 }
 
+/** Per card row: the block's tick state, undefined when the row has no
+    key (untickable) — the targets fallback renders unticked too. */
+function cardTicks(
+  plan: ParsedPlan | null,
+  ticks: Map<string, TickState>,
+): (TickState | undefined)[] {
+  if (plan === null) return [];
+  return plan.blocks.length > 0
+    ? plan.blocks.map((b) => (b.key !== undefined ? ticks.get(b.key) : undefined))
+    : plan.targets.map(() => undefined);
+}
+
 function StripContent({
   strip,
   ink,
@@ -263,10 +285,13 @@ function StripContent({
   coverageLines,
   planToday,
   parsedPlan,
+  routineTicks,
+  tickLine,
   now,
   onOpenPlan,
   rowHints,
   onOpenRow,
+  onToggleTick,
 }: {
   strip: PlazaStrip;
   ink: string;
@@ -281,10 +306,15 @@ function StripContent({
   planToday: PlanToday | null;
   /** planToday's lines as blocks + targets, when the plan is live. */
   parsedPlan: ParsedPlan | null;
+  /** The day's routine ticks, keyed by routine_key (T2.7). */
+  routineTicks: Map<string, TickState>;
+  /** The day's count line, or null on a tick-less day. */
+  tickLine: string | null;
   now: Date;
   onOpenPlan: () => void;
   rowHints: (string | null)[];
   onOpenRow: (index: number) => void;
+  onToggleTick: (index: number) => void;
 }) {
   const planCard = strip.id === "plan" && planToday?.plan === "ok" && parsedPlan !== null;
   // The content width is measured, not computed from windowWidth minus the
@@ -325,8 +355,11 @@ function StripContent({
           now={now}
           width={contentWidth}
           hints={rowHints}
+          ticks={cardTicks(parsedPlan, routineTicks)}
+          tickLine={tickLine}
           onOpenDetails={onOpenPlan}
           onOpenRow={onOpenRow}
+          onToggleTick={onToggleTick}
         />
       ) : null}
       {(planCard ? [] : stripLinesFor(strip, {
@@ -379,9 +412,30 @@ export function PlazaBody({
   const [planOpen, setPlanOpen] = useState(false);
   const now = useNow();
   const parsedPlan = useMemo(
-    () => (planToday?.plan === "ok" ? parsePlan(planToday.plan_lines) : null),
+    () =>
+      planToday?.plan === "ok"
+        ? parsePlan(planToday.plan_lines, planToday.plan_keys)
+        : null,
     [planToday],
   );
+  // the day's routine ticks (T2.7): local first, then the server's day
+  // copy. Only the keys T1.3's extractor shipped can tick — a revision
+  // that predates plan_keys renders exactly as before, no fake ticks.
+  const [routineTicks, setRoutineTicks] = useState<Map<string, TickState>>(new Map());
+  const refreshRoutineDay = useCallback(async () => {
+    // garnish rules: a tick store that cannot open must never take the
+    // Plaza down (the hints pattern) — the card renders tick-less instead
+    try {
+      const date = planDate(new Date());
+      setRoutineTicks((await readLocalDay(date)).ticks);
+      const server = await fetchRoutineDay(date);
+      if (server === null) return; // offline: the local view stays up
+      cacheDay(date, server);
+      setRoutineTicks((await readLocalDay(date)).ticks);
+    } catch {
+      // stays unticked
+    }
+  }, []);
   // the open task page: its subject and where it sits today. The sheet
   // unmounts on close, so every opening starts from fresh state.
   const [task, setTask] = useState<{ subject: string; context: string | null } | null>(null);
@@ -419,6 +473,24 @@ export function PlazaBody({
     const view = taskViews.get(s);
     return view ? hintFromDetail(view, now) : null;
   });
+  const tickableCount =
+    parsedPlan !== null && parsedPlan.blocks.length > 0
+      ? parsedPlan.blocks.filter((b) => b.key !== undefined).length
+      : 0;
+  const tickLine = dayCountLine(routineTicks, tickableCount);
+  const toggleTick = (i: number) => {
+    const b = parsedPlan?.blocks[i];
+    if (!b || b.key === undefined) return;
+    const date = planDate(new Date());
+    void writeTick("routine_done", {
+      routine_key: b.key,
+      date,
+      method: tickMethod(b.end, new Date()),
+    })
+      .then(() => readLocalDay(date))
+      .then((d) => setRoutineTicks(d.ticks))
+      .catch(() => undefined);
+  };
   const openBlock = (i: number) => {
     const b = parsedPlan?.blocks[i];
     if (!b) return;
@@ -459,10 +531,11 @@ export function PlazaBody({
       void fetchPlanToday().then((plan) => {
         if (live) setPlanToday(plan);
       });
+      void refreshRoutineDay();
       return () => {
         live = false;
       };
-    }, [refreshTasks]),
+    }, [refreshTasks, refreshRoutineDay]),
   );
   return (
     <View style={{ width: windowWidth }}>
@@ -492,10 +565,13 @@ export function PlazaBody({
           coverageLines={coverageLines}
           planToday={planToday}
           parsedPlan={parsedPlan}
+          routineTicks={routineTicks}
+          tickLine={tickLine}
           now={now}
           onOpenPlan={() => setPlanOpen(true)}
           rowHints={rowHints}
           onOpenRow={(i) => (parsedPlan && parsedPlan.blocks.length > 0 ? openBlock(i) : openTarget(i))}
+          onToggleTick={toggleTick}
         />
         </TornSheet>
       ))}
@@ -507,12 +583,18 @@ export function PlazaBody({
           open={planOpen}
           onClose={() => setPlanOpen(false)}
           plan={parsedPlan}
-          subtitle={[weekOfLabel(planToday.week_start), planFreshness(planToday)]
+          subtitle={[
+            weekOfLabel(planToday.week_start),
+            planFreshness(planToday),
+            tickLine,
+          ]
             .filter((s) => s !== null)
             .join(" · ")}
           now={now}
+          ticks={routineTicks}
           onOpenBlock={openBlock}
           onOpenTarget={openTarget}
+          onToggleBlock={toggleTick}
         />
       ) : null}
       {task !== null ? (

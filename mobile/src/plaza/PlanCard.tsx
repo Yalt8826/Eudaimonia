@@ -18,6 +18,7 @@ import { Canvas, Line, RoundedRect, Text as SkiaText, vec, type SkFont } from "@
 import { colors } from "../theme/tokens";
 import { PLEX_MONO_400, PLEX_SANS_700, useSkiaFont } from "./skiaAssets";
 import { blockPhases, truncateToWidth, type BlockPhase, type ParsedPlan } from "./planModel";
+import type { TickState } from "../data/routines";
 
 const INK = colors["--sheet-mint-ink"];
 const PAPER = colors["--sheet-mint"];
@@ -31,6 +32,11 @@ const FOOTER_H = 20;
 const GAP = 6;
 const TAG_H = 18;
 const TAG_PAD = 7;
+
+/** The tick column: box size + the gap after it. Rows shift right by this
+    when any block is tickable, so the time column stays lined up. */
+const CHECK_SIZE = 15;
+const CHECK_SPACE = 24;
 
 /** Secondary text (header, footer, time column, hints) — ink at 0.75 keeps
     >= 4.5 on the glass (contrast.test.ts). */
@@ -81,8 +87,11 @@ export function PlanCard({
   now,
   width,
   hints,
+  ticks,
+  tickLine,
   onOpenDetails,
   onOpenRow,
+  onToggleTick,
 }: {
   plan: ParsedPlan;
   /** e.g. "0 of 7 · alive" */
@@ -91,8 +100,17 @@ export function PlanCard({
   width: number;
   /** Per row: the task's hint line, or null. */
   hints: readonly (string | null)[];
+  /** Per row: the block's tick state — undefined = untickable (no key) or
+      unticked. Routines are planned structure: taps tick, keys come from
+      T1.3's extractor (never typed here). */
+  ticks: readonly (TickState | undefined)[];
+  /** The day's count line ("2 of 4 · 1 skip"), or null on a day with no
+      interaction — a day with no ticks renders its coverage line (the
+      header), never a zero (law 7). */
+  tickLine: string | null;
   onOpenDetails: () => void;
   onOpenRow: (index: number) => void;
+  onToggleTick: (index: number) => void;
 }) {
   const mono = useSkiaFont(PLEX_MONO_400, 12.5);
   const small = useSkiaFont(PLEX_MONO_400, 11.5);
@@ -100,12 +118,16 @@ export function PlanCard({
 
   const rows = cardRows(plan, now);
   const rowHints = rows.map((_, i) => hints[i] ?? null);
+  const rowTicks = rows.map((_, i) => ticks[i] ?? undefined);
   const boxes = rowBoxes(rowHints);
   const targetsCounted = plan.blocks.length > 0 ? plan.targets.length : 0;
-  const footer =
-    targetsCounted > 0 ? `+ ${targetsCounted} weekly target${targetsCounted === 1 ? "" : "s"}` : null;
+  const hasTicks = rowTicks.some((t) => t !== undefined);
+  const footerParts: string[] = [];
+  if (targetsCounted > 0)
+    footerParts.push(`+ ${targetsCounted} weekly target${targetsCounted === 1 ? "" : "s"}`);
+  if (tickLine !== null) footerParts.push(tickLine);
+  const footer = footerParts.length > 0 ? footerParts.join(" · ") : null;
   const height = cardHeight(rowHints, footer !== null);
-
   const ready = mono !== null && small !== null && sans !== null && width > 0;
 
   return (
@@ -113,7 +135,7 @@ export function PlanCard({
       <View style={styles.sheen} pointerEvents="none" />
       {ready ? (
         <Canvas pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {drawCard({ rows, hints: rowHints, boxes, header, footer, width, mono, small, sans })}
+          {drawCard({ rows, hints: rowHints, ticks: rowTicks, boxes, header, footer, width, mono, small, sans, hasTicks })}
         </Canvas>
       ) : null}
       {/* the header row: the whole day's plan */}
@@ -137,6 +159,30 @@ export function PlanCard({
           style={({ pressed }) => [styles.hit, { top: boxes[i].top, height: boxes[i].height }, pressed && styles.pressed]}
         />
       ))}
+      {/* the tick targets ride ON TOP of the row hits: a tap in the left
+          column ticks (teal — you act, 01 §4); the rest of the row opens
+          the task. Skips live only in the day detail (/routine): a skip is
+          a claim, not a tap slip. */}
+      {rows.map((_, i) =>
+        rowTicks[i] !== undefined ? (
+          <Pressable
+            key={`tick-${i}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rowTicks[i] === "done" || rowTicks[i] === "recall" }}
+            accessibilityLabel={
+              `mark ${rows[i].title || rows[i].time} done` +
+              (rowTicks[i] === "recall" ? " (recalled)" : "")
+            }
+            accessibilityHint="Ticks this block's planned slot"
+            onPress={() => onToggleTick(i)}
+            style={({ pressed }) => [
+              styles.hit,
+              { top: boxes[i].top, height: boxes[i].height, width: PAD_X + CHECK_SPACE + 8, right: undefined },
+              pressed && styles.pressed,
+            ]}
+          />
+        ) : null,
+      )}
       {footer ? (
         <Pressable
           accessibilityRole="button"
@@ -152,6 +198,7 @@ export function PlanCard({
 function drawCard({
   rows,
   hints,
+  ticks,
   boxes,
   header,
   footer,
@@ -159,9 +206,11 @@ function drawCard({
   mono,
   small,
   sans,
+  hasTicks,
 }: {
   rows: CardRow[];
   hints: (string | null)[];
+  ticks: (TickState | undefined)[];
   boxes: { top: number; height: number }[];
   header: string;
   footer: string | null;
@@ -169,6 +218,7 @@ function drawCard({
   mono: SkFont;
   small: SkFont;
   sans: SkFont;
+  hasTicks: boolean;
 }) {
   const inner = width - PAD_X * 2;
   const nodes: React.ReactNode[] = [];
@@ -193,9 +243,12 @@ function drawCard({
     <Line key="c2" p1={vec(chevronX + 4, PAD_Y + 10)} p2={vec(chevronX, PAD_Y + 14)} color={INK} strokeWidth={1.5} opacity={SECONDARY} />,
   );
 
-  // the time column is as wide as its widest label, so titles line up
+  // the time column is as wide as its widest label, so titles line up;
+  // it shifts right when any row is tickable, so the tick boxes have a
+  // column of their own without misaligning the times
+  const timeX = PAD_X + (hasTicks ? CHECK_SPACE : 0);
   const timeW = Math.max(0, ...rows.map((r) => (r.time ? mono.measureText(r.time).width : 0)));
-  const titleX = PAD_X + (timeW > 0 ? timeW + 12 : 0);
+  const titleX = timeX + (timeW > 0 ? timeW + 12 : 0);
 
   rows.forEach((row, i) => {
     const { top, height } = boxes[i];
@@ -212,8 +265,75 @@ function drawCard({
     }
     if (row.time) {
       nodes.push(
-        <SkiaText key={`t${i}`} x={PAD_X} y={baseline(mono, top, ROW_H)} text={row.time} font={mono} color={INK} opacity={row.phase === "past" ? PAST : SECONDARY} />,
+        <SkiaText key={`t${i}`} x={timeX} y={baseline(mono, top, ROW_H)} text={row.time} font={mono} color={INK} opacity={row.phase === "past" ? PAST : SECONDARY} />,
       );
+    }
+    // the tick box: teal = you act (01 §4). done fills teal with a paper
+    // check; recall fills teal with a paper ~ (law 11 — a recalled tick
+    // renders ~ everywhere, including here); skip is a muted box with a
+    // muted dash — covered-but-not-done, information, never failure
+    // (02 §6 muted-never-red). Unticked is an outline, no hue at all:
+    // ticks are optional evidence, never duty.
+    const tick = ticks[i];
+    if (tick !== undefined) {
+      const bx = PAD_X + 2;
+      const by = top + (ROW_H - CHECK_SIZE) / 2;
+      const done = tick === "done" || tick === "recall";
+      const skip = tick === "skip";
+      nodes.push(
+        <RoundedRect
+          key={`cb${i}`}
+          x={bx}
+          y={by}
+          width={CHECK_SIZE}
+          height={CHECK_SIZE}
+          r={4}
+          color={done ? colors["--accent-1"] : skip ? INK : INK}
+          opacity={done ? 1 : skip ? 0.55 : 0}
+          style={done || skip ? "fill" : "stroke"}
+          strokeWidth={1.2}
+        />,
+      );
+      if (done && tick === "recall") {
+        nodes.push(
+          <SkiaText
+            key={`cg${i}`}
+            x={bx + 2}
+            y={baseline(small, by, CHECK_SIZE)}
+            text="~"
+            font={small}
+            color={PAPER}
+          />,
+        );
+      } else if (done) {
+        const c = CHECK_SIZE * 0.3;
+        nodes.push(
+          <Line
+            key={`cg${i}a`}
+            p1={vec(bx + c * 0.8, by + CHECK_SIZE * 0.55)}
+            p2={vec(bx + c * 1.4, by + CHECK_SIZE - c * 0.8)}
+            color={PAPER}
+            strokeWidth={1.8}
+          />,
+          <Line
+            key={`cg${i}b`}
+            p1={vec(bx + c * 1.4, by + CHECK_SIZE - c * 0.8)}
+            p2={vec(bx + CHECK_SIZE - c * 0.6, by + c * 1.2)}
+            color={PAPER}
+            strokeWidth={1.8}
+          />,
+        );
+      } else if (skip) {
+        nodes.push(
+          <Line
+            key={`cg${i}`}
+            p1={vec(bx + 3.5, by + CHECK_SIZE / 2)}
+            p2={vec(bx + CHECK_SIZE - 3.5, by + CHECK_SIZE / 2)}
+            color={PAPER}
+            strokeWidth={1.6}
+          />,
+        );
+      }
     }
     nodes.push(
       <SkiaText

@@ -37,6 +37,10 @@ export interface AppOutbox {
   kv: KeyValueStore;
   /** The serialized sync funnel every trigger (and the wake screen) uses. */
   sync(): Promise<ReplayResult>;
+  /** Events not yet accepted by the server, in enqueue order. The routine
+      day view (T2.7) overlays these so a just-made tick shows before the
+      drain — the same getter the task queue exposes, on the same store. */
+  pending(): Promise<OutboxRecord[]>;
 }
 
 let instance: AppOutbox | null = null;
@@ -74,6 +78,7 @@ export function appOutbox(): AppOutbox {
       outbox,
       kv,
       sync: createSyncScheduler(outbox, fetchTransport()),
+      pending: () => store.getAll(),
     };
   }
   return instance;

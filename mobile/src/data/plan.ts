@@ -9,6 +9,10 @@ export interface PlanToday {
   plan: "ok" | "missing";
   week_start?: string;
   plan_lines: string[];
+  /** Same index as plan_lines: the line's stable routine_key (T1.3's
+      extractor slug, 07 §19) or "" when the row has no stable name.
+      Revisions that predate T2.7 send none. */
+  plan_keys: string[];
   days_fresh_7: number;
   artifact_count: number;
   status: string;
@@ -35,6 +39,9 @@ export async function fetchPlanToday(
       plan: b.plan,
       week_start: typeof b.week_start === "string" ? b.week_start : undefined,
       plan_lines: b.plan_lines.filter((l): l is string => typeof l === "string"),
+      plan_keys: Array.isArray(b.plan_keys)
+        ? b.plan_keys.filter((k): k is string => typeof k === "string")
+        : [],
       days_fresh_7: typeof b.days_fresh_7 === "number" ? b.days_fresh_7 : 0,
       artifact_count: typeof b.artifact_count === "number" ? b.artifact_count : 0,
       status: typeof b.status === "string" ? b.status : "alive",
