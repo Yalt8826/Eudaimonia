@@ -122,13 +122,29 @@ ok "app opens and renders the Plaza offline"
 $ADB shell am start -a android.intent.action.VIEW -d "$SCHEME_LINK" >/dev/null
 sleep 3
 assert_app_foreground
-ui_has_text "ROUTINE" || ui_has_text "mark " || die "routine route not rendered offline"
-ok "routine day screen open offline"
+# wait for the day's BLOCKS (the deeplink is async and the first offline
+# fetch cycle re-renders the screen when the cache answers) — the title
+# alone can match the Plaza's nav bubble while the screen is still mounting
+blocks=""
+for _ in $(seq 1 20); do
+  if ui_dump | grep -q "mark "; then blocks=yes; break; fi
+  sleep 0.5
+done
+[ -n "$blocks" ] || die "routine blocks never rendered offline — is the plan cache warm?"
+ok "routine day screen open offline, blocks tickable"
 
 TAP_WALL_S=$(date +%s)
-ui_tap_text "mark"   # the first block's done button — its label is "mark <block> done"
-sleep 1
-ui_has_text "queued" || die "no 'queued' after the offline tick — the tick did not enqueue"
+# the caption ("~ marks a recall — …") contains "mark" too and sits above
+# the buttons — tap the NAMED block's done button, never a wildcard.
+# (Its label is "mark <block> done"; a block already ticked — by the
+# owner or an earlier leg run — has no button and the tap dies loudly.)
+ui_tap_text "mark ${FIRST_BLOCK:-GRE}"
+queued=""
+for _ in $(seq 1 10); do
+  if ui_dump | grep -q "queued"; then queued=yes; break; fi
+  sleep 0.5
+done
+[ -n "$queued" ] || die "no 'queued' after the offline tick — the tick did not enqueue"
 ok "routine tick queued at $(date -u -d @$TAP_WALL_S +%H:%M:%S) UTC ('queued' painted)"
 
 # force-stop KILLS the app with the tick still queued — the queue must
