@@ -61,7 +61,7 @@ export default function ProjectDetailScreen() {
                   {project.linked_work.open} open · {project.linked_work.resolved} resolved
                 </Text>
                 <Text style={styles.meta}>
-                  derived from the spine's payloads on every read — nothing stored
+                  derived from the spine&apos;s payloads on every read — nothing stored
                 </Text>
               </>
             ) : (
