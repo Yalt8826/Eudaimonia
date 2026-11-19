@@ -139,6 +139,7 @@ def evaluate(
     base: dict[str, Any] = {
         "source": name,
         "class": klass,
+        "status": str(row["status"]),  # wire compat for older clients
         "days_fresh_7": fresh_7,
         "artifact_count": artifact_count,
     }
