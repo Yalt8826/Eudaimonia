@@ -16,6 +16,7 @@ from app import (
     adapters,
     capture,
     db,
+    habits,
     ingest,
     loops,
     questions,
@@ -69,6 +70,24 @@ async def ingest_event(
         # (T3.1: the queue fold's single writer, event before row)
         background_tasks.add_task(reading.apply_event, kind, dict(body.payload))
     return result
+
+
+@app.get("/api/habits/stats")
+async def habit_stats(window: int = 7, habit: str = "wake", tz_offset_min: int = 0) -> dict[str, object]:
+    """Rolling-window per-habit stats (T3.3): {met, of, recall_share,
+    recall_majority}. The denominator is always the trailing window —
+    nothing cumulative, nothing that behaves like a run of days. The
+    plaza's measured-only wake numbers stay on /api/habits/wake/stats."""
+    try:
+        conn = db.connect(db.db_path())
+        try:
+            return habits.habit_stats(conn, habit=habit, window=window, tz_offset_min=tz_offset_min)
+        finally:
+            conn.close()
+    except ValueError as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/habits/wake/stats")
