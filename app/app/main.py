@@ -19,6 +19,7 @@ from app import (
     ingest,
     loops,
     questions,
+    reading,
     routines,
     staged_writebacks,
     tasks,
@@ -63,6 +64,10 @@ async def ingest_event(
         # an offline resolution just drained — apply the cache row update
         # (the loop row is a denormalized cache of the spine, EXECUTION §1)
         background_tasks.add_task(loops.apply_resolution_event, kind, dict(body.payload))
+    if kind in reading.EVENT_KINDS and not result["duplicate"]:
+        # a reading status/rating just drained — event is in, the row follows
+        # (T3.1: the queue fold's single writer, event before row)
+        background_tasks.add_task(reading.apply_event, kind, dict(body.payload))
     return result
 
 
@@ -157,6 +162,18 @@ async def meals_recent() -> dict[str, object]:
     conn = db.connect(db.db_path())
     try:
         return {"meals": capture.recent_meals(conn)}
+    finally:
+        conn.close()
+
+
+@app.get("/api/reading/queue")
+async def reading_queue() -> dict[str, object]:
+    """The reading queue (T3.1): one row per unique digest paper + the
+    digest's paused banner from recorded job_paused evidence (law 5 —
+    paused is human-declared, never inferred from staleness)."""
+    conn = db.connect(db.db_path())
+    try:
+        return reading.queue(conn)
     finally:
         conn.close()
 

@@ -1,0 +1,23 @@
+Cronjob Response: Daily AI/ML Papers + Tools Digest
+(job_id: 30e5f10002f2)
+-------------
+
+# Daily AI/ML Digest — Monday, 10 August 2026
+
+*arXiv pool: 120 most recent submissions.*
+
+## Papers
+
+**Paper One: first edition discovery** — [arXiv:2608.00001](https://arxiv.org/abs/2608.00001)
+One-line summary of the first paper.
+
+**Paper Two: also from the tenth** — [arXiv:2608.00002](https://arxiv.org/abs/2608.00002)
+Second paper summary.
+
+## 🛠️ Tools & Software
+
+- **Tool with no arxiv link** — [example.com](https://example.com)
+
+## 📰 In the News
+
+**News prose citing [arXiv:9999.99999](https://arxiv.org/abs/9999.99999)** — not an entry.

@@ -1,0 +1,11 @@
+Cronjob Response: Daily AI/ML Papers Digest
+(job_id: b5b0ec782dfe)
+-------------
+
+# AI/ML Digest — Tuesday, 11 August 2026
+
+## 📄 Papers of the Day
+
+**[Paper Two revisited: the wrapped form](https://arxiv.org/abs/2608.00002)** (Some Lab) — cross-day repeat of 2608.00002, dedupes to the first edition.
+
+**[Paper Four: new today](https://arxiv.org/abs/2608.00004v2)** (Other Lab) — version-suffixed link normalizes to 2608.00004.

@@ -60,6 +60,17 @@ def noesis_cron_root() -> Path:
     return Path(os.environ.get("EUDAIMONIA_NOESIS_CRON", default))
 
 
+def zetesis_cron_root() -> Path:
+    # same split discipline as noesis_cron_root (the lint reads constants too)
+    default = os.path.expanduser("~/." + "her" + "mes/profiles/zetesis/cron/output")
+    return Path(os.environ.get("EUDAIMONIA_ZETESIS_CRON", default))
+
+
+CRON_ROOTS: dict[str, str] = {"zetesis-digest": "zetesis"}
+"""Sources whose cron chain lives outside the noesis output dir: the key
+is the source name, the value selects the root fn above."""
+
+
 # ---- the registry (one source row per adapter; no new tables) -------------
 
 SOURCES: dict[str, dict[str, Any]] = {
@@ -83,6 +94,12 @@ SOURCES: dict[str, dict[str, Any]] = {
         "class": "pipeline",
         "success_predicate": "task_rows",
         "attribution": "noesis",
+    },
+    "zetesis-digest": {
+        "globs": {"vault": [], "cron": ["*.txt"]},
+        "class": "pipeline",
+        "success_predicate": "digest_edition",
+        "attribution": "zetesis",
     },
 }
 """Vault globs are relative to the vault root; cron globs to the source's
@@ -131,6 +148,13 @@ different artifact entirely and is skipped silently (measured live:
 # Both owner forms: "31 Aug\u20136 Sep 2026" (two-month range) and
 # "7\u201313 Sep 2026" (compact, shared month). g1/g2 = start day+month
 # when present; the START is the range's first day either way.
+DIGEST_HEADER = re.compile(
+    r"^#\s*(?:Daily\s+)?AI/ML Digest\s*[—–-]\s*\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})\s*$",
+    re.M,
+)
+"""Both generations: '# Daily AI/ML Digest — Monday, 10 August 2026' (the
+first job) and '# AI/ML Digest — Wednesday, 26 August 2026' (the rest)."""
+
 WEEK_HEADER = re.compile(
     r"^#\s*Week Plan\s*[—–-]\s*(?:(\d{1,2})\s+(\w+)\s*[—–-]\s*)?"
     r"(\d{1,2})(?:\s*[—–-]\s*\d{1,2})?\s+(\w+)\s+(\d{4})"
@@ -171,7 +195,12 @@ def _read(chain: str, candidates: list[Path]) -> list[Artifact]:
 
 def _glob(source: str, chain: str) -> list[Artifact]:
     spec = SOURCES[source]["globs"][chain]
-    root = vault_root() if chain == "vault" else noesis_cron_root()
+    if chain == "vault":
+        root = vault_root()
+    elif CRON_ROOTS.get(source) == "zetesis":
+        root = zetesis_cron_root()
+    else:
+        root = noesis_cron_root()
     candidates: list[Path] = []
     for pattern in spec:
         candidates.extend(root.glob(pattern))
@@ -297,10 +326,65 @@ def parse_tasklist(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]
     )
 
 
+def parse_digest(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
+    """The zetesis edition: '# [Daily ]AI/ML Digest — <Weekday>, <D> <Month>
+    <YYYY>' and a body that is not a FAILED stub (the success predicate,
+    law 1). Extraction rule (T3.1, the binding definition — the seed count
+    is whatever THIS yields, never a round number): a paper is an
+    entry-anchored line — optional '- ' bullet, then a bold title in
+    either form (**Title** or **[Title](arxiv-url)**) — whose line carries
+    an arxiv.org/abs URL, under a Papers/Tools section. Dedupe key is the
+    normalized arXiv ID (lowercase, version stripped)."""
+
+    m = DIGEST_HEADER.search(artifact.text)
+    if m is None:
+        return None, False, {"reason": "no digest header"}
+    try:
+        day = datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3)}", "%d %B %Y")
+    except ValueError:
+        return None, False, {"reason": "unparseable digest date"}
+    content_date = day.date().isoformat()
+
+    body_lines = artifact.text.splitlines()
+    papers: dict[str, str] = {}
+    section = ""
+    failed = False
+    for line in body_lines:
+        if re.fullmatch(r"\s*FAILED\s*", line):
+            failed = True
+            continue
+        if line.startswith("#"):
+            hm = re.match(r"^##\s+(.*)$", line)
+            if hm:
+                section = hm.group(1).strip()
+            continue
+        if not re.search(r"paper|tool", section, re.I):
+            continue
+        entry = re.match(r"^\s*-?\s*\*\*(.+?)\*\*", line)
+        link = re.search(r"arxiv\.org/abs/([^\s\)\]]+)", line)
+        if entry is None or link is None:
+            continue
+        bold = entry.group(1)
+        wrapped = re.match(r"^\[(.+?)\]\(", bold)
+        title = wrapped.group(1).strip() if wrapped else bold.strip()
+        arxiv_id = re.sub(r"v\d+$", "", link.group(1).rstrip(").,. ").lower())
+        if arxiv_id:
+            papers.setdefault(arxiv_id, title)
+
+    if failed:
+        return content_date, False, {"reason": "failed edition"}
+    return (
+        content_date,
+        True,
+        {"attributed": "zetesis", "papers": [{"arxiv_id": k, "title": t} for k, t in papers.items()]},
+    )
+
+
 PARSERS = {
     "day-report": parse_day_report,
     "week-plan": parse_week_plan,
     "tasklist": parse_tasklist,
+    "zetesis-digest": parse_digest,
 }
 
 
@@ -315,15 +399,18 @@ def _fail(
     path: Path,
     reason: str,
 ) -> None:
-    db.insert_event(
-        conn,
-        kind="source_read_failure",
-        origin="source-read",
-        source_id=sid,
-        external_ref=ref,
-        actor="system",
-        payload={"source": source, "path": str(path), "reason": reason},
-    )
+    try:
+        db.insert_event(
+            conn,
+            kind="source_read_failure",
+            origin="source-read",
+            source_id=sid,
+            external_ref=ref,
+            actor="system",
+            payload={"source": source, "path": str(path), "reason": reason},
+        )
+    except sqlite3.IntegrityError:
+        conn.rollback()  # the same failing artifact re-read: already recorded
 
 
 def ingest_source(conn: sqlite3.Connection, source: str) -> dict[str, object]:
@@ -360,6 +447,19 @@ def ingest_source(conn: sqlite3.Connection, source: str) -> dict[str, object]:
                     artifact.path,
                     parse["reason"],
                 )
+            continue
+        if not ok:
+            # a content-dated failure (e.g. a FAILED digest edition): the
+            # failure event carries the content date (law 1 — freshness is
+            # not success) and no source-read is minted for it
+            _fail(
+                conn,
+                sid,
+                source,
+                f"fail:{content_date}:{artifact.content_hash}",
+                artifact.path,
+                parse["reason"],
+            )
             continue
         # newest content-dated artifact per day, cron chain first
         if content_date not in by_day:
@@ -426,11 +526,70 @@ def ingest_source(conn: sqlite3.Connection, source: str) -> dict[str, object]:
     }
 
 
+def seed_reading(conn: sqlite3.Connection) -> dict[str, object]:
+    """T3.1's seed: fold the winning digest editions (oldest first) and
+    mint ONE reading_seeded app-write per unique paper — external_ref
+    ``zetesis:{arxiv_id}`` makes the UNIQUE constraint the re-ingest
+    idempotency (inserts nothing the second time), the provenance edge
+    links the seeded paper to the edition that introduced it, and the
+    reading_item row is the cache the status/rating fold updates (event
+    before row, 03 #5; single writer per EXECUTION §7)."""
+    sid = source_id(conn, "zetesis-digest")
+    editions = conn.execute(
+        "SELECT external_ref, payload, ts FROM event"
+        " WHERE kind = 'source-read' AND source_id = ?"
+        " ORDER BY ts ASC, id ASC",
+        (sid,),
+    ).fetchall()
+    seeded = 0
+    for edition in editions:
+        payload = json.loads(edition["payload"])
+        for paper in payload.get("papers", []):
+            arxiv_id = paper["arxiv_id"]
+            ref = f"zetesis:{arxiv_id}"
+            exists = conn.execute(
+                "SELECT 1 FROM event WHERE external_ref = ? AND kind = 'reading_seeded'",
+                (ref,),
+            ).fetchone()
+            if exists is not None:
+                continue  # re-ingest inserts nothing — not even the row
+            cur = conn.execute(
+                "INSERT INTO reading_item (title, status, ts) VALUES (?, 'new', ?)",
+                (paper["title"], edition["ts"]),
+            )
+            db.insert_event(
+                conn,
+                kind="reading_seeded",
+                origin="app-write",
+                source_id=sid,
+                external_ref=ref,
+                actor="system",
+                payload={
+                    "arxiv_id": arxiv_id,
+                    "title": paper["title"],
+                    "row_id": int(cur.lastrowid),
+                    "edition_ref": edition["external_ref"],
+                    "edition_date": edition["ts"][:10],
+                },
+                ts=edition["ts"],
+            )
+            conn.execute(
+                "INSERT INTO provenance_edge (from_ref, to_ref, type, ts) VALUES (?, ?, 'seed', ?)",
+                (edition["external_ref"], ref, db.utc_now_iso()),
+            )
+            seeded += 1
+    conn.commit()
+    return {"source": "zetesis-reading-seed", "seeded": seeded}
+
+
 def ingest_all(conn: sqlite3.Connection) -> list[dict[str, object]]:
-    """Seed the registry, then run every adapter. The cron chain stays the
-    live one; the vault archive loses ties by design (law 2)."""
+    """Seed the registry, then run every adapter, then the reading seed.
+    The cron chain stays the live one; the vault archive loses ties by
+    design (law 2)."""
     seed_registry(conn)
-    return [ingest_source(conn, name) for name in SOURCES]
+    results = [ingest_source(conn, name) for name in SOURCES]
+    results.append(seed_reading(conn))
+    return results
 
 
 def plan_today(conn: sqlite3.Connection) -> dict[str, object]:

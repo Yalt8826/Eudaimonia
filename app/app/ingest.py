@@ -49,11 +49,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app import db, loops, routines, tasks
+from app import db, loops, reading, routines, tasks
 
 INGEST_KINDS: frozenset[str] = frozenset(
     {"habit_tap", "capture_raw", "loop_done", "loop_rolled", "loop_dropped"}
-) | tasks.TASK_KINDS | routines.ROUTINE_KINDS
+) | tasks.TASK_KINDS | routines.ROUTINE_KINDS | reading.EVENT_KINDS
 """Kinds this endpoint accepts — the app-write rows of the EXECUTION §7
 kind registry. Grows one task at a time (capture_raw is T2.3's — the
 mobile capture sheet queues through THIS door offline, while fuzzel and
@@ -175,6 +175,11 @@ def _validate(url_kind: str, body: ReplayBody) -> tuple[str, int, str]:
         try:
             routines.validate(body.kind, body.payload)
         except routines.RoutineError as exc:
+            raise IngestError(str(exc)) from exc
+    if body.kind in reading.EVENT_KINDS:
+        try:
+            reading.validate_event(body.kind, body.payload)
+        except reading.ReadingError as exc:
             raise IngestError(str(exc)) from exc
     if body.kind == "capture_raw":
         # the offline mobile capture sheet queues through this door (T2.1

@@ -1,0 +1,18 @@
+Cronjob Response: Daily AI/ML Papers + Tools Digest
+(job_id: 30e5f10002f2)
+-------------
+
+# Daily AI/ML Digest — Monday, 10 August 2026
+
+*arXiv pool: rerun.*
+
+## Papers
+
+**Paper One: first edition discovery** — [arXiv:2608.00001](https://arxiv.org/abs/2608.00001)
+Rerun of the same edition day, later run stamp.
+
+**Paper Two: also from the tenth** — [arXiv:2608.00002](https://arxiv.org/abs/2608.00002)
+Still here — the rerun carries the full day.
+
+**Paper Three: only in the rerun** — [arXiv:2608.00003](https://arxiv.org/abs/2608.00003)
+The rerun's extra paper.
