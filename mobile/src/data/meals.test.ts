@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  dayHeading,
   est,
   fetchMealsRecent,
   groupIntoDays,
@@ -31,6 +32,15 @@ function meal(ts: string, items: [string, number, number, string][], extra: Part
     ...extra,
   };
 }
+
+it("dayHeading names the weekday and the date, with Today/Yesterday", () => {
+  // 2026-11-18 is a Wednesday; the fixed clock is that Wednesday noon IST
+  const now = new Date(2026, 10, 18, 12, 0, 0);
+  expect(dayHeading("2026-11-18", now)).toBe("Today · Wednesday, 18 Nov");
+  expect(dayHeading("2026-11-17", now)).toBe("Yesterday · Tuesday, 17 Nov");
+  expect(dayHeading("2026-11-14", now)).toBe("Saturday, 14 Nov");
+  expect(dayHeading("2026-11-20", now)).toBe("Friday, 20 Nov");
+});
 
 it("the ink-weight law: no accent token touches a number on /meals (01 §4)", () => {
   const fs = readFileSync;

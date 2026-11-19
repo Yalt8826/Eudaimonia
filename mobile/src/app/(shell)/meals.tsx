@@ -10,6 +10,7 @@ import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  dayHeading,
   est,
   fetchMealsRecent,
   fetchWeightsRecent,
@@ -52,8 +53,10 @@ export default function MealsScreen() {
 
   const card = (d: DayCard) => (
     <View key={d.date} style={styles.card}>
-      <View style={styles.cardHead}>
-        <Text style={styles.date}>{d.date}</Text>
+      {/* the day subheading — a torn-paper band (01 §2): wellness takes
+          cream, always (§1 tint law). The foods hang under it. */}
+      <View style={styles.dayHead}>
+        <Text style={styles.dayTitle}>{dayHeading(d.date, new Date())}</Text>
         <Text style={styles.totalMono}>
           <Text style={styles.totalKcal}>{est(d.kcal_est_total)} kcal</Text>
           {" · "}
@@ -105,25 +108,33 @@ export default function MealsScreen() {
       <Text style={styles.muted}>
         {unreachable ? "server unreachable — no meals shown rather than stale ones" : "estimates carry ~ — provenance in the bases line"}
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="log a meal"
-        style={styles.logBtn}
-        onPress={() => void Linking.openURL("web+eudaimonia://capture?meal=1")}
-      >
-        <Text style={styles.logLabel}>log a meal</Text>
-      </Pressable>
       {days !== null && days.length > 0 ? (
-        <ScrollView style={styles.list}>{days.map(card)}</ScrollView>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {days.map(card)}
+        </ScrollView>
       ) : (
         <Text style={styles.muted}>
           {days === null
             ? unreachable
               ? "meals · server unreachable"
               : "meals · loading"
-            : "no meals logged yet — capture with #meal and Hygeia estimates the items"}
+            : "no meals logged yet — tap + and capture with #meal; Hygeia estimates the items"}
         </Text>
       )}
+      {/* the + bubble — glass for touching (01 §2), teal = you act
+          (§4 hue law). Bottom-LEFT: the nav cluster owns bottom-right. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="log a meal"
+        style={[styles.fab, { bottom: insets.bottom + 28 }]}
+        onPress={() => void Linking.openURL("web+eudaimonia://capture?meal=1")}
+      >
+        <Text style={styles.fabPlus}>+</Text>
+      </Pressable>
     </View>
   );
 }
@@ -146,49 +157,50 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 13,
   },
-  logBtn: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: colors["--accent-1"],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  logLabel: {
-    color: colors["--accent-1"],
-    fontFamily: fontFamily.regular,
-    fontSize: 13,
-  },
   list: {
-    gap: 8,
+    flex: 1,
+  },
+  listContent: {
+    gap: 16,
+    paddingBottom: 96, // clear the + bubble
   },
   card: {
-    borderWidth: 1,
-    borderColor: colors["--muted"],
-    borderRadius: 12,
-    padding: 12,
     gap: 8,
-    marginBottom: 10,
   },
-  cardHead: {
+  /* the day subheading band — torn-paper under-layer (01 §2): the black
+     skin tears open over cream. Wellness takes cream, always (§1 tint
+     law); the band carries the date + day and the day's totals. */
+  dayHead: {
+    backgroundColor: colors["--paper-cream"],
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 2,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "baseline",
+    gap: 8,
   },
-  date: {
-    color: colors["--text"],
+  dayTitle: {
+    color: colors["--paper-ink"],
     fontFamily: fontFamily.regular,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "700",
+    flexShrink: 1,
   },
   totalMono: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
-    color: colors["--muted"],
+    color: colors["--paper-ink"],
+    flexShrink: 0,
   },
   // the ink-weight law (01 §4): kcal vs protein differ by font WEIGHT
-  // only — bold vs regular, both muted mono, never a hue
-  totalKcal: { fontWeight: "700", color: colors["--muted"] },
-  totalProtein: { fontWeight: "400", color: colors["--muted"] },
+  // only — bold vs regular, never a hue. No color here on purpose: the
+  // pair inherits the band's --paper-ink from totalMono.
+  totalKcal: { fontWeight: "700" },
+  totalProtein: { fontWeight: "400" },
   mismatch: {
     color: colors["--accent-2"],
     fontFamily: fontFamily.regular,
@@ -221,5 +233,27 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 10,
     opacity: 0.8,
+  },
+  /* the + bubble — glass for touching (01 §2), teal border and glyph =
+     you act (§4). Anchored bottom-LEFT: the nav cluster owns the
+     bottom-right corner, and one blur layer per route is untouched. */
+  fab: {
+    position: "absolute",
+    left: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors["--glass-fill"],
+    borderWidth: 1,
+    borderColor: colors["--accent-1"],
+  },
+  fabPlus: {
+    color: colors["--accent-1"],
+    fontFamily: fontFamily.regular,
+    fontSize: 30,
+    lineHeight: 34,
+    marginTop: -2,
   },
 });

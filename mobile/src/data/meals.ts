@@ -82,6 +82,49 @@ function sum(items: MealItem[], field: "kcal_est" | "protein_g_est"): number {
   return items.reduce((acc, i) => acc + (typeof i[field] === "number" ? i[field] : 0), 0);
 }
 
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** The day subheading's text: the weekday and the date, with Today /
+    Yesterday named. `date` is a localDayKey (YYYY-MM-DD); `now` decides
+    the relative names, so the call site can pass a fixed clock in tests. */
+export function dayHeading(date: string, now: Date): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const day = new Date(y, (m ?? 1) - 1, d ?? 1);
+  const name = WEEKDAYS[day.getDay()] ?? "";
+  const label = `${d} ${MONTHS[(m ?? 1) - 1]}`;
+  const daysAgo = Math.round((startOfDay(now) - startOfDay(day)) / 86_400_000);
+  if (daysAgo === 0) return `Today · ${name}, ${label}`;
+  if (daysAgo === 1) return `Yesterday · ${name}, ${label}`;
+  return `${name}, ${label}`;
+}
+
 /** Local calendar day key (the meals day is the eater's day, not the
     server's UTC day and not the plan's 4am rollover). */
 export function localDayKey(tsIso: string, now: Date): string {
