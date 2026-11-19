@@ -2,10 +2,12 @@
 // every estimated number through est() so the ~ is structural (law 11).
 // Rows are canonical: the totals are the sum of rows, and a payload that
 // disagrees fires the mismatch flag instead of being smoothed (03 §4).
-// The "log a meal" affordance deep-links the capture sheet prefilled
-// #meal — the tag IS the classification (the meal path skips clio).
+// The page owns no inline log button: the GLOBAL ＋ (bubble cluster)
+// becomes the meal logger here — CAPTURE_CONTEXTS in routeMap.ts swaps
+// its glyph to the meal mark and a tap opens capture prefilled #meal
+// (the tag IS the classification; the meal path skips clio).
 import { useCallback, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -91,17 +93,6 @@ export default function MealsScreen() {
       <Text accessibilityRole="header" accessibilityLabel="Meals" style={styles.heading}>
         MEALS
       </Text>
-      {/* the + bubble — glass for touching (01 §2), teal = you act
-          (§4 hue law). Sits under the heading where the old log button
-          lived; still deep-links capture?meal=1. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="log a meal"
-        style={styles.fab}
-        onPress={() => void Linking.openURL("web+eudaimonia://capture?meal=1")}
-      >
-        <Text style={styles.fabPlus}>+</Text>
-      </Pressable>
       {tenancy !== null && tenancy.hint ? (
         <Text style={styles.muted}>
           nutrition · {tenancy.days_fresh_7} of 7 · {tenancy.hint}
@@ -133,7 +124,7 @@ export default function MealsScreen() {
             ? unreachable
               ? "meals · server unreachable"
               : "meals · loading"
-            : "no meals logged yet — tap + and capture with #meal; Hygeia estimates the items"}
+            : "no meals logged yet — the ＋ logs a meal on this page (capture opens prefilled #meal)"}
         </Text>
       )}
     </View>
@@ -234,25 +225,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 10,
     opacity: 0.8,
-  },
-  /* the + bubble — glass for touching (01 §2), teal border and glyph =
-     you act (§4). Inline under the heading, no absolute anchor. */
-  fab: {
-    alignSelf: "flex-start",
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors["--glass-fill"],
-    borderWidth: 1,
-    borderColor: colors["--accent-1"],
-  },
-  fabPlus: {
-    color: colors["--accent-1"],
-    fontFamily: fontFamily.regular,
-    fontSize: 26,
-    lineHeight: 30,
-    marginTop: -2,
   },
 });

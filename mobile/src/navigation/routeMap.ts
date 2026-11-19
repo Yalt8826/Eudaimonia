@@ -34,3 +34,20 @@ export const ROUTE_MAP: readonly RouteCase[] = [
   { path: "/chat/clio", expected: "Chat profile", chrome: true },
   { path: "/settings", expected: "Settings", chrome: true },
 ];
+
+/** The capture FAB's contextual tap (two-tap law, 02 §2 law 8): one tap
+    is the OBVIOUS write for the page you're on — on /meals it logs a
+    meal, everywhere else it opens the plain capture sheet. The
+    hold-to-select fan is untouched: it remains the universal door, and
+    this map only changes what a TAP does. One entry per contextual
+    page; the glyph and the a11y label derive from the same table, so
+    the button always shows what a tap will do. */
+export const CAPTURE_CONTEXTS: Readonly<Record<string, string>> = {
+  "/meals": "/capture?meal=1",
+};
+
+/** The tap target for the page at `pathname` — /capture unless the page
+    owns a contextual write. */
+export function captureTargetFor(pathname: string): string {
+  return CAPTURE_CONTEXTS[pathname] ?? "/capture";
+}

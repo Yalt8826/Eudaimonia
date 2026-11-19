@@ -24,6 +24,7 @@ import {
 } from "../theme/motion";
 import { RadialGesture, type RadialAction } from "./radialModel";
 import { RouteSheet, WEEK_URL } from "./RouteSheet";
+import { captureTargetFor } from "./routeMap";
 import { captureMode } from "../plaza/captureMode";
 
 // The bubble cluster (01 §3): six glass bubbles anchored to the BOTTOM-RIGHT
@@ -123,6 +124,20 @@ const ICONS = {
         stroke={colors["--accent-1"]}
         strokeWidth={2.2}
         strokeLinecap="round"
+      />
+    </Svg>
+  ),
+  // the contextual tap's glyph (CAPTURE_CONTEXTS): same stroke, same
+  // teal — on a page that owns a write, the ＋ is that write's mark
+  meal: (
+    <Svg viewBox="0 0 24 24" width={26} height={26}>
+      <Path
+        d="M4 11h16M5 11a7 7 0 0 0 14 0M9 21h6M12 18v3"
+        fill="none"
+        stroke={colors["--accent-1"]}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   ),
@@ -261,6 +276,16 @@ function FanBubble(props: {
 
 export function BubbleCluster() {
   const pathname = usePathname();
+  // the contextual tap target, held in a ref: the gesture's useMemo is
+  // keyed on window size only, so the JS handlers close over whatever
+  // was stable at mount — a pathname read through the ref is always the
+  // page the finger is actually on
+  const captureTargetRef = useRef("/capture");
+  useEffect(() => {
+    captureTargetRef.current = captureTargetFor(pathname);
+  }, [pathname]);
+  const contextualTarget = captureTargetFor(pathname);
+  const isContextual = contextualTarget !== "/capture";
   // global, not local: the cluster sits in the shell LAYOUT, whose own
   // params never carry the current screen's query string
   const params = useGlobalSearchParams<{ snap?: string }>();
@@ -357,7 +382,10 @@ export function BubbleCluster() {
             selection.value = a.spoke;
             break;
           case "captureTap":
-            router.push("/capture");
+            // the two-tap law (02 §2 law 8): one tap is the obvious write
+            // for the page you're on — /meals prefills the meal capture;
+            // hold-to-select stays the universal door
+            router.push(captureTargetRef.current);
             break;
           case "act":
             if (a.spoke === "more") setSheetOpen(true);
@@ -583,9 +611,10 @@ export function BubbleCluster() {
           style={[styles.slot, { right: 0, bottom: 0 }, anchorFanStyle]}
           accessible
           accessibilityRole="button"
-          accessibilityLabel="＋ capture"
+          accessibilityLabel={isContextual ? "log a meal" : "＋ capture"}
+          accessibilityHint={isContextual ? "opens capture prefilled for a meal" : undefined}
           onAccessibilityAction={(e) => {
-            if (e.nativeEvent.actionName === "activate") router.push("/capture");
+            if (e.nativeEvent.actionName === "activate") router.push(captureTargetRef.current);
           }}
         >
           {/* the measured node: a plain View (the transform scales about
@@ -599,7 +628,9 @@ export function BubbleCluster() {
             >
               <View style={[StyleSheet.absoluteFill, styles.bubbleFill]} />
               <View style={styles.iconBox}>
-                <Animated.View style={[styles.glyph, plusStyle]}>{ICONS.plus}</Animated.View>
+                <Animated.View style={[styles.glyph, plusStyle]}>
+                  {isContextual ? ICONS.meal : ICONS.plus}
+                </Animated.View>
                 <Animated.View style={[styles.glyph, styles.glyphUnder, xStyle]}>
                   {ICONS.xmark}
                 </Animated.View>
