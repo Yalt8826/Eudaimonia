@@ -35,6 +35,42 @@ export interface DayCard {
 
 export const MEALS_RECENT_ENDPOINT = "/api/meals/recent";
 
+export interface WeightPoint {
+  date: string;
+  weight_kg: number;
+  waist_cm: number | null;
+  notes: string | null;
+}
+
+export const WEIGHTS_RECENT_ENDPOINT = "/api/weights/recent";
+
+/** The MEASURED series (no estimate mark — law 11's other direction). */
+export async function fetchWeightsRecent(
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<WeightPoint[] | null> {
+  try {
+    const response = await fetchFn(apiUrl(WEIGHTS_RECENT_ENDPOINT));
+    if (!(response.status >= 200 && response.status < 300)) return null;
+    const body: unknown = await response.json();
+    const weights = (body as { weights?: unknown } | null)?.weights;
+    if (!Array.isArray(weights)) return null;
+    const out: WeightPoint[] = [];
+    for (const raw of weights as Record<string, unknown>[]) {
+      if (typeof raw.date === "string" && typeof raw.weight_kg === "number") {
+        out.push({
+          date: raw.date,
+          weight_kg: raw.weight_kg,
+          waist_cm: typeof raw.waist_cm === "number" ? raw.waist_cm : null,
+          notes: typeof raw.notes === "string" ? raw.notes : null,
+        });
+      }
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 /** The estimates law's render helper: an *_est-derived number NEVER
     renders without its ~ (law 11). Screens call this; they do not
     sprinkle "~" strings. */

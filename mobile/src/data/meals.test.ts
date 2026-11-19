@@ -32,6 +32,24 @@ function meal(ts: string, items: [string, number, number, string][], extra: Part
   };
 }
 
+it("the ink-weight law: no accent token touches a number on /meals (01 §4)", () => {
+  const fs = readFileSync;
+  const source = fs(join(__dirname, "../app/(shell)/meals.tsx"), "utf-8");
+  // every NUMBER render goes through the muted total/item styles — the
+  // accent token may appear only on the action button, never in a style
+  // applied to estimate-bearing text
+  const numberStyles = ["totalMono", "totalKcal", "totalProtein", "itemNumbers"];
+  for (const styleName of numberStyles) {
+    const def = source.match(new RegExp(`${styleName}: *{([^}]*)}`));
+    expect(def).not.toBeNull();
+    expect(def![1]).not.toMatch(/accent/i);
+  }
+  // and no estimate render line carries an accent style
+  const renderLines = source.split("\n").filter((l) => /est\(/.test(l));
+  expect(renderLines.length).toBeGreaterThan(0);
+  expect(renderLines.every((l) => !l.includes("accent"))).toBe(true);
+});
+
 it("est() puts the ~ on every estimate — the render gate's helper", () => {
   expect(est(142.4)).toBe("~142");
   expect(est(0)).toBe("~0");

@@ -185,6 +185,17 @@ async def meals_recent() -> dict[str, object]:
         conn.close()
 
 
+@app.get("/api/weights/recent")
+async def weights_recent() -> dict[str, object]:
+    """The measured weight series (T3.2/T3.5) — dated points, never a
+    'current' figure. The client renders them without the estimate mark."""
+    conn = db.connect(db.db_path())
+    try:
+        return {"weights": capture.recent_weights(conn)}
+    finally:
+        conn.close()
+
+
 @app.get("/api/reading/queue")
 async def reading_queue() -> dict[str, object]:
     """The reading queue (T3.1): one row per unique digest paper + the

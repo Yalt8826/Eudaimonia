@@ -64,6 +64,7 @@ __all__ = [
     "parse_target",
     "pending_captures",
     "recent_meals",
+    "recent_weights",
     "triage_capture",
     "triage_pending",
     "triage_prompt",
@@ -680,3 +681,23 @@ def retriage(conn: sqlite3.Connection, capture_ref: str) -> dict[str, object]:
     ).fetchone()
     attempt = attempt_row[0] + 1
     return triage_capture(conn, capture_ref, attempt=attempt)
+def recent_weights(conn: sqlite3.Connection, limit: int = 30) -> list[dict[str, object]]:
+    """The MEASURED weight series (T3.2/T3.5): dated points from the
+    Hygeia chain — no estimate provenance, never rendered as 'current'."""
+    rows = conn.execute(
+        "SELECT ts, external_ref, payload FROM event"
+        " WHERE kind = 'weight_logged' ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    out: list[dict[str, object]] = []
+    for r in rows:
+        payload = json.loads(r["payload"])
+        out.append(
+            {
+                "date": str(r["ts"])[:10],
+                "weight_kg": payload.get("weight_kg"),
+                "waist_cm": payload.get("waist_cm"),
+                "notes": payload.get("notes"),
+            }
+        )
+    return out

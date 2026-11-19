@@ -9,11 +9,21 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-na
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { est, fetchMealsRecent, groupIntoDays, type DayCard } from "../../data/meals";
+import {
+  est,
+  fetchMealsRecent,
+  fetchWeightsRecent,
+  groupIntoDays,
+  type DayCard,
+  type WeightPoint,
+} from "../../data/meals";
+import { fetchCoverage, type CoverageRow } from "../../data/coverage";
 import { colors, fontFamily } from "../../theme/tokens";
 
 export default function MealsScreen() {
   const [days, setDays] = useState<DayCard[] | null>(null);
+  const [weights, setWeights] = useState<WeightPoint[] | null>(null);
+  const [tenancy, setTenancy] = useState<CoverageRow | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -25,6 +35,13 @@ export default function MealsScreen() {
     }
     setUnreachable(false);
     setDays(groupIntoDays(rows));
+    void fetchWeightsRecent().then((w) => setWeights(w));
+    void fetchCoverage().then((rows2) => {
+      if (rows2 !== null) {
+        const me = rows2.find((r) => r.source === "hygeia-meals");
+        setTenancy(me ?? null);
+      }
+    });
   }, []);
 
   useFocusEffect(
@@ -37,8 +54,10 @@ export default function MealsScreen() {
     <View key={d.date} style={styles.card}>
       <View style={styles.cardHead}>
         <Text style={styles.date}>{d.date}</Text>
-        <Text style={styles.total}>
-          {est(d.kcal_est_total)} kcal · {est(d.protein_g_est_total)} g protein
+        <Text style={styles.totalMono}>
+          <Text style={styles.totalKcal}>{est(d.kcal_est_total)} kcal</Text>
+          {" · "}
+          <Text style={styles.totalProtein}>{est(d.protein_g_est_total)} g protein</Text>
         </Text>
       </View>
       {d.mismatch ? (
@@ -147,11 +166,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 14,
   },
-  total: {
-    color: colors["--accent-1"],
+  totalMono: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
+    color: colors["--muted"],
   },
+  // the ink-weight law (01 §4): kcal vs protein differ by font WEIGHT
+  // only — bold vs regular, both muted mono, never a hue
+  totalKcal: { fontWeight: "700", color: colors["--muted"] },
+  totalProtein: { fontWeight: "400", color: colors["--muted"] },
   mismatch: {
     color: colors["--accent-2"],
     fontFamily: fontFamily.regular,
