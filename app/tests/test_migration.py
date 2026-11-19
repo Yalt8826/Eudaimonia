@@ -429,8 +429,20 @@ def test_five_render_states_from_view_facts(migrated: sqlite3.Connection) -> Non
 
     _source(migrated, "uninstrumented-src")  # registered, zero artifacts ever
 
+    demoted_id = _source(migrated, "demoted-src")  # pipeline, silent since a read
+    _read_event(migrated, demoted_id, content_date=silent, ok=1)
+    # the real ingest stamps the read's wall time on the row (law 1) —
+    # the tenancy engine reads THAT field for pipeline silence
+    migrated.execute(
+        "UPDATE source SET last_ok_read_ts = ? WHERE id = ?", (silent + "T00:00:00+00:00", demoted_id)
+    )
+
+    from datetime import date as _date
+
+    from app import coverage as _coverage
+
     states = {
-        str(row["source_name"]): derive_render_state(row)
+        str(row["source_name"]): _coverage.evaluate(migrated, row, _date.today())["state"]
         for row in migrated.execute("SELECT * FROM coverage").fetchall()
     }
     assert states == {
@@ -439,8 +451,9 @@ def test_five_render_states_from_view_facts(migrated: sqlite3.Connection) -> Non
         "paused-src": "paused",
         "dormant-src": "behavioral-dormant",
         "uninstrumented-src": "uninstrumented",
+        "demoted-src": "demoted",
     }
-    assert set(states.values()) == RENDER_STATES  # exactly the five, no sixth
+    assert set(states.values()) == RENDER_STATES  # exactly the six (T3.4 added demoted)
 
 
 def test_behavioral_dormant_never_resolves_to_dead(migrated: sqlite3.Connection) -> None:
