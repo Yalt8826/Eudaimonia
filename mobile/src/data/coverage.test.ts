@@ -1,44 +1,56 @@
 import { describe, expect, it } from "@jest/globals";
 
-// The coverage read model's client contract: the shared view (law 7) is
-// the only freshness source; the line builder renders what it says —
+// The coverage read model's client contract: the tenancy engine (T3.4)
+// is the only liveness source; the line builder renders what it says —
 // never synthesized, never zero-as-instrumented (0 fresh days WITH
 // artifacts is a dry spell, rendered plainly; zero artifacts is
-// uninstrumented).
+// uninstrumented). A demoted/dormant row renders the engine's
+// remediation hint — muted, never a failure hue (02 §6).
 
 import { coverageLine, fetchCoverage, type CoverageRow } from "./coverage";
 
 const row: CoverageRow = {
   source: "day-report",
   class: "pipeline",
+  state: "alive",
+  tier: "normal",
+  hint: null,
   status: "alive",
-  last_ok_read_ts: "2026-10-29T16:58:36+00:00",
   days_fresh_7: 1,
   artifact_count: 64,
-  paused_evidence: false,
 };
 
 describe("coverageLine", () => {
-  it("renders N of 7 with the status", () => {
-    expect(coverageLine(row)).toBe("day report · 1 of 7 · alive");
+  it("renders N of 7 when alive", () => {
+    expect(coverageLine(row)).toBe("day report · 1 of 7");
   });
 
   it("renders uninstrumented when nothing was ever read", () => {
     expect(
-      coverageLine({ ...row, artifact_count: 0, days_fresh_7: 0 }),
+      coverageLine({ ...row, artifact_count: 0, days_fresh_7: 0, state: "uninstrumented" }),
     ).toBe("day report · not yet instrumented");
   });
 
   it("renders a dry spell plainly — zero is data, not an error", () => {
+    expect(coverageLine({ ...row, days_fresh_7: 0 })).toBe("day report · 0 of 7");
+  });
+
+  it("renders the engine's remediation hint when demoted or dormant", () => {
     expect(
-      coverageLine({ ...row, days_fresh_7: 0 }),
-    ).toBe("day report · 0 of 7 · alive");
+      coverageLine({ ...row, days_fresh_7: 0, hint: "repair the chain — one pass re-earns" }),
+    ).toBe("day report · 0 of 7 · repair the chain — one pass re-earns");
+    expect(
+      coverageLine({
+        ...row,
+        class: "behavioral",
+        state: "behavioral-dormant",
+        hint: "log a day to re-earn",
+      }),
+    ).toBe("day report · 1 of 7 · log a day to re-earn");
   });
 
   it("keeps the source's hyphen in the label", () => {
-    expect(coverageLine({ ...row, source: "week-plan" })).toBe(
-      "week plan · 1 of 7 · alive",
-    );
+    expect(coverageLine({ ...row, source: "week-plan" })).toBe("week plan · 1 of 7");
   });
 });
 

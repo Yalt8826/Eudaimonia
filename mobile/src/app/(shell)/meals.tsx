@@ -88,6 +88,20 @@ export default function MealsScreen() {
       <Text accessibilityRole="header" accessibilityLabel="Meals" style={styles.heading}>
         MEALS
       </Text>
+      {tenancy !== null && tenancy.hint ? (
+        <Text style={styles.muted}>
+          nutrition · {tenancy.days_fresh_7} of 7 · {tenancy.hint}
+        </Text>
+      ) : null}
+      {weights !== null && weights.length > 0 ? (
+        <Text style={styles.muted}>
+          {"measured "}
+          {weights
+            .slice(0, 3)
+            .map((w) => `${w.weight_kg} kg · ${w.date}`)
+            .join("  ·  ")}
+        </Text>
+      ) : null}
       <Text style={styles.muted}>
         {unreachable ? "server unreachable — no meals shown rather than stale ones" : "estimates carry ~ — provenance in the bases line"}
       </Text>
