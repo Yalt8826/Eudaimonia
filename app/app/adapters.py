@@ -101,6 +101,15 @@ SOURCES: dict[str, dict[str, Any]] = {
         "success_predicate": "digest_edition",
         "attribution": "zetesis",
     },
+    "hygeia-meals": {
+        "globs": {
+            "vault": ["Hygeia/**/*.md", "Hygeia/log.csv", "Food Log/**"],
+            "cron": [],  # declared anyway (law 2) — the chain is empty today
+        },
+        "class": "behavioral",  # law 4: this is the owner's own logged behavior
+        "success_predicate": "meal_day",
+        "attribution": "hygeia",
+    },
 }
 """Vault globs are relative to the vault root; cron globs to the source's
 cron-output root. Both chains, always (law 2)."""
@@ -380,11 +389,143 @@ def parse_digest(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
     )
 
 
+
+
+HYGEIA_DAY_HEADER = re.compile(r"^##\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\w{3})\s+(\d{1,2})\s*$")
+HYGEIA_H1_YEAR = re.compile(r"^#\s+\w+\s+(\d{4})\s*[—–-]")
+HYGEIA_TABLE_ROW = re.compile(
+    r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|"
+    r"\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|"
+)
+HYGEIA_DAY_TOTAL = re.compile(r"\*\*Day total:\*\*\s*([\d.]+)\s*kcal\s*·\s*([\d.]+)\s*g\s*P")
+HYGEIA_ABSENT_TOTAL = "—"
+
+
+def parse_hygeia(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
+    """The Hygeia food log (T3.2): rolling week files of day sections.
+
+    - Content dates come from the '## Ddd Mmm d' day headers ONLY (law 3;
+      the ground-truth trap: august/week4.md CONTAINS September days —
+      folder and filename lie, headers don't). The year rides the file's
+      H1 title.
+    - A '—' day-total placeholder is ABSENCE, never zero (law 7): the
+      skeleton weeks parse to zero meal rows.
+    - log.csv is the measured weight series — dated points, no estimates.
+    - Files without day sections (README, plan, food_db) are a different
+      artifact sharing the directory — skipped silently, not failures.
+    """
+    if artifact.path.suffix == ".csv":
+        return parse_hygeia_weights(artifact)
+
+    lines = artifact.text.splitlines()
+    year_m = None
+    for line in lines[:6]:
+        year_m = HYGEIA_H1_YEAR.match(line)
+        if year_m:
+            break
+    year = int(year_m.group(1)) if year_m else now_year()
+
+    days: dict[str, dict[str, Any]] = {}
+    current_day: str | None = None
+    saw_day_section = False
+    in_table = False
+    stated_total: tuple[float, float] | None = None
+    for line in lines:
+        hm = HYGEIA_DAY_HEADER.match(line)
+        if hm is not None:
+            try:
+                day = datetime.strptime(f"{hm.group(2)} {hm.group(3)} {year}", "%b %d %Y")
+            except ValueError:
+                current_day = None
+                continue
+            saw_day_section = True
+            current_day = day.date().isoformat()
+            days.setdefault(current_day, {"items": [], "day_total": None})
+            in_table = False
+            continue
+        if current_day is None:
+            continue
+        if set(line.replace("|", "").strip()) <= {"-", " "} and "|" in line:
+            in_table = True  # the |---| separator opens the table
+            continue
+        tm = HYGEIA_DAY_TOTAL.search(line)
+        if tm is not None:
+            stated_total = (float(tm.group(1)), float(tm.group(2)))
+            days[current_day]["day_total"] = stated_total
+            continue
+        if in_table:
+            rm = HYGEIA_TABLE_ROW.match(line)
+            if rm is not None:
+                days[current_day]["items"].append(
+                    {
+                        "label": f"{rm.group(1).strip()}: {rm.group(2).strip()}",
+                        "qty": rm.group(3).strip(),
+                        "kcal_est": float(rm.group(4)),
+                        "protein_g_est": float(rm.group(5)),
+                        "carbs_g_est": float(rm.group(6)),
+                        "fat_g_est": float(rm.group(7)),
+                        # every value here is an agent estimate over the
+                        # owner's description — the basis is Hygeia's own
+                        # food_db reference, never a measurement
+                        "basis": "food_db:hygeia",
+                    }
+                )
+
+    if not saw_day_section:
+        return None, False, {"skip": True, "reason": "no day sections"}
+
+    # drop absent days (skeleton '—' placeholders): absence, never zero
+    for key in [d for d, v in days.items() if not v["items"]]:
+        del days[key]
+
+    ok = any(v["items"] for v in days.values())
+    if not ok:
+        return None, False, {"reason": "no logged meal rows"}
+    return (
+        None,
+        True,
+        {"attributed": "hygeia", "days": days, "revision_hash": artifact.content_hash},
+    )
+
+
+def now_year() -> int:
+    from datetime import datetime
+
+    return datetime.now().year
+
+
+def parse_hygeia_weights(artifact: Artifact) -> tuple[str | None, bool, dict[str, Any]]:
+    """log.csv — the MEASURED weight series (law 11's other direction:
+    these carry no estimate provenance and never render as 'current')."""
+    import csv
+    import io
+
+    rows = list(csv.DictReader(io.StringIO(artifact.text)))
+    weights = []
+    for row in rows:
+        raw_date = (row.get("date") or "").strip()
+        kg = (row.get("weight_kg") or "").strip()
+        if not raw_date or not kg:
+            continue
+        weights.append(
+            {
+                "date": raw_date,
+                "weight_kg": float(kg),
+                "waist_cm": float(row["waist_cm"]) if (row.get("waist_cm") or "").strip() else None,
+                "notes": (row.get("notes") or "").strip() or None,
+            }
+        )
+    if not weights:
+        return None, False, {"reason": "no weight rows"}
+    return None, True, {"attributed": "hygeia", "weights": weights, "revision_hash": artifact.content_hash}
+
+
 PARSERS = {
     "day-report": parse_day_report,
     "week-plan": parse_week_plan,
     "tasklist": parse_tasklist,
     "zetesis-digest": parse_digest,
+    "hygeia-meals": parse_hygeia,
 }
 
 
@@ -494,6 +635,32 @@ def ingest_source(conn: sqlite3.Connection, source: str) -> dict[str, object]:
     for rev_key, artifact in undated.items():
         payload = payloads[rev_key]
         ext = f"{artifact.chain}:{artifact.path}#{artifact.content_hash}"
+        day_rows = payload.pop("days", None) if isinstance(payload.get("days"), dict) else None
+        if day_rows is not None:
+            # a rolling file whose day sections carry their own content
+            # dates (T3.2): one source-read PER COVERED DAY, dated by the
+            # day header (law 3) — the file is just the envelope
+            for day_date, day_payload in sorted(day_rows.items()):
+                day_ext = f"{ext}:{day_date}"
+                try:
+                    db.insert_event(
+                        conn,
+                        kind="source-read",
+                        origin="source-read",
+                        source_id=sid,
+                        external_ref=day_ext,
+                        actor="system",
+                        payload={
+                            "ok": 1,
+                            "content_date": day_date,
+                            **day_payload,
+                        },
+                        ts=f"{day_date}T00:00:00+00:00",
+                    )
+                    ok_count += 1
+                except sqlite3.IntegrityError:
+                    conn.rollback()  # already ingested
+            continue
         try:
             db.insert_event(
                 conn,
@@ -582,6 +749,75 @@ def seed_reading(conn: sqlite3.Connection) -> dict[str, object]:
     return {"source": "zetesis-reading-seed", "seeded": seeded}
 
 
+def seed_hygeia_meals(conn: sqlite3.Connection) -> dict[str, object]:
+    """T3.2's fold: the Hygeia chain's per-day source-read events become
+    meal_logged rows (one per covered day — items[] canonical, 03 #4),
+    with a provenance edge back to the day's read. The week files' stated
+    day totals ride the payload as kcal_total_est so a mismatch can be
+    FLAGGED at render, never silently reconciled. Weight rows from
+    log.csv land as measured weight_logged points (law 11's other
+    direction: no estimate provenance, never rendered as 'current')."""
+    sid = source_id(conn, "hygeia-meals")
+    events = conn.execute(
+        "SELECT external_ref, payload, ts FROM event"
+        " WHERE kind = 'source-read' AND source_id = ?"
+        " ORDER BY ts ASC, id ASC",
+        (sid,),
+    ).fetchall()
+    meal_days = 0
+    weights = 0
+    for event in events:
+        payload = json.loads(event["payload"])
+        items = payload.get("items")
+        day_ref = f"hygeia:{str(event['ts'])[:10]}"
+        if isinstance(items, list) and items:
+            stated = payload.get("day_total")
+            try:
+                db.insert_event(
+                    conn,
+                    kind="meal_logged",
+                    origin="source-read",
+                    source_id=sid,
+                    external_ref=day_ref,
+                    actor="hygeia",
+                    payload={
+                        "capture_ref": None,
+                        "items": items,
+                        "photo_ref": None,
+                        "method": "estimate",
+                        "source": "hygeia",
+                        "kcal_total_est": stated[0] if isinstance(stated, (tuple, list)) and stated else None,
+                        "protein_total_g_est": stated[1] if isinstance(stated, (tuple, list)) and len(stated) > 1 else None,
+                    },
+                    ts=str(event["ts"]),
+                )
+                conn.execute(
+                    "INSERT INTO provenance_edge (from_ref, to_ref, type, ts) VALUES (?, ?, 'reingest', ?)",
+                    (event["external_ref"], day_ref, db.utc_now_iso()),
+                )
+                meal_days += 1
+            except sqlite3.IntegrityError:
+                conn.rollback()  # the day is already in the spine
+        for weight in payload.get("weights", []) or []:
+            w_ref = f"hygeia:weight:{weight['date']}"
+            try:
+                db.insert_event(
+                    conn,
+                    kind="weight_logged",
+                    origin="source-read",
+                    source_id=sid,
+                    external_ref=w_ref,
+                    actor="hygeia",
+                    payload={k: v for k, v in weight.items() if v is not None},
+                    ts=f"{weight['date']}T00:00:00+00:00",
+                )
+                weights += 1
+            except sqlite3.IntegrityError:
+                conn.rollback()
+    conn.commit()
+    return {"source": "hygeia-reingest", "meal_days": meal_days, "weights": weights}
+
+
 def ingest_all(conn: sqlite3.Connection) -> list[dict[str, object]]:
     """Seed the registry, then run every adapter, then the reading seed.
     The cron chain stays the live one; the vault archive loses ties by
@@ -589,6 +825,7 @@ def ingest_all(conn: sqlite3.Connection) -> list[dict[str, object]]:
     seed_registry(conn)
     results = [ingest_source(conn, name) for name in SOURCES]
     results.append(seed_reading(conn))
+    results.append(seed_hygeia_meals(conn))
     return results
 
 
