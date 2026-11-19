@@ -91,6 +91,17 @@ export default function MealsScreen() {
       <Text accessibilityRole="header" accessibilityLabel="Meals" style={styles.heading}>
         MEALS
       </Text>
+      {/* the + bubble — glass for touching (01 §2), teal = you act
+          (§4 hue law). Sits under the heading where the old log button
+          lived; still deep-links capture?meal=1. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="log a meal"
+        style={styles.fab}
+        onPress={() => void Linking.openURL("web+eudaimonia://capture?meal=1")}
+      >
+        <Text style={styles.fabPlus}>+</Text>
+      </Pressable>
       {tenancy !== null && tenancy.hint ? (
         <Text style={styles.muted}>
           nutrition · {tenancy.days_fresh_7} of 7 · {tenancy.hint}
@@ -125,16 +136,6 @@ export default function MealsScreen() {
             : "no meals logged yet — tap + and capture with #meal; Hygeia estimates the items"}
         </Text>
       )}
-      {/* the + bubble — glass for touching (01 §2), teal = you act
-          (§4 hue law). Bottom-LEFT: the nav cluster owns bottom-right. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="log a meal"
-        style={[styles.fab, { bottom: insets.bottom + 28 }]}
-        onPress={() => void Linking.openURL("web+eudaimonia://capture?meal=1")}
-      >
-        <Text style={styles.fabPlus}>+</Text>
-      </Pressable>
     </View>
   );
 }
@@ -149,8 +150,8 @@ const styles = StyleSheet.create({
   heading: {
     color: colors["--text"],
     fontFamily: fontFamily.regular,
-    fontSize: 16,
-    letterSpacing: 1.6,
+    fontSize: 30,
+    letterSpacing: 2.4,
   },
   muted: {
     color: colors["--muted"],
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: 16,
-    paddingBottom: 96, // clear the + bubble
+    paddingBottom: 24,
   },
   card: {
     gap: 8,
@@ -235,14 +236,12 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   /* the + bubble — glass for touching (01 §2), teal border and glyph =
-     you act (§4). Anchored bottom-LEFT: the nav cluster owns the
-     bottom-right corner, and one blur layer per route is untouched. */
+     you act (§4). Inline under the heading, no absolute anchor. */
   fab: {
-    position: "absolute",
-    left: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    alignSelf: "flex-start",
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors["--glass-fill"],
@@ -252,8 +251,8 @@ const styles = StyleSheet.create({
   fabPlus: {
     color: colors["--accent-1"],
     fontFamily: fontFamily.regular,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 30,
     marginTop: -2,
   },
 });
