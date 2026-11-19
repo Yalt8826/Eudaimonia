@@ -333,8 +333,18 @@ function StripContent({
         <>
           <WakeChipRow wide={windowWidth >= 380} contentWidth={contentWidth} line={wakeLine} />
           <View>
-            <Row to="/meals" dot={<Dot tone="muted" />} title="Nutrition" subtitle="not yet instrumented" />
-            <Row to="/reading" dot={<Dot tone="amber" />} title="Reading" subtitle="not yet instrumented" />
+            <Row
+              to="/meals"
+              dot={<Dot tone="muted" />}
+              title="Nutrition"
+              subtitle={coverageLines["hygeia-meals"] ?? "not yet instrumented"}
+            />
+            <Row
+              to="/reading"
+              dot={<Dot tone="muted" />}
+              title="Reading"
+              subtitle={coverageLines["zetesis-digest"] ?? "not yet instrumented"}
+            />
           </View>
         </>
       ) : null}
