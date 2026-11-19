@@ -251,25 +251,11 @@ async def coverage() -> dict[str, object]:
     freshness anywhere. Empty sources render honest zeros."""
     conn = db.connect(db.db_path())
     try:
-        rows = conn.execute(
-            "SELECT source_name, class, status, last_ok_read_ts,"
-            " days_fresh_7, artifact_count, paused_evidence FROM coverage"
-            " ORDER BY source_name"
-        ).fetchall()
-        return {
-            "coverage": [
-                {
-                    "source": r["source_name"],
-                    "class": r["class"],
-                    "status": r["status"],
-                    "last_ok_read_ts": r["last_ok_read_ts"],
-                    "days_fresh_7": r["days_fresh_7"],
-                    "artifact_count": r["artifact_count"],
-                    "paused_evidence": r["paused_evidence"],
-                }
-                for r in rows
-            ]
-        }
+        # the tenancy engine (T3.4) is the ONE liveness definition — the
+        # response carries its evaluation beside the raw view facts
+        from app import coverage as coverage_module
+
+        return {"coverage": coverage_module.tenancy_all(conn)}
     finally:
         conn.close()
 
