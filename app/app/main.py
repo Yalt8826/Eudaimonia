@@ -20,6 +20,7 @@ from app import (
     ingest,
     loops,
     questions,
+    projects,
     reading,
     routines,
     staged_writebacks,
@@ -69,6 +70,13 @@ async def ingest_event(
         # a reading status/rating just drained — event is in, the row follows
         # (T3.1: the queue fold's single writer, event before row)
         background_tasks.add_task(reading.apply_event, kind, dict(body.payload))
+    if kind in projects.EVENT_KINDS and not result["duplicate"]:
+        # a project status transition just drained — the fold applies it
+        # ONLY for a human actor (parked is human-only, law 5 / 07 §17)
+        # the client door's posts carry actor=human by construction —
+        # the parked gate's other half lives in the fold, refusing any
+        # non-human actor's parked transition (agent-side writes)
+        background_tasks.add_task(projects.apply_status_event, kind, dict(body.payload), "human")
     return result
 
 
@@ -183,6 +191,35 @@ async def meals_recent() -> dict[str, object]:
         return {"meals": capture.recent_meals(conn)}
     finally:
         conn.close()
+
+
+@app.get("/api/projects")
+async def projects_list() -> dict[str, object]:
+    """The board (T3.6, 04 /projects): three columns derived from the
+    rows + parked-since evidence + payload-queried linked work. Board
+    health rides T3.4's engine when a board chain exists; absent chains
+    render no health line at all (law 7)."""
+    conn = db.connect(db.db_path())
+    try:
+        projects.seed_projects(conn)
+        return projects.list_projects(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/projects/{project_id}")
+async def project_detail_route(project_id: int) -> dict[str, object]:
+    conn = db.connect(db.db_path())
+    try:
+        projects.seed_projects(conn)
+        detail = projects.project_detail(conn, project_id)
+    finally:
+        conn.close()
+    if detail is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"no project {project_id}")
+    return detail
 
 
 @app.get("/api/weights/recent")
